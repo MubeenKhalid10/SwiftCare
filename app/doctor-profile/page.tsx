@@ -38,8 +38,8 @@ function DoctorProfileContent() {
 
       try {
         const [doctorData, reviewsData] = await Promise.all([
-          getDoctorById(Number(doctorId)),
-          getReviewsByDoctorId(Number(doctorId))
+          getDoctorById(doctorId || ''),
+          getReviewsByDoctorId(doctorId || '')
         ]);
         
         if (doctorData) {
