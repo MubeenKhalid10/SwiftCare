@@ -149,7 +149,7 @@ export default function DoctorsPage() {
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Calendar className="w-4 h-4" />
-                  <span>{doctor.totalAppointments} appointments</span>
+                  <span>{doctor.totalAppointments ?? 0} appointments</span>
                 </div>
               </div>
 

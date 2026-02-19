@@ -18,6 +18,7 @@ export interface Doctor {
   services?: string[]
   memberSince?: string
   earned?: string
+  totalAppointments?: number;
 }
 
 export interface Patient {
