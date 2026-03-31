@@ -6,13 +6,18 @@ import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { X } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
 import { DoctorSidebar } from '@/components/doctor/doctor-sidebar'
+import { useAuth } from '@/lib/auth-context'
+import { toast } from 'sonner'
 
 export default function DoctorProfileSettings() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('basic')
   const [languages, setLanguages] = useState(['English', 'German'])
   const [newLanguage, setNewLanguage] = useState('')
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   const removeLanguage = (lang: string) => {
     setLanguages(languages.filter(l => l !== lang))
@@ -22,6 +27,29 @@ export default function DoctorProfileSettings() {
     if (newLanguage && !languages.includes(newLanguage)) {
       setLanguages([...languages, newLanguage])
       setNewLanguage('')
+    }
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const { uploadProfileImage } = await import('@/lib/auth.service')
+      const result = await uploadProfileImage(user.id.toString(), 'doctor', file)
+      setProfileImage(result.imageUrl)
+      toast.success('Profile image updated!')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Image upload failed'
+      toast.error(msg)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -69,16 +97,47 @@ export default function DoctorProfileSettings() {
                   <TabsContent value="basic">
                     <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold text-gray-900 mb-4">Profile</h3>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                          <div className="text-gray-400 mb-2">📄</div>
-                          <p className="text-sm text-gray-600 mb-2">
-                            <button className="text-blue-600 hover:underline">Upload New</button> /{' '}
-                            <button className="text-red-600 hover:underline">Remove</button>
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Your image should be below 4 MB, accepted formats jpg, png, svg
-                          </p>
+                        <h3 className="font-semibold text-gray-900 mb-4">Profile Photo</h3>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                          <div className="flex items-center gap-4">
+                            {profileImage ? (
+                              <img src={profileImage} alt="Profile" className="w-20 h-20 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-2xl font-bold">
+                                {user?.name?.[0]?.toUpperCase() || 'D'}
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="file"
+                                  id="doctor-avatar-upload"
+                                  className="hidden"
+                                  accept="image/jpeg, image/png, image/svg+xml"
+                                  onChange={handleImageUpload}
+                                />
+                                <Button
+                                  variant="outline"
+                                  className="bg-transparent"
+                                  disabled={isUploading}
+                                  onClick={() => document.getElementById('doctor-avatar-upload')?.click()}
+                                >
+                                  {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                  {isUploading ? 'Uploading...' : 'Upload New'}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => setProfileImage(null)}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2">
+                                Max 5MB. Accepted formats: jpg, png, svg
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
 

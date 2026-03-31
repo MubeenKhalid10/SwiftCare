@@ -59,7 +59,7 @@ export default function BookingStep1({ data, onNext }) {
               <h2 className="text-xl font-bold">{data.doctor.name || "Select a Doctor"}</h2>
               {data.doctor.rating > 0 && (
                 <div className="bg-orange-500 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
-                  <Star size={12} /> {data.doctor.rating}
+                  {data.doctor.rating} <Star size={12} />
                 </div>
               )}
             </div>

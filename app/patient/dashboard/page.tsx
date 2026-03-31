@@ -118,6 +118,44 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [appointmentsPage, setAppointmentsPage] = useState(0)
+  const [pastAppointmentsPage, setPastAppointmentsPage] = useState(0)
+
+  const pushWithParams = (pathname: string, params?: Record<string, string | number | undefined>) => {
+    const searchParams = new URLSearchParams()
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== "") {
+          searchParams.set(key, String(value))
+        }
+      })
+    }
+
+    const queryString = searchParams.toString()
+    router.push(queryString ? `${pathname}?${queryString}` : pathname)
+  }
+
+  const appointmentsPerPage = 3
+  const upcomingAppointments = appointments
+    .filter((apt) => apt.status === "Pending")
+    .sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateA - dateB;
+    })
+  const appointmentsPageCount = Math.max(1, Math.ceil(upcomingAppointments.length / appointmentsPerPage))
+  const visibleUpcomingAppointments = upcomingAppointments.slice(
+    appointmentsPage * appointmentsPerPage,
+    appointmentsPage * appointmentsPerPage + appointmentsPerPage
+  )
+
+  const pastAppointmentsPerPage = 1
+  const pastAppointmentsPageCount = Math.max(1, Math.ceil(pastAppointmentsData.length / pastAppointmentsPerPage))
+  const visiblePastAppointments = pastAppointmentsData.slice(
+    pastAppointmentsPage * pastAppointmentsPerPage,
+    pastAppointmentsPage * pastAppointmentsPerPage + pastAppointmentsPerPage
+  )
 
   useEffect(() => {
     if (!authLoading) {
@@ -162,29 +200,30 @@ export default function PatientDashboard() {
       <PatientSidebar />
 
       {/* Main Content */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-screen flex flex-col">
         <Header />
 
-        {/* Breadcrumb */}
-        <div className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-2 text-sm">
-            <span className="text-blue-600">●</span>
-            <span className="text-gray-600">Patient</span>
-            <span className="text-gray-400">/</span>
-            <span className="text-gray-900 font-medium">Dashboard</span>
+        <div className="flex-1">
+          {/* Breadcrumb */}
+          <div className="bg-white border-b border-gray-100">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-2 text-sm">
+              <span className="text-blue-600">●</span>
+              <span className="text-gray-600">Patient</span>
+              <span className="text-gray-400">/</span>
+              <span className="text-gray-900 font-medium">Dashboard</span>
+            </div>
           </div>
-        </div>
 
-        {/* Page Title */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-4xl font-bold text-gray-900">Patient Dashboard</h1>
+          {/* Page Title */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <h1 className="text-4xl font-bold text-gray-900">Patient Dashboard</h1>
+            </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="space-y-8">
+          {/* Main Content */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="space-y-8">
             {/* Dashboard Section */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
@@ -271,7 +310,16 @@ export default function PatientDashboard() {
                   </div>
                   <div className="text-center space-y-2">
                     <p className="text-sm font-medium text-gray-700">Last visit 25 Mar 2024</p>
-                    <Button variant="outline" className="w-full bg-transparent">
+                    <Button
+                      variant="outline"
+                      className="w-full bg-transparent"
+                      onClick={() =>
+                        pushWithParams("/patient/medical-records", {
+                          tab: "medical",
+                          patientId: user?.id,
+                        })
+                      }
+                    >
                       View Details →
                     </Button>
                   </div>
@@ -290,10 +338,24 @@ export default function PatientDashboard() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-medium">Next appointment</span>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setAppointmentsPage((prev) => Math.max(prev - 1, 0))}
+                        disabled={appointmentsPage === 0}
+                      >
                         {"<"}
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() =>
+                          setAppointmentsPage((prev) => Math.min(prev + 1, appointmentsPageCount - 1))
+                        }
+                        disabled={appointmentsPage >= appointmentsPageCount - 1}
+                      >
                         {">"}
                       </Button>
                     </div>
@@ -314,8 +376,8 @@ export default function PatientDashboard() {
                     ))}
                   </div>
 
-                  {appointments.length > 0 ? (
-                    appointments.slice(0, 3).map((apt) => {
+                  {visibleUpcomingAppointments.length > 0 ? (
+                    visibleUpcomingAppointments.map((apt) => {
                       const doctor = doctors.find(d => String(d.id) === String(apt.doctorId))
                       return (
                         <div key={apt.id} className="border-t pt-3">
@@ -333,11 +395,35 @@ export default function PatientDashboard() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm" className="flex-1 h-8 bg-transparent">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 h-8 bg-transparent"
+                              onClick={() =>
+                                pushWithParams("/patient/appointments", {
+                                  tab: "upcoming",
+                                  appointmentId: apt.id,
+                                  doctorId: apt.doctorId,
+                                  action: "chat",
+                                })
+                              }
+                            >
                               <MessageCircle className="w-4 h-4 mr-1" />
                               Chat
                             </Button>
-                            <Button className="flex-1 h-8 bg-blue-600 text-white">Attend</Button>
+                            <Button
+                              className="flex-1 h-8 bg-blue-600 text-white"
+                              onClick={() =>
+                                pushWithParams("/patient/appointments", {
+                                  tab: "upcoming",
+                                  appointmentId: apt.id,
+                                  doctorId: apt.doctorId,
+                                  action: "attend",
+                                })
+                              }
+                            >
+                              Attend
+                            </Button>
                           </div>
                         </div>
                       )
@@ -398,16 +484,30 @@ export default function PatientDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Past Appointments</CardTitle>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setPastAppointmentsPage((prev) => Math.max(prev - 1, 0))}
+                      disabled={pastAppointmentsPage === 0}
+                    >
                       {"<"}
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() =>
+                        setPastAppointmentsPage((prev) => Math.min(prev + 1, pastAppointmentsPageCount - 1))
+                      }
+                      disabled={pastAppointmentsPage >= pastAppointmentsPageCount - 1}
+                    >
                       {">"}
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {pastAppointmentsData.map((apt) => (
+                  {visiblePastAppointments.map((apt) => (
                     <div key={apt.id} className="border rounded-lg p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div>
@@ -424,10 +524,31 @@ export default function PatientDashboard() {
                         <p>📍 {apt.location}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="flex-1 h-8 bg-transparent">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 bg-transparent"
+                          onClick={() =>
+                            pushWithParams("/doctors", {
+                              action: "reschedule",
+                              source: "dashboard",
+                              appointmentId: apt.id,
+                            })
+                          }
+                        >
                           Reschedule
                         </Button>
-                        <Button className="flex-1 h-8 bg-blue-600 text-white">View Details</Button>
+                        <Button
+                          className="flex-1 h-8 bg-blue-600 text-white"
+                          onClick={() =>
+                            pushWithParams("/patient/appointments", {
+                              tab: "completed",
+                              appointmentId: apt.id,
+                            })
+                          }
+                        >
+                          View Details
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -438,7 +559,12 @@ export default function PatientDashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Notifications</CardTitle>
-                  <Button variant="ghost" size="sm" className="text-blue-600 text-sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 text-sm"
+                    onClick={() => pushWithParams("/patient/appointments", { tab: "upcoming", view: "notifications" })}
+                  >
                     View All
                   </Button>
                 </CardHeader>
@@ -462,7 +588,12 @@ export default function PatientDashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Favourites</CardTitle>
-                  <Button variant="ghost" size="sm" className="text-blue-600 text-sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 text-sm"
+                    onClick={() => pushWithParams("/patient/favourites", { patientId: user?.id })}
+                  >
                     View All
                   </Button>
                 </CardHeader>
@@ -487,10 +618,31 @@ export default function PatientDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Dependant</CardTitle>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="text-blue-600">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-blue-600"
+                      onClick={() =>
+                        pushWithParams("/patient/settings", {
+                          tab: "profile",
+                          section: "dependents",
+                          action: "add",
+                        })
+                      }
+                    >
                       + Add New
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-blue-600">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-blue-600"
+                      onClick={() =>
+                        pushWithParams("/patient/settings", {
+                          tab: "profile",
+                          section: "dependents",
+                        })
+                      }
+                    >
                       View All
                     </Button>
                   </div>
@@ -509,10 +661,34 @@ export default function PatientDashboard() {
                         </p>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() =>
+                            pushWithParams("/patient/settings", {
+                              tab: "profile",
+                              section: "dependents",
+                              dependent: dep.name,
+                              action: "save",
+                            })
+                          }
+                        >
                           💾
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() =>
+                            pushWithParams("/patient/settings", {
+                              tab: "profile",
+                              section: "dependents",
+                              dependent: dep.name,
+                              action: "edit",
+                            })
+                          }
+                        >
                           ⊘
                         </Button>
                       </div>
@@ -589,11 +765,12 @@ export default function PatientDashboard() {
                 </div>
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
-      </div>
 
-      <Footer />
+        <Footer />
+      </div>
     </div>
   )
 }

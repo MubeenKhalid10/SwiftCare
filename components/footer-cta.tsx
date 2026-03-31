@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function FooterCTA() {
   return (
@@ -10,9 +11,12 @@ export default function FooterCTA() {
           Working for Your <span className="text-blue-100">Better Health</span>
         </h2>
         <p className="text-xl text-blue-100 mb-8">Connect with trusted healthcare professionals today</p>
-        <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
-          Book an Appointment
-        </Button>
+
+         <Link href="/doctors">
+          <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
+            Book an Appointment
+          </Button>
+        </Link>
       </div>
     </section>
   )

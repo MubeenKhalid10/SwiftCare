@@ -2,8 +2,11 @@
 
 import Header from '@/components/header'
 import Footer from '@/components/footer'
+import { PatientSidebar } from '@/components/patient/patient-sidebar'
+import { useAuth } from '@/lib/auth-context'
 
 export default function PrivacyPolicyPage() {
+  const { user } = useAuth()
   const sections = [
     {
       title: 'Introduction',
@@ -64,25 +67,35 @@ export default function PrivacyPolicyPage() {
 
         {/* Content Section */}
         <section className="py-16 px-4">
-          <div className="max-w-4xl mx-auto space-y-12">
-            {sections.map((section, index) => (
-              <div key={index}>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">{section.title}</h2>
-                {section.content && (
-                  <p className="text-gray-700 mb-4">{section.content}</p>
-                )}
-                {section.subsections && (
-                  <ul className="space-y-3">
-                    {section.subsections.map((subsection, subIndex) => (
-                      <li key={subIndex} className="flex items-start gap-3">
-                        <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
-                        <span className="text-gray-700">{subsection}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+          <div className="max-w-7xl mx-auto">
+            <div className={`grid grid-cols-1 ${user?.role === 'patient' ? 'lg:grid-cols-4' : ''} gap-8`}>
+              {user?.role === 'patient' && (
+                <div className="lg:col-span-1 border rounded-xl overflow-hidden shadow-sm mb-auto">
+                  <PatientSidebar />
+                </div>
+              )}
+
+              <div className={`space-y-12 ${user?.role === 'patient' ? 'lg:col-span-3' : 'max-w-4xl mx-auto'}`}>
+                {sections.map((section, index) => (
+                  <div key={index}>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">{section.title}</h2>
+                    {section.content && (
+                      <p className="text-gray-700 mb-4">{section.content}</p>
+                    )}
+                    {section.subsections && (
+                      <ul className="space-y-3">
+                        {section.subsections.map((subsection, subIndex) => (
+                          <li key={subIndex} className="flex items-start gap-3">
+                            <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                            <span className="text-gray-700">{subsection}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </section>
       </main>

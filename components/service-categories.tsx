@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { Heart, Bone, Brain, Baby, Activity, Wind } from "lucide-react"
 
 const categories = [
@@ -13,6 +14,12 @@ const categories = [
 ]
 
 export default function ServiceCategories() {
+  const router = useRouter()
+
+  const handleCategoryClick = (category: string) => {
+    router.push(`/doctors?specialization=${encodeURIComponent(category)}`)
+  }
+
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -28,11 +35,14 @@ export default function ServiceCategories() {
             return (
               <div key={idx} className="flex flex-col items-center">
                 <div
+                  onClick={() => handleCategoryClick(category.label)}
                   className={`${category.color} w-20 h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center mb-4 cursor-pointer hover:shadow-lg transition`}
                 >
                   <Icon className="w-10 h-10 text-gray-700" />
                 </div>
-                <p className="text-sm lg:text-base font-medium text-gray-700 text-center">{category.label}</p>
+                <p className="text-sm lg:text-base font-medium text-gray-700 text-center">
+                  {category.label}
+                </p>
               </div>
             )
           })}

@@ -82,7 +82,7 @@ export default function FeaturedDoctors() {
             >
               <div className="h-48 flex items-center justify-center overflow-hidden">
                 <Avatar className="w-full h-full">
-                  <AvatarImage src={doctor.image || "/placeholder.svg"} alt={doctor.name} className="object-cover" />
+                  <AvatarImage src="/doctor-placeholder.png" alt={doctor.name} className="object-cover" />
                   <AvatarFallback className="text-2xl font-semibold bg-blue-600 text-white rounded-none">
                     {getInitials(doctor.name)}
                   </AvatarFallback>
@@ -91,23 +91,25 @@ export default function FeaturedDoctors() {
 
               <div className="p-6">
                 <h3 className="font-bold text-lg mb-2">{doctor.name}</h3>
-                <p className="text-gray-600 text-sm mb-2">{doctor.specialty}</p>
-                <p className="text-gray-500 text-xs mb-4">{doctor.location}</p>
+                <p className="text-gray-600 text-sm mb-2">{doctor.specialty || 'General Practitioner'}</p>
+                <p className="text-gray-500 text-xs mb-4">
+                  {typeof doctor.location === 'string' ? doctor.location : "Location not specified"}
+                </p>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-1 text-yellow-400">
+                    <span className="text-gray-900 font-bold mr-1">{doctor.rating}</span>
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={`${doctor.id}-star-${i}`} // ✅ unique key per doctor & star
-                        className={`w-4 h-4 ${
-                          i < Math.floor(doctor.rating)
+                        className={`w-4 h-4 ${i < Math.floor(doctor.rating || 0)
                             ? "fill-current"
                             : "fill-none"
-                        }`}
+                          }`}
                       />
                     ))}
-                    <span className="text-gray-600 text-sm ml-2">
-                      ({doctor.rating})
+                    <span className="text-gray-500 text-xs ml-1">
+                      ({doctor.reviewCount || 0})
                     </span>
                   </div>
 

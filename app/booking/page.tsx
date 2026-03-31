@@ -10,10 +10,11 @@ import BookingStep3 from "@/components/booking/step-3-date-time"
 import BookingStep4 from "@/components/booking/step-4-basic-info"
 import BookingStep5 from "@/components/booking/step-5-payment"
 import BookingStep6 from "@/components/booking/step-6-confirmation"
-import { getDoctorById, createAppointment } from "@/lib/api"
+import { getDoctorById, createAppointment, confirmPayment } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import type { Doctor } from "@/lib/types"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import Loading from "./loading"
 
 function BookingContent() {
@@ -22,26 +23,28 @@ function BookingContent() {
   const { user, isAuthenticated } = useAuth()
   const doctorId = searchParams.get("doctorId")
   
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(1) // Start from Step 1 (Date & Time)
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [bookingData, setBookingData] = useState({
     doctor: {
-      id: 0,
+      id: "" as string | number,
       name: "",
       specialty: "",
       rating: 0,
       address: "",
       image: "",
       fee: "$0",
+      availableDays: [] as string[],
+      availableHours: [] as string[],
     },
     selectedServices: [] as string[],
     appointmentType: "Clinic",
     clinic: null as string | null,
-    dateTime: null as { date: number; time: string; period: string; fullDate: string } | null,
+    dateTime: null as { date: number; time: string; period: string; fullDate: string; dayName?: string; shiftId?: string; dateString?: string } | null,
     basicInfo: {} as Record<string, string>,
-    payment: null as { method: string; cardData: Record<string, string> } | null,
+    payment: null as { method: string; cardData?: Record<string, string>; paymentIntentId?: string } | null,
     bookingNumber: "",
   })
 
@@ -67,11 +70,13 @@ function BookingContent() {
             doctor: {
               id: data.id,
               name: data.name,
-              specialty: data.specialty,
-              rating: data.rating,
+              specialty: data.specialty || "",
+              rating: data.rating || 0,
               address: data.location || "Location not specified",
               image: data.image || "",
               fee: data.fee || "$100",
+              availableDays: (data as any).availableDays || [],
+              availableHours: (data as any).availableHours || [],
             },
           }))
         } else {
@@ -88,43 +93,59 @@ function BookingContent() {
     fetchDoctor()
   }, [doctorId, isAuthenticated, router])
 
+// Use actual shift ID passed from Step3
+
   const handleStepChange = async (step: number, data: Partial<typeof bookingData> | null = null) => {
     if (data) {
       setBookingData((prev) => ({ ...prev, ...data }))
     }
     
     // If moving to confirmation step, create the appointment
-    if (step === 6 && user && doctor) {
+    if (step === 4 && user && doctor) {
       try {
         const bookingNumber = `DCRA${Math.floor(10000 + Math.random() * 90000)}`
-        const appointmentDate = bookingData.dateTime?.fullDate || new Date().toISOString().split('T')[0]
+        const appointmentDate = bookingData.dateTime?.dateString || bookingData.dateTime?.fullDate || new Date().toISOString().split('T')[0]
         
-        // Map appointment type to correct format
-        const typeMap: Record<string, "Video Call" | "Audio Call" | "Chat" | "Direct Visit"> = {
-          'clinic': 'Direct Visit',
-          'video': 'Video Call', 
-          'audio': 'Audio Call',
-          'chat': 'Chat',
-          'home': 'Direct Visit',
-        }
+        // Parse the fee as a number for the amount field
+        const feeAmount = parseInt(bookingData.doctor.fee?.replace(/[^0-9]/g, '') || '0')
+
+        // Get the day name from the date
+        const dateObj = new Date(appointmentDate)
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' })
         
-        await createAppointment({
-          doctorId: bookingData.doctor.id,
-          patientId: user.id,
-          patientName: user.name,
+        const apt = await createAppointment({
+          patientId: String(user.id),
+          doctorId: String(bookingData.doctor.id),
           doctorName: bookingData.doctor.name,
-          doctorSpecialty: bookingData.doctor.specialty,
+          shiftId: bookingData.dateTime?.shiftId || "",
+          day: dayName,
           date: appointmentDate,
-          time: `${bookingData.dateTime?.time || "10:00"} ${bookingData.dateTime?.period || "AM"}`,
-          status: "upcoming",
-          type: typeMap[bookingData.appointmentType.toLowerCase()] || "Direct Visit",
-          email: bookingData.basicInfo?.email || user.email,
-          phone: bookingData.basicInfo?.phone || "",
+          time: bookingData.dateTime?.time || "10:00 AM",
+          bookingFor: bookingData.basicInfo?.patient || "Self",
+          problem: bookingData.basicInfo?.symptoms || bookingData.basicInfo?.reasonForVisit || "",
+          amount: feeAmount,
+          fullDateIso: dateObj.toISOString(),
+          timestamp: new Date().toISOString(),
         })
         
+        // Confirm payment in the backend to link paymentIntent to appointment
+        if (bookingData.payment?.method === "stripe" && bookingData.payment?.paymentIntentId) {
+          try {
+            await confirmPayment({
+              appointmentId: String(apt.id || apt._id),
+              amount: feeAmount,
+              paymentIntentId: bookingData.payment.paymentIntentId,
+            })
+          } catch (payErr) {
+            console.error("Failed to confirm payment on backend:", payErr)
+          }
+        }
+        
         setBookingData(prev => ({ ...prev, bookingNumber }))
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to create appointment:", err)
+        toast.error(err.message || "Failed to book appointment")
+        return // Stop progression on error
       }
     }
     
@@ -162,16 +183,12 @@ function BookingContent() {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <BookingStep1 data={bookingData} onNext={(data) => handleStepChange(2, data)} />
+        return <BookingStep3 data={bookingData} onNext={(data: any) => handleStepChange(2, data)} onBack={() => router.push(`/doctor-profile?id=${doctorId}`)} />
       case 2:
-        return <BookingStep2 data={bookingData} onNext={(data) => handleStepChange(3, data)} onBack={handleBack} />
+        return <BookingStep4 data={bookingData} user={user} onNext={(data: any) => handleStepChange(3, data)} onBack={handleBack} />
       case 3:
-        return <BookingStep3 data={bookingData} onNext={(data) => handleStepChange(4, data)} onBack={handleBack} />
+        return <BookingStep5 data={bookingData} onNext={(data: any) => handleStepChange(4, data)} onBack={handleBack} />
       case 4:
-        return <BookingStep4 data={bookingData} user={user} onNext={(data) => handleStepChange(5, data)} onBack={handleBack} />
-      case 5:
-        return <BookingStep5 data={bookingData} onNext={(data) => handleStepChange(6, data)} onBack={handleBack} />
-      case 6:
         return <BookingStep6 data={bookingData} onBack={handleBack} />
       default:
         return null

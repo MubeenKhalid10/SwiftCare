@@ -10,6 +10,7 @@ import {
   Phone,
   Video,
   Loader2,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -20,9 +21,11 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
-import { getAppointmentsByPatientId, getDoctors, getPatientById } from "@/lib/api"
+import { getAppointmentsByPatientId, getDoctors, getPatientById, getQueueState, updateAppointmentStatus } from "@/lib/api"
+import { toast } from 'sonner';
 import { Appointment, Patient, Doctor } from "@/lib/types"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
+import { socket } from "@/lib/socket"
 
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -34,6 +37,34 @@ export default function AppointmentsPage() {
   const [patient, setPatient] = useState<Patient | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [queueStates, setQueueStates] = useState<Record<string, number>>({})
+  const [trackedShifts, setTrackedShifts] = useState<Set<string>>(new Set())
+  const [reviewPopup, setReviewPopup] = useState<{show: boolean, appointmentId: string | null}>({show: false, appointmentId: null})
+
+  const fetchData = async () => {
+    if (!user?.id) return
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const [patientAppointments, doctorsData, patientData] = await Promise.all([
+        getAppointmentsByPatientId(String(user.id)),
+        getDoctors(),
+        getPatientById(String(user.id)),
+      ])
+
+      setAppointments(patientAppointments)
+      setDoctors(doctorsData)
+      if (patientData) setPatient(patientData)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error"
+      console.error("Error loading appointments:", errorMsg)
+      setError(`Failed to load appointments: ${errorMsg}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "patient")) {
@@ -41,35 +72,51 @@ export default function AppointmentsPage() {
       return
     }
 
-    async function fetchData() {
-      if (!user?.id) return
-
-      try {
-        setIsLoading(true)
-        setError(null)
-        
-        const [patientAppointments, doctorsData, patientData] = await Promise.all([
-          getAppointmentsByPatientId(String(user.id)),
-          getDoctors(),
-          getPatientById(String(user.id)),
-        ])
-        
-        setAppointments(patientAppointments)
-        setDoctors(doctorsData)
-        if (patientData) setPatient(patientData)
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Unknown error"
-        console.error("Error loading appointments:", errorMsg)
-        setError(`Failed to load appointments: ${errorMsg}`)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     if (user?.id && isAuthenticated) {
       fetchData()
     }
   }, [user?.id, isAuthenticated, authLoading, router, user?.role])
+
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const onQueueUpdated = (data: { shiftId: string, currentServing: number }) => {
+      setQueueStates(prev => ({
+        ...prev,
+        [data.shiftId]: data.currentServing
+      }));
+    };
+
+    socket.on('queueUpdated', onQueueUpdated);
+
+    return () => {
+      socket.off('queueUpdated', onQueueUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    const upcoming = appointments.filter(a => a.status === 'Pending' || a.status === 'In Progress');
+    upcoming.forEach(async (apt) => {
+      if (apt.shiftId) {
+        socket.emit('joinQueueRoom', apt.shiftId);
+        
+        if (queueStates[apt.shiftId] === undefined) {
+          try {
+            const shiftId = apt.shiftId as string;
+            const state = await getQueueState(shiftId);
+            setQueueStates(prev => ({
+              ...prev,
+              [shiftId]: state.currentServing
+            }));
+          } catch (err) {
+            console.error("Failed to fetch initial queue state:", err);
+          }
+        }
+      }
+    });
+  }, [appointments.length]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -85,16 +132,16 @@ export default function AppointmentsPage() {
   }
 
   const filteredAppointments = appointments.filter((apt) => {
-    if (activeTab === "upcoming") return apt.status === "upcoming"
-    if (activeTab === "cancelled") return apt.status === "cancelled"
-    if (activeTab === "completed") return apt.status === "completed"
+    if (activeTab === "upcoming") return apt.status === "Pending" || apt.status === "In Progress"
+    if (activeTab === "cancelled") return apt.status === "Cancelled"
+    if (activeTab === "completed") return apt.status === "Completed"
     return true
   })
 
   const counts = {
-    upcoming: appointments.filter((a) => a.status === "upcoming").length,
-    cancelled: appointments.filter((a) => a.status === "cancelled").length,
-    completed: appointments.filter((a) => a.status === "completed").length,
+    upcoming: appointments.filter((a) => a.status === "Pending" || a.status === "In Progress").length,
+    cancelled: appointments.filter((a) => a.status === "Cancelled").length,
+    completed: appointments.filter((a) => a.status === "Completed").length,
   }
 
   if (authLoading) {
@@ -187,11 +234,10 @@ export default function AppointmentsPage() {
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium ${
-                          activeTab === tab
+                        className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === tab
                             ? "bg-blue-600 text-white"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
+                          }`}
                       >
                         {tab.charAt(0).toUpperCase() + tab.slice(1)}{" "}
                         <span className="ml-2">{counts[tab]}</span>
@@ -224,11 +270,11 @@ export default function AppointmentsPage() {
                             <span className="font-medium">{apt.doctorName}</span>
                             <Badge
                               className={
-                                apt.status === "upcoming"
+                                apt.status === "Pending" || apt.status === "In Progress"
                                   ? "bg-green-100 text-green-700"
-                                  : apt.status === "completed"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-red-100 text-red-700"
+                                  : apt.status === "Completed"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-red-100 text-red-700"
                               }
                             >
                               {apt.status}
@@ -240,17 +286,113 @@ export default function AppointmentsPage() {
                             <span>{apt.time}</span>
                             <span>{apt.doctorSpecialty}</span>
                             <span className="flex items-center gap-1">
-                              {getTypeIcon(apt.type)}
-                              {apt.type}
+                              {getTypeIcon(
+                                typeof apt.type === "object" && apt.type !== null
+                                  ? (apt.type as any).type
+                                  : apt.type
+                              )}
+                              {typeof apt.type === "object" && apt.type !== null
+                                ? (apt.type as any).type
+                                : apt.type}
                             </span>
                           </div>
+                          {(apt.status === "Pending" || apt.status === "In Progress") && apt.shiftId && (
+                            <div className="mt-2 flex items-center gap-2 flex-wrap">
+                              {/* Queue Tracking */}
+                              {!trackedShifts.has(apt.shiftId) ? (
+                                <Button 
+                                  className="h-10 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 flex gap-2 items-center"
+                                  onClick={() => {
+                                    if (apt.shiftId) {
+                                      setTrackedShifts(prev => new Set(prev).add(apt.shiftId as string));
+                                    }
+                                  }}
+                                >
+                                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                  Track Queue
+                                </Button>
+                              ) : (
+                                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Currently Serving</span>
+                                    <span className="text-2xl font-black text-blue-700 leading-none">{queueStates[apt.shiftId] || 0}</span>
+                                  </div>
+                                  <div className="w-px h-8 bg-blue-200" />
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Your Position</span>
+                                    <span className="text-2xl font-black text-indigo-700 leading-none">{apt.queueNumber || 'N/A'}</span>
+                                  </div>
+                                  <button 
+                                    className="ml-4 p-1.5 hover:bg-blue-100 rounded-full text-blue-400 hover:text-blue-600 transition-colors"
+                                    onClick={() => {
+                                      if (apt.shiftId) {
+                                        setTrackedShifts(prev => {
+                                          const next = new Set(prev);
+                                          next.delete(apt.shiftId as string);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Cancellation Button Logic */}
+                              {(() => {
+                                // Default hide if missing info
+                                if (!apt.date) return null;
+                                
+                                let aptTimeMs = 0;
+                                if (apt.fullDateIso) {
+                                  // Parse strict ISO string directly
+                                  aptTimeMs = new Date(apt.fullDateIso).getTime();
+                                } else {
+                                  // Fallback parsing "Mar 14, 2026" + "10:00 AM" if fullDateIso is missing
+                                  const dateStr = `${apt.date} ${apt.time || ""}`.trim();
+                                  aptTimeMs = new Date(dateStr).getTime();
+                                }
+
+                                const nowMs = Date.now();
+                                const isMoreThan2HoursOffline = (aptTimeMs - nowMs) > (2 * 60 * 60 * 1000);
+                                
+                                if (isMoreThan2HoursOffline && apt.status === "Pending") {
+                                  return (
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="text-xs ml-auto"
+                                      onClick={async () => {
+                                        if (confirm("Are you sure you want to cancel this appointment?")) {
+                                          try {
+                                            await updateAppointmentStatus(String(apt._id || apt.id), 'Cancelled');
+                                            toast.success("Appointment cancelled successfully");
+                                            fetchData();
+                                          } catch (e: any) {
+                                            toast.error(e.message || "Failed to cancel appointment");
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  )
+                                }
+                                return null;
+                              })()}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
                           <Heart className="w-5 h-5 text-gray-600 cursor-pointer" />
-                          {apt.status === "upcoming" && (
-                            <Button className="bg-blue-600 text-white">
-                              Attend
+                                {(apt.status === "Completed") && (
+                            <Button 
+                              className="bg-green-600 text-white"
+                              onClick={() => setReviewPopup({show: true, appointmentId: String(apt.id)})}
+                            >
+                              Leave Review
                             </Button>
                           )}
                         </div>
@@ -263,6 +405,53 @@ export default function AppointmentsPage() {
           </div>
         </div>
       </div>}
+
+      {/* Review Popup Modal */}
+      {reviewPopup.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Share Your Experience</h3>
+                <p className="text-gray-600">Your appointment is complete! Would you like to leave a review for your doctor?</p>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Your feedback helps:</span>
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600">
+                    <li>Other patients make informed decisions</li>
+                    <li>Doctors improve their services</li>
+                    <li>Build a better healthcare community</li>
+                  </ul>
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setReviewPopup({show: false, appointmentId: null})}
+                >
+                  Maybe Later
+                </Button>
+                <Button
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => {
+                    const apt = appointments.find(a => String(a.id) === reviewPopup.appointmentId);
+                    if (apt) {
+                      router.push(`/doctor-profile?id=${apt.doctorId}#reviews`);
+                      setReviewPopup({show: false, appointmentId: null});
+                    }
+                  }}
+                >
+                  Leave a Review
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <Footer />
     </div>

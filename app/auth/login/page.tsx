@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,8 +22,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const normalizedEmail = email.trim()
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       toast.error('Please enter email and password')
       return
     }
@@ -30,7 +32,7 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const result = await login({ email, password })
+      const result = await login({ email: normalizedEmail, password })
 
       if (!result.success) {
         toast.error(result.error || 'Invalid email or password')
@@ -49,7 +51,7 @@ export default function LoginPage() {
       } else if (role === 'admin') {
         router.push('/admin/dashboard')
       } else {
-        router.push('/patient/dashboard')
+        router.push('/patient/appointments')
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed'
@@ -80,14 +82,6 @@ export default function LoginPage() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
             <p className="text-gray-600">Sign in to access your SwiftCare account</p>
-          </div>
-
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <span className="font-semibold">Backend Status:</span> Ensure the backend server at{' '}
-              <code className="bg-blue-100 px-2 py-1 rounded text-xs">https://swiftcare.up.railway.app</code> is running.
-              If you see connection errors, the backend may be offline.
-            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -129,15 +123,23 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me */}
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              <span className="text-sm text-gray-700">Remember Me</span>
-            </label>
+            {/* Remember Me + Forgot Password */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span className="text-sm text-gray-700">Remember Me</span>
+              </label>
+              <Link
+                href="/auth/forgot-password"
+                className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+              >
+                Forgot Password?
+              </Link>
+            </div>
 
             {/* Submit */}
             <Button

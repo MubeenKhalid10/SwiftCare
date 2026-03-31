@@ -3,7 +3,7 @@
 import React, { useState } from "react"
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
@@ -16,7 +16,14 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    specialization: '',
   })
+  const [location, setLocation] = useState({
+    label: '',
+    longitude: '',
+    latitude: '',
+  })
+  const [scheduleSlots, setScheduleSlots] = useState([{ day: 'Monday', hours: '09:00 AM - 05:00 PM' }])
   const [role, setRole] = useState<'patient' | 'doctor'>('patient')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -46,10 +53,15 @@ export default function RegisterPage() {
       return
     }
 
-    // Backend only supports patient signup
     if (role === 'doctor') {
-      toast.error('Doctor registration is not available yet. Please contact admin.')
-      return
+      if (!location.label || !location.longitude || !location.latitude) {
+        toast.error('Please fill in doctor location details')
+        return
+      }
+      if (scheduleSlots.length === 0) {
+        toast.error('Please add at least one schedule slot')
+        return
+      }
     }
 
     setIsLoading(true)
@@ -60,6 +72,15 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         role,
+        specialization: role === 'doctor' ? formData.specialization || 'General Physician' : undefined,
+        location: role === 'doctor' ? {
+          label: location.label,
+          coordinates: [parseFloat(location.longitude), parseFloat(location.latitude)] as [number, number]
+        } : undefined,
+        schedule: role === 'doctor' ? {
+          availableDays: scheduleSlots.map(s => s.day),
+          availableHours: scheduleSlots.map(s => s.hours),
+        } : undefined,
       })
 
       if (!result.success) {
@@ -68,23 +89,17 @@ export default function RegisterPage() {
         return
       }
 
-      toast.success('Registration successful!')
-      
-      // Redirect based on role after successful registration
-      const stored = JSON.parse(localStorage.getItem('swiftcare_auth') || '{}')
-      const userRole = stored.user?.role
-      
-      if (userRole === 'patient') {
-        router.push('/patient/dashboard')
-      } else if (userRole === 'doctor') {
-        router.push('/doctor/dashboard')
-      } else {
-        router.push('/auth/login')
-      }
+      toast.success('Verification code sent to your email!')
+
+      // Redirect to OTP verification page
+      const params = new URLSearchParams({
+        email: result.email || formData.email,
+        role: result.role || role,
+      })
+      router.push(`/auth/verify-email?${params.toString()}`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed'
       toast.error(errorMessage)
-      console.error('[v0] Registration error:', err)
       setIsLoading(false)
     }
   }
@@ -113,22 +128,20 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={() => setRole('patient')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${
-                role === 'patient'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${role === 'patient'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Patient
             </button>
             <button
               type="button"
               onClick={() => setRole('doctor')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${
-                role === 'doctor'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${role === 'doctor'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Doctor
             </button>
@@ -198,6 +211,131 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
             </div>
+
+            {role === 'doctor' && (
+              <div>
+                <label htmlFor="specialization" className="block text-sm font-semibold text-gray-900 mb-2">
+                  Specialization (Optional)
+                </label>
+                <Input
+                  id="specialization"
+                  type="text"
+                  name="specialization"
+                  placeholder="e.g., General Physician, Cardiologist, Dentist"
+                  value={formData.specialization}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-gray-500 mt-1">Defaults to 'General Physician' if left empty</p>
+              </div>
+            )}
+
+            {role === 'doctor' && (
+              <div className="space-y-4 pt-4 border-t border-gray-100">
+                <h3 className="font-bold text-gray-900">Clinic Location</h3>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Location Name / Address
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., City Central Clinic, 5th Ave"
+                    value={location.label}
+                    onChange={(e) => setLocation(prev => ({ ...prev, label: e.target.value }))}
+                    className="w-full"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Longitude
+                    </label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="e.g., 74.3587"
+                      value={location.longitude}
+                      onChange={(e) => setLocation(prev => ({ ...prev, longitude: e.target.value }))}
+                      className="w-full"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Latitude
+                    </label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="e.g., 31.5204"
+                      value={location.latitude}
+                      onChange={(e) => setLocation(prev => ({ ...prev, latitude: e.target.value }))}
+                      className="w-full"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-900">Weekly Schedule</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setScheduleSlots([...scheduleSlots, { day: 'Monday', hours: '09:00 AM - 05:00 PM' }])}
+                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                      disabled={isLoading}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Add Slot
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {scheduleSlots.map((slot, index) => (
+                      <div key={index} className="flex gap-2 items-start">
+                        <select
+                          className="flex-1 h-10 px-3 border border-gray-200 rounded-lg text-sm"
+                          value={slot.day}
+                          onChange={(e) => {
+                            const newSlots = [...scheduleSlots]
+                            newSlots[index].day = e.target.value
+                            setScheduleSlots(newSlots)
+                          }}
+                          disabled={isLoading}
+                        >
+                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                            <option key={day} value={day}>{day}</option>
+                          ))}
+                        </select>
+                        <Input
+                          className="flex-[2]"
+                          placeholder="09:00 AM - 05:00 PM"
+                          value={slot.hours}
+                          onChange={(e) => {
+                            const newSlots = [...scheduleSlots]
+                            newSlots[index].hours = e.target.value
+                            setScheduleSlots(newSlots)
+                          }}
+                          disabled={isLoading}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setScheduleSlots(scheduleSlots.filter((_, i) => i !== index))}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          disabled={isLoading || scheduleSlots.length === 1}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Button
               type="submit"

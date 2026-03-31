@@ -1,28 +1,52 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
-import { Header } from '@/components/header';
-import { Footer } from '@/components/footer';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { DoctorSidebar } from '@/components/doctor/doctor-sidebar';
+import { useState, useEffect } from "react"
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { DoctorSidebar } from "@/components/doctor/doctor-sidebar"
+import { useAuth } from "@/lib/auth-context"
+import { getDoctorUniquePatients } from "@/lib/api"
+import { Loader2, Search, MapPin, Calendar, Users } from "lucide-react"
+import { toast } from "sonner"
 
 export default function DoctorMyPatients() {
-  const [filter, setFilter] = useState('active');
+  const { user } = useAuth()
+  const [filter, setFilter] = useState("active")
+  const [patients, setPatients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const patients = [
-    { id: '#Apr0001', name: 'Adrian', age: 42, gender: 'Male', blood: 'A+', time: '11 Nov 2024 10:45 AM', location: 'Alabama, USA', lastBooking: '27 Feb 2024' },
-    { id: '#Apr0002', name: 'Kelly Stevens', age: 37, gender: 'Female', blood: 'O+', time: '05 Nov 2024 11:50 AM', location: 'San Diego, USA', lastBooking: '20 Mar 2024' },
-    { id: '#Apr0003', name: 'Samuel James', age: 41, gender: 'Male', blood: 'B+', time: '27 Oct 2024 09:30 AM', location: 'Chicago, USA', lastBooking: '12 Mar 2024' },
-    { id: '#Apr0004', name: 'Catherine Gracey', age: 36, gender: 'Female', blood: 'AB-', time: '18 Oct 2024 12:20 PM', location: 'Los Angeles, USA', lastBooking: '27 Feb 2024' },
-    { id: '#Apr0005', name: 'Robert Hutchinson', age: 38, gender: 'Male', blood: 'A+', time: '10 Oct 2024 11:30 AM', location: 'Dallas, USA', lastBooking: '18 Feb 2024' },
-    { id: '#Apr0006', name: 'Anderea Kearns', age: 40, gender: 'Female', blood: 'B-', time: '26 Sep 2024 10:20 AM', location: 'San Francisco, USA', lastBooking: '11 Feb 2024' },
-    { id: '#Apr0007', name: 'Peter Anderson', age: 30, gender: 'Male', blood: 'A-', time: '14 Sep 2024 08:10 AM', location: 'Austin, USA', lastBooking: '25 Jan 2024' },
-    { id: '#Apr0008', name: 'Emily Musick', age: 32, gender: 'Female', blood: 'D-', time: '03 Sep 2024 06:00 PM', location: 'Nashville, USA', lastBooking: '13 Jan 2024' },
-    { id: '#Apr0009', name: 'Darrell Tan', age: 31, gender: 'Male', blood: 'AB+', time: '25 Aug 2024 10:45 AM', location: 'San Antonio, USA', lastBooking: '03 Jan 2024' },
-  ];
+  useEffect(() => {
+    if (user?.id) {
+      fetchPatients()
+    }
+  }, [user?.id])
+
+  const fetchPatients = async () => {
+    try {
+      setLoading(true)
+      const data = await getDoctorUniquePatients(user!.id)
+      setPatients(data)
+    } catch (err) {
+      toast.error("Failed to load patients")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredPatients = patients.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.id.toLowerCase().includes(searchTerm.toLowerCase())
+
+    // For 'active' we could say >0 visits. For 'inactive', maybe 0 visits (though our backend only returns those with >0).
+    // To keep it simple based on the static UI:
+    const matchesFilter = filter === "active" ? p.totalVisits > 0 : p.totalVisits === 0
+
+    return matchesSearch && matchesFilter
+  })
 
   return (
     <>
@@ -44,61 +68,99 @@ export default function DoctorMyPatients() {
 
               <Card>
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold">My Patients</h2>
-                    <div className="flex items-center gap-4">
-                      <Input placeholder="Search" className="w-48" />
-                      <Button variant="outline" size="sm">Filter By</Button>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <h2 className="text-xl font-bold">Patient Directory</h2>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
+                      <Search className="w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search patient..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="bg-transparent border-none outline-none w-32 focus:w-48 transition-all"
+                      />
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4 mb-6">
-                    <Button variant={filter === 'active' ? 'default' : 'outline'} onClick={() => setFilter('active')}>
-                      Active <Badge className="ml-2">250</Badge>
+                    <Button variant={filter === "active" ? "default" : "outline"} onClick={() => setFilter("active")}>
+                      Active <Badge className="ml-2" variant={filter === "active" ? "secondary" : "default"}>{patients.filter(p => p.totalVisits > 0).length}</Badge>
                     </Button>
-                    <Button variant={filter === 'inactive' ? 'default' : 'outline'} onClick={() => setFilter('inactive')}>
-                      InActive <Badge className="ml-2" variant="outline">22</Badge>
+                    <Button variant={filter === "inactive" ? "default" : "outline"} onClick={() => setFilter("inactive")}>
+                      Inactive <Badge className="ml-2" variant={filter === "inactive" ? "secondary" : "default"}>0</Badge>
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {patients.map((patient) => (
-                      <div key={patient.id} className="border rounded-lg p-4 hover:shadow-lg transition">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-yellow-200 to-yellow-300 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span>🧑</span>
+                  {loading ? (
+                    <div className="flex justify-center items-center py-20">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    </div>
+                  ) : filteredPatients.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                      <Users className="w-12 h-12 text-gray-300 mb-3" />
+                      <p className="text-lg font-medium">No {filter} patients found.</p>
+                      <p className="text-sm">Patients who have booked with you will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredPatients.map((patient) => (
+                        <div key={patient.id} className="border border-gray-100 rounded-xl p-5 hover:shadow-lg hover:border-blue-100 transition duration-300 bg-white group">
+                          <div className="flex items-start gap-4 mb-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-105 transition-transform">
+                              🧑
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs font-semibold text-blue-600 mb-0.5">ID: {patient.id.substring(0, 8)}</p>
+                              <h3 className="font-bold text-gray-900 text-lg">{patient.name}</h3>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-blue-600">{patient.id}</p>
-                            <p className="font-semibold">{patient.name}</p>
+
+                          <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 mb-4 grid grid-cols-3 text-center divide-x border border-gray-100">
+                            <div>
+                              <span className="block text-xs text-gray-400 mb-1">Age</span>
+                              <span className="font-semibold">{patient.age}</span>
+                            </div>
+                            <div>
+                              <span className="block text-xs text-gray-400 mb-1">Gender</span>
+                              <span className="font-semibold">{patient.gender}</span>
+                            </div>
+                            <div>
+                              <span className="block text-xs text-gray-400 mb-1">Blood</span>
+                              <span className="font-semibold">{patient.blood}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 mb-4 text-sm text-gray-600">
+                            <div className="flex items-start gap-3">
+                              <Calendar className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                              <div>
+                                <p className="font-medium text-gray-900">First Visit</p>
+                                <p className="text-xs">{patient.time || 'Not specified'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <MapPin className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                              <div>
+                                <p className="font-medium text-gray-900">Location</p>
+                                <p className="text-xs">{patient.location}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs text-gray-500">Total Visits</p>
+                              <p className="font-bold text-blue-600">{patient.totalVisits}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">Last Booking</p>
+                              <p className="font-semibold text-gray-900 text-sm">{patient.lastBooking}</p>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="text-sm text-gray-600 mb-3">
-                          <p>Age: {patient.age} | {patient.gender} | {patient.blood}</p>
-                        </div>
-
-                        <div className="space-y-2 mb-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span>●</span>
-                            <span>{patient.time}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span>📍</span>
-                            <span>{patient.location}</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t text-xs text-gray-500">
-                          <p>Last Booking {patient.lastBooking}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="text-center mt-8">
-                    <Button variant="outline" className="text-gray-600 bg-transparent">Load More</Button>
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>
@@ -107,5 +169,5 @@ export default function DoctorMyPatients() {
       </div>
       <Footer />
     </>
-  );
+  )
 }

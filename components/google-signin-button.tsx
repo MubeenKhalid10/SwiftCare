@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
@@ -41,37 +41,7 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
   const { googleAuth } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    // Load Google Identity Services script
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    document.body.appendChild(script)
-
-    script.onload = () => {
-      if (window.google && buttonRef.current) {
-        window.google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
-          callback: handleCredentialResponse,
-        })
-
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: 'outline',
-          size: 'large',
-          text: text,
-          shape: 'rectangular',
-          width: buttonRef.current.offsetWidth,
-        })
-      }
-    }
-
-    return () => {
-      document.body.removeChild(script)
-    }
-  }, [])
-
-  const handleCredentialResponse = async (response: { credential: string }) => {
+  const handleCredentialResponse = useCallback(async (response: { credential: string }) => {
     try {
       console.log('[v0] Google sign-in initiated')
       
@@ -97,14 +67,65 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
         } else if (role === 'admin') {
           router.push('/admin/dashboard')
         } else {
-          router.push('/patient/dashboard')
+          router.push('/patient/appointments')
         }
       }
     } catch (error) {
       console.error('[v0] Google sign-in error:', error)
       toast.error('Google sign-in failed')
     }
-  }
+  }, [googleAuth, roleHint, onSuccess, router])
+
+  useEffect(() => {
+    // Load Google Identity Services script only once
+    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+      const script = document.createElement('script')
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+
+      script.onload = () => {
+        if (window.google && buttonRef.current) {
+          window.google.accounts.id.initialize({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+            callback: handleCredentialResponse,
+          })
+
+          window.google.accounts.id.renderButton(buttonRef.current, {
+            theme: 'outline',
+            size: 'large',
+            text: text,
+            shape: 'rectangular',
+            width: buttonRef.current.offsetWidth,
+          })
+        }
+      }
+    } else {
+      // Script already loaded, just initialize
+      if (window.google && buttonRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+          callback: handleCredentialResponse,
+        })
+
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: 'outline',
+          size: 'large',
+          text: text,
+          shape: 'rectangular',
+          width: buttonRef.current.offsetWidth,
+        })
+      }
+    }
+
+    return () => {
+      // Don't remove the script, just clean up the button
+      if (buttonRef.current) {
+        buttonRef.current.innerHTML = ''
+      }
+    }
+  }, [text, handleCredentialResponse, roleHint])
 
   return <div ref={buttonRef} className="w-full" />
 }

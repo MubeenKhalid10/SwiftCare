@@ -78,7 +78,7 @@ export default function BookingStep2({ data, onNext, onBack }) {
               <h2 className="text-lg font-bold">{data.doctor.name || "Doctor"}</h2>
               {data.doctor.rating > 0 && (
                 <div className="bg-orange-500 text-white px-2 py-0.5 rounded text-xs font-semibold">
-                  <Star size={10} className="inline mr-1" /> {data.doctor.rating}
+                  {data.doctor.rating} <Star size={10} className="inline ml-1 mb-[2px]" />
                 </div>
               )}
             </div>

@@ -4,21 +4,17 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { FindDoctorsModal } from '@/components/find-doctors-modal';
-import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 
 export function PatientSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const navItemClass = (href: string) =>
-    `flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-      pathname.startsWith(href)
-        ? 'bg-blue-100 text-blue-600 font-medium'
-        : 'text-gray-700 hover:bg-gray-100'
+    `flex items-center gap-3 px-3 py-2 rounded-lg transition ${pathname.startsWith(href)
+      ? 'bg-blue-100 text-blue-600 font-medium'
+      : 'text-gray-700 hover:bg-gray-100'
     }`;
 
   // Get initials from user name
@@ -33,8 +29,21 @@ export function PatientSidebar() {
     <div className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
       {/* Profile */}
       <div className="mb-8">
-        <div className="w-40 h-40 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg mb-3 flex items-center justify-center overflow-hidden mx-auto">
-          <span className="text-4xl font-bold text-white">{initials}</span>
+        <div className="w-32 h-32 rounded-lg mb-3 flex items-center justify-center overflow-hidden mx-auto border-2 border-blue-100 shadow-sm bg-white">
+          {user?.avatar ? (
+            <img 
+              src={user.avatar} 
+              alt={user.name} 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "Patient")}&background=0D8ABC&color=fff`;
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+              <span className="text-4xl font-bold text-white">{initials}</span>
+            </div>
+          )}
         </div>
 
         <h3 className="font-bold text-lg text-center">{user?.name || 'Patient'}</h3>
@@ -46,26 +55,22 @@ export function PatientSidebar() {
 
       {/* Find Doctor Button */}
       <div className="mb-4">
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="w-full bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2"
+        <Link
+          href="/doctors"
+          className="w-full bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md font-medium text-sm transition-colors"
         >
           <Search className="w-4 h-4" />
           Find Doctor
-        </Button>
+        </Link>
       </div>
 
-      {/* Menu */}
       <nav className="space-y-1 flex-1">
-        <Link href="/patient/dashboard" className={navItemClass('/patient/dashboard')}>
-          <span>🏠</span>
-          <span>Dashboard</span>
-        </Link>
 
         <Link href="/patient/appointments" className={navItemClass('/patient/appointments')}>
           <span>📅</span>
           <span>My Appointments</span>
         </Link>
+
 
         <Link href="/patient/favourites" className={navItemClass('/patient/favourites')}>
           <span>⭐</span>
@@ -85,16 +90,24 @@ export function PatientSidebar() {
           <span>Settings</span>
         </Link>
 
+        <Link href="/privacy-policy" className={navItemClass('/privacy-policy')}>
+          <span>🔒</span>
+          <span>Privacy Policy</span>
+        </Link>
+
+        <Link href="/terms-and-conditions" className={navItemClass('/terms-and-conditions')}>
+          <span>📝</span>
+          <span>Terms and Conditions</span>
+        </Link>
+
         <Link
           href="/logout"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 mt-4"
         >
           <span>🚪</span>
           <span>Logout</span>
         </Link>
       </nav>
-
-      <FindDoctorsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

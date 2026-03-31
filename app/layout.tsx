@@ -6,6 +6,8 @@ import { AuthProvider } from '@/lib/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
+import { Chatbot } from '@/components/chatbot'
+
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
@@ -42,6 +44,7 @@ export default function RootLayout({
       <body className={`font-sans antialiased`}>
         <AuthProvider>
           {children}
+          <Chatbot />
           <Toaster />
         </AuthProvider>
         <Analytics />

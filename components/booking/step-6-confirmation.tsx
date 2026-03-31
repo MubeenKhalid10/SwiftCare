@@ -1,11 +1,99 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Check, Calendar, Clock, MapPin, User } from "lucide-react"
+import { Check, Calendar, Clock, MapPin, User, FileText, X, Printer, Download } from "lucide-react"
 import Link from "next/link"
 
-export default function BookingStep6({ data, onBack }) {
+const ReceiptModal = ({ isOpen, onClose, data }: { isOpen: boolean, onClose: () => void, data: any }) => {
+  if (!isOpen) return null;
+
+  const isPaid = data.payment?.method === 'stripe' || data.payment?.status === 'succeeded';
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <FileText className="w-6 h-6" />
+            <h3 className="text-xl font-bold font-heading">Appointment Receipt</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="p-8 space-y-6" id="receipt-content">
+          <div className="text-center border-b border-dashed border-gray-200 pb-6">
+            <h4 className="text-2xl font-bold text-gray-900 mb-1">SwiftCare</h4>
+            <p className="text-sm text-gray-500 italic">"Your Trusted Healthcare Partner"</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-y-4 text-sm">
+            <div>
+              <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Booking Number</p>
+              <p className="font-mono font-bold text-blue-600 text-base">{data.bookingNumber}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Status</p>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isPaid ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                {isPaid ? 'Paid' : 'Pay at Clinic'}
+              </span>
+            </div>
+            
+            <div className="col-span-2 pt-2 border-t border-gray-100">
+              <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Doctor</p>
+              <p className="font-bold text-gray-900 text-lg uppercase">{data.doctor.name}</p>
+              <p className="text-blue-600 text-xs font-medium">{data.doctor.specialty} Specialist</p>
+            </div>
+
+            <div>
+              <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Date</p>
+              <p className="font-semibold text-gray-900">{data.dateTime?.fullDate || 'TBD'}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Time</p>
+              <p className="font-semibold text-gray-900">{data.dateTime?.time} {data.dateTime?.period}</p>
+            </div>
+
+            <div className="col-span-2 pt-4 border-t border-gray-100 mt-2">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-600 font-medium">Consultation Fee</span>
+                <span className="font-bold text-gray-900">{data.doctor.fee}</span>
+              </div>
+              <div className="flex justify-between items-center mb-4 text-gray-400 text-xs italic">
+                <span>Inclusive of all service charges</span>
+                <span>RS. 0</span>
+              </div>
+              <div className="flex justify-between items-center pt-4 border-t-2 border-gray-900">
+                <span className="text-lg font-black uppercase text-gray-900">Total Amount</span>
+                <span className="text-2xl font-black text-blue-600">{data.doctor.fee}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-xl text-[10px] text-gray-500 leading-relaxed text-center">
+            This is a computer-generated receipt. Please present your Booking Number at the clinic reception upon arrival.
+          </div>
+        </div>
+
+        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+          <Button variant="outline" className="flex-1 gap-2" onClick={() => window.print()}>
+            <Printer className="w-4 h-4" /> Print
+          </Button>
+          <Button variant="ghost" className="flex-1 hover:bg-gray-200" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function BookingStep6({ data, onBack }: { data: any, onBack: () => void }) {
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+
   // Format the date and time for display
   const formatDateTime = () => {
     if (data.dateTime) {
@@ -14,213 +102,100 @@ export default function BookingStep6({ data, onBack }) {
     return "Date not selected"
   }
 
-  // Get selected services names
-  const getServicesDisplay = () => {
-    if (data.selectedServices && data.selectedServices.length > 0) {
-      return data.selectedServices.join(", ")
-    }
-    return "General Consultation"
-  }
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
-      {/* Progress Indicator */}
-      <div className="flex items-center justify-center mb-12 gap-2 text-sm">
-        {[1, 2, 3, 4, 5, 6].map((step) => (
-          <div key={step} className="flex items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${step <= 6 ? "bg-teal-500 text-white" : "bg-gray-300 text-gray-600"}`}
-            >
-              {step}
-            </div>
-            {step < 6 && <div className={`w-6 h-0.5 bg-teal-500`}></div>}
-          </div>
-        ))}
-      </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Confirmation Card */}
         <div className="md:col-span-2">
-          <Card className="p-6 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center">
-                <Check className="w-5 h-5 text-white" />
+          <Card className="p-8 mb-6 border-none shadow-xl bg-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-bl-full -z-0 opacity-50" />
+            
+            <div className="flex flex-col items-center text-center mb-8 relative z-10">
+              <div className="w-20 h-20 rounded-full bg-teal-100 flex items-center justify-center mb-4 animate-in zoom-in-50 duration-500">
+                <Check className="w-10 h-10 text-teal-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Booking Confirmed</h2>
+              <h2 className="text-4xl font-black text-gray-900 mb-2">Success!</h2>
+              <p className="text-gray-500 font-medium">Your appointment has been successfully scheduled.</p>
             </div>
 
-            <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg mb-6">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-300 to-blue-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                {data.doctor.image ? (
-                  <img src={data.doctor.image || "/placeholder.svg"} alt={data.doctor.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-blue-700 font-semibold text-sm">
-                    {data.doctor.name?.split(' ').map(n => n[0]).join('') || 'DR'}
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 text-sm">
-                <p className="text-gray-700">
-                  Your Booking has been Confirmed with <strong>{data.doctor.name || "Doctor"}</strong>. Please be on time, 
-                  arriving <strong>15 minutes before</strong> your appointment.
-                </p>
-              </div>
-            </div>
-
-            {/* Doctor Info Summary */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Doctor Information</h3>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-300 to-blue-200 flex items-center justify-center overflow-hidden">
-                  {data.doctor.image ? (
-                    <img src={data.doctor.image || "/placeholder.svg"} alt={data.doctor.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-blue-700 font-bold text-lg">
-                      {data.doctor.name?.split(' ').map(n => n[0]).join('') || 'DR'}
+            <div className="space-y-6 relative z-10">
+              <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-600" />
+                  Appointment Details
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <p className="text-gray-500 mb-1">Doctor Name</p>
+                    <p className="font-bold text-gray-900 text-lg">{data.doctor.name}</p>
+                    <p className="text-blue-600 italic">{data.doctor.specialty} Specialist</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Appointment Time</p>
+                    <p className="font-bold text-gray-900 text-lg">{data.dateTime?.time} {data.dateTime?.period}</p>
+                    <p className="text-gray-600 font-medium">{data.dateTime?.fullDate}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Consultation Fee</p>
+                    <p className="font-bold text-gray-900 text-lg">{data.doctor.fee}</p>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${data.payment?.method === 'clinic' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
+                      {data.payment?.method === 'clinic' ? 'Pay at Clinic' : 'Paid Online'}
                     </span>
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-lg">{data.doctor.name || "Doctor"}</p>
-                  <p className="text-blue-600 text-sm">{data.doctor.specialty || "Specialist"}</p>
-                  <p className="text-gray-500 text-sm flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> {data.doctor.address || "Location not specified"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <h3 className="font-semibold text-gray-900 mb-4">Booking Info</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-sm">
-              <div className="bg-white border rounded-lg p-3">
-                <p className="text-gray-600 flex items-center gap-2">
-                  <User className="w-4 h-4" /> Specialty
-                </p>
-                <p className="font-semibold">{data.doctor.specialty || "General"}</p>
-              </div>
-              <div className="bg-white border rounded-lg p-3">
-                <p className="text-gray-600">Services</p>
-                <p className="font-semibold">{getServicesDisplay()}</p>
-              </div>
-              <div className="bg-white border rounded-lg p-3">
-                <p className="text-gray-600 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" /> Date & Time
-                </p>
-                <p className="font-semibold">{formatDateTime()}</p>
-              </div>
-              <div className="bg-white border rounded-lg p-3">
-                <p className="text-gray-600">Appointment Type</p>
-                <p className="font-semibold">{data.appointmentType || "Clinic Visit"}</p>
-              </div>
-              <div className="bg-white border rounded-lg p-3">
-                <p className="text-gray-600">Consultation Fee</p>
-                <p className="font-semibold text-blue-600">{data.doctor.fee || "$0"}</p>
-              </div>
-              <div className="bg-white border rounded-lg p-3">
-                <p className="text-gray-600 flex items-center gap-2">
-                  <MapPin className="w-4 h-4" /> Location
-                </p>
-                <p className="font-semibold">{data.doctor.address || "To be confirmed"}</p>
-              </div>
-            </div>
-
-            {/* Patient Info if available */}
-            {data.basicInfo && Object.keys(data.basicInfo).length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3">Patient Information</h3>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    {data.basicInfo.name && (
-                      <div>
-                        <p className="text-gray-600">Name</p>
-                        <p className="font-semibold">{data.basicInfo.name}</p>
-                      </div>
-                    )}
-                    {data.basicInfo.email && (
-                      <div>
-                        <p className="text-gray-600">Email</p>
-                        <p className="font-semibold">{data.basicInfo.email}</p>
-                      </div>
-                    )}
-                    {data.basicInfo.phone && (
-                      <div>
-                        <p className="text-gray-600">Phone</p>
-                        <p className="font-semibold">{data.basicInfo.phone}</p>
-                      </div>
-                    )}
-                    {data.basicInfo.reasonForVisit && (
-                      <div className="col-span-2">
-                        <p className="text-gray-600">Reason for Visit</p>
-                        <p className="font-semibold">{data.basicInfo.reasonForVisit}</p>
-                      </div>
-                    )}
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Location</p>
+                    <p className="font-bold text-gray-900">{data.doctor.address}</p>
                   </div>
                 </div>
               </div>
-            )}
 
-            <Card className="p-4 bg-gray-50 mb-6">
-              <h4 className="font-semibold text-gray-900 mb-2">Need Our Assistance?</h4>
-              <p className="text-sm text-gray-600 mb-3">Call us in case you face any issue with Booking or Cancellation</p>
-              <Button variant="outline" className="flex items-center gap-2 bg-transparent">
-                <span>📞</span> Call Us
-              </Button>
-            </Card>
-          </Card>
-
-          <div className="flex justify-between">
-            <Link href="/patient/appointments">
-              <Button variant="outline" className="px-8 bg-transparent">
-                ← Back to Bookings
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* QR Code & Actions */}
-        <div>
-          <Card className="p-6 sticky top-20">
-            <h3 className="font-semibold text-gray-900 mb-4">Booking Number</h3>
-            <div className="bg-green-50 border-2 border-green-500 rounded-lg p-3 text-center mb-4">
-              <p className="text-green-600 font-mono text-lg font-bold">{data.bookingNumber || "DCRA" + Math.floor(10000 + Math.random() * 90000)}</p>
-            </div>
-
-            {/* Summary Card */}
-            <div className="bg-blue-50 rounded-lg p-4 mb-4">
-              <h4 className="font-semibold text-gray-900 mb-2">Appointment Summary</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Doctor:</span>
-                  <span className="font-medium">{data.doctor.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Date:</span>
-                  <span className="font-medium">{data.dateTime?.fullDate || "TBD"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Time:</span>
-                  <span className="font-medium">{data.dateTime?.time} {data.dateTime?.period}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Fee:</span>
-                  <span className="font-medium text-blue-600">{data.doctor.fee}</span>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-100">
+                <Button onClick={() => setIsReceiptOpen(true)} className="flex-1 bg-gray-900 hover:bg-black text-white h-12 rounded-xl font-bold gap-2">
+                  <FileText className="w-5 h-5" /> View Receipt
+                </Button>
+                <Link href="/patient/appointments" className="flex-1">
+                  <Button variant="outline" className="w-full h-12 rounded-xl font-bold border-2 hover:bg-gray-50">
+                    Go to Appointments
+                  </Button>
+                </Link>
               </div>
             </div>
+          </Card>
 
-            <p className="text-xs text-gray-600 text-center mb-6">
-              Please save your booking number for reference
-            </p>
+          <p className="text-center text-xs text-gray-400">
+            A confirmation email has been sent to {data.basicInfo?.email || 'your registered email'}.
+          </p>
+        </div>
 
-            <div className="space-y-3">
-              <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white">Add To Calendar</Button>
-              <Link href="/doctors" className="block">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">Start New Booking</Button>
-              </Link>
-            </div>
+        {/* Info Column */}
+        <div className="space-y-6">
+
+          <Card className="p-6 rounded-2xl border-2 border-gray-100 shadow-sm">
+            <h4 className="font-bold text-gray-900 mb-3">Next Steps</h4>
+            <ul className="space-y-4">
+              <li className="flex gap-3 text-xs text-gray-600">
+                <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 font-bold">1</div>
+                <p>Arrive at the clinic 15 mins before your scheduled time.</p>
+              </li>
+              <li className="flex gap-3 text-xs text-gray-600">
+                <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 font-bold">2</div>
+                <p>Present your booking number at the check-in desk.</p>
+              </li>
+              <li className="flex gap-3 text-xs text-gray-600">
+                <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 font-bold">3</div>
+                <p>Consult with {data.doctor.name} at {data.dateTime?.time}.</p>
+              </li>
+            </ul>
           </Card>
         </div>
       </div>
+
+      <ReceiptModal 
+        isOpen={isReceiptOpen} 
+        onClose={() => setIsReceiptOpen(false)} 
+        data={data} 
+      />
     </div>
   )
 }

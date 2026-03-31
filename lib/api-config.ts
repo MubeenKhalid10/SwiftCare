@@ -1,5 +1,5 @@
 // API Configuration
-export const API_BASE_URL = "https://swiftcare.up.railway.app";
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 // Token storage keys
 export const TOKEN_KEYS = {
@@ -12,10 +12,12 @@ export const TOKEN_KEYS = {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/auth/login",
-    REGISTER: "/auth/register",
+    REGISTER: "/auth/signup",
     REFRESH: "/auth/refresh",
     LOGOUT: "/auth/logout",
   },
+  CHATBOT: "/chatbot/chat",
+  PAYMENT_INTENT: "/payment/create-intent",
   DOCTORS: "/doctors",
   PATIENTS: "/patients",
   APPOINTMENTS: "/appointments",
@@ -27,3 +29,4 @@ export const TOKEN_TTL = {
   ACCESS: 15 * 60 * 1000, // 15 minutes in ms
   REFRESH: 30 * 24 * 60 * 60 * 1000, // 30 days in ms
 } as const;
+

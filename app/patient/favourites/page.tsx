@@ -1,7 +1,7 @@
 "use client"
 
-import { Suspense, useState } from "react"
-import { Search, Heart, Star } from "lucide-react"
+import { Suspense, useEffect, useMemo, useState } from "react"
+import { Search, Heart, Star, Loader2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,51 +9,64 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
-
-const favoritesDoctors = [
-  {
-    id: 1,
-    name: "Dr.Edilain Hendry",
-    specialty: "Cardiology",
-    location: "Newark, USA",
-    rating: 5.0,
-    reviews: 0,
-    nextAvailable: "23 Mar 2024",
-    lastBooked: "21 Jan 2023",
-    image: "/doctor1.jpg",
-  },
-  {
-    id: 2,
-    name: "Dr.Shanta Nesmith",
-    specialty: "Oncology",
-    location: "Los Angeles, USA",
-    rating: 4.0,
-    reviews: 35,
-    nextAvailable: "27 Mar 2024",
-    lastBooked: "18 Jan 2023",
-    image: "/doctor2.jpg",
-  },
-  {
-    id: 3,
-    name: "Dr.John Ewel",
-    specialty: "Orthopedics",
-    location: "Dallas, USA",
-    rating: 5.0,
-    reviews: 0,
-    nextAvailable: "02 Apr 2024",
-    lastBooked: "28 Jan 2023",
-    image: "/doctor3.jpg",
-  },
-]
+import { getDoctors } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { getFavouriteDoctorIds, migrateGuestFavouritesToPatient, toggleFavouriteDoctor } from "@/lib/utils"
+import type { Doctor } from "@/lib/types"
 
 function FavouritesContent() {
-  const [searchTerm, setSearchTerm] = useState("")
+  const { user } = useAuth()
 
-  const filteredDoctors = favoritesDoctors.filter(
-    (doc) =>
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.specialty.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const [searchTerm, setSearchTerm] = useState("")
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [favouriteDoctorIds, setFavouriteDoctorIds] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadDoctors() {
+      try {
+        const data = await getDoctors()
+        setDoctors(data)
+      } catch (err) {
+        setError("Failed to load favourite doctors")
+        console.error("Failed to load favourites:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDoctors()
+  }, [])
+
+  useEffect(() => {
+    migrateGuestFavouritesToPatient(user?.id)
+    setFavouriteDoctorIds(getFavouriteDoctorIds(user?.id))
+  }, [user?.id])
+
+  const favouriteDoctors = useMemo(() => {
+    return doctors.filter((doc) => favouriteDoctorIds.includes(String(doc.id)))
+  }, [doctors, favouriteDoctorIds])
+
+  const filteredDoctors = useMemo(() => {
+    const term = searchTerm.toLowerCase()
+    return favouriteDoctors.filter((doc) => {
+      const name = doc.name?.toLowerCase?.() || ""
+      const specialty = doc.specialty?.toLowerCase?.() || ""
+      const location = doc.location?.toLowerCase?.() || ""
+
+      return (
+        name.includes(term) ||
+        specialty.includes(term) ||
+        location.includes(term)
+      )
+    })
+  }, [favouriteDoctors, searchTerm])
+
+  const removeFromFavourites = (doctorId: string | number) => {
+    toggleFavouriteDoctor(doctorId, user?.id)
+    setFavouriteDoctorIds(getFavouriteDoctorIds(user?.id))
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,7 +75,7 @@ function FavouritesContent() {
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2 text-sm">
-          <span className="text-blue-600">●</span>
+          <span className="text-blue-600">*</span>
           <Link href="/patient/dashboard" className="text-gray-600 hover:text-gray-900">
             Patient
           </Link>
@@ -81,78 +94,109 @@ function FavouritesContent() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Reusable Sidebar */}
           <div className="lg:col-span-1">
             <PatientSidebar />
           </div>
 
-          {/* Right Content */}
           <div className="lg:col-span-3">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-2xl font-bold text-gray-900">Favourites</h2>
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="Search"
-                  className="pl-10 w-48"
+                  placeholder="Search favourites"
+                  className="pl-10 w-56"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Doctors Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDoctors.map((doctor) => (
-                <Card key={doctor.id} className="overflow-hidden hover:shadow-lg transition">
-                  <div className="relative h-48">
-                    <img
-                      src={doctor.image || "/placeholder.svg"}
-                      alt={doctor.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <button className="absolute top-3 right-3 bg-white p-2 rounded-full shadow">
-                      <Heart className="w-5 h-5 text-red-500 fill-red-500" />
-                    </button>
-                  </div>
+            {isLoading && (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            )}
 
-                  <CardContent className="p-4">
-                    <Link href="#" className="text-blue-600 text-sm font-medium hover:underline">
-                      {doctor.name}
-                    </Link>
-                    <p className="text-gray-600 text-sm">{doctor.specialty}</p>
+            {!isLoading && error && (
+              <div className="text-center py-12 text-red-600">{error}</div>
+            )}
 
-                    <div className="flex items-center gap-1 mt-2 mb-3">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < Math.floor(doctor.rating)
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-gray-300"
-                          }`}
+            {!isLoading && !error && filteredDoctors.length === 0 && (
+              <div className="text-center py-12 bg-white border rounded-lg">
+                <p className="text-gray-700 font-medium mb-2">No favourite doctors yet</p>
+                <p className="text-sm text-gray-500 mb-4">Like a doctor from the doctors list and it will appear here.</p>
+                <Link href="/doctors">
+                  <Button className="bg-blue-600 text-white hover:bg-blue-700">Browse Doctors</Button>
+                </Link>
+              </div>
+            )}
+
+            {!isLoading && !error && filteredDoctors.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredDoctors.map((doctor) => (
+                  <Card key={doctor.id} className="overflow-hidden hover:shadow-lg transition">
+                    <div className="relative h-48 bg-gray-200">
+                      {doctor.image ? (
+                        <img
+                          src={doctor.image}
+                          alt={doctor.name}
+                          className="w-full h-full object-cover"
                         />
-                      ))}
-                      <span className="text-sm font-medium ml-1">
-                        {doctor.rating}
-                      </span>
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-300 to-blue-200 flex items-center justify-center">
+                          <span className="text-blue-700 font-bold text-2xl">
+                            {doctor.name.split(" ").map((n) => n[0]).join("")}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        className="absolute top-3 right-3 bg-white p-2 rounded-full shadow"
+                        onClick={() => removeFromFavourites(doctor.id)}
+                        aria-label="Remove from favourites"
+                      >
+                        <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                      </button>
                     </div>
 
-                    <div className="space-y-1 text-xs text-gray-600 mb-3">
-                      <p>📅 Next Availability: {doctor.nextAvailable}</p>
-                      <p>📍 Location: {doctor.location}</p>
-                      <p className="text-gray-500">
-                        Last booked on {doctor.lastBooked}
-                      </p>
-                    </div>
+                    <CardContent className="p-4">
+                      <Link href={`/doctor-profile?id=${doctor.id}`} className="text-blue-600 text-sm font-medium hover:underline">
+                        {doctor.name}
+                      </Link>
+                      <p className="text-gray-600 text-sm">{doctor.specialty}</p>
 
-                    <Button className="w-full bg-blue-50 text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white">
-                      Book Now
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <div className="flex items-center gap-1 mt-2 mb-3">
+                        <span className="text-sm font-bold text-gray-900">{doctor.rating}</span>
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < Math.floor(doctor.rating || 0)
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                        <span className="text-xs text-gray-500 ml-1">({doctor.reviewCount || 0} reviews)</span>
+                      </div>
+
+                      <div className="space-y-1 text-xs text-gray-600 mb-3">
+                        <p className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {doctor.location}
+                        </p>
+                        <p>Fee: {doctor.fee}</p>
+                      </div>
+
+                      <Link href={`/booking?doctorId=${doctor.id}`}>
+                        <Button className="w-full bg-blue-50 text-blue-600 border border-blue-600 hover:bg-blue-600 hover:text-white">
+                          Book Now
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

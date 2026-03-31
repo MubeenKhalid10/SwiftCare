@@ -1,61 +1,38 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Loader2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
+import { getReviews, deleteReview, getPatients, getDoctors } from '@/lib/api'
+import type { Review, Patient, Doctor } from '@/lib/types'
 
-type Review = {
-  id: string
-  patientId: string
-  doctorId: string
-  rating: number
-  description: string
-  date: string
-}
-
-type Patient = {
-  id: string
-  name: string
-}
-
-type Doctor = {
-  id: string
-  name: string
-}
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [patients, setPatients] = useState<Record<string, Patient>>({})
   const [doctors, setDoctors] = useState<Record<string, Doctor>>({})
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [reviewsRes, patientsRes, doctorsRes] = await Promise.all([
-          fetch('https://swiftcare.up.railway.app/reviews'),
-          fetch('https://swiftcare.up.railway.app/patients'),
-          fetch('https://swiftcare.up.railway.app/doctors')
+        const [reviewsData, patientsData, doctorsData] = await Promise.all([
+          getReviews(),
+          getPatients(),
+          getDoctors()
         ])
 
-        if (!reviewsRes.ok || !patientsRes.ok || !doctorsRes.ok) {
-          throw new Error('Failed to fetch data')
-        }
-
-        const reviewsData: Review[] = await reviewsRes.json()
-        const patientsData: Patient[] = await patientsRes.json()
-        const doctorsData: Doctor[] = await doctorsRes.json()
-
-        // Convert patients and doctors arrays to a map for easy lookup
         const patientsMap: Record<string, Patient> = {}
         patientsData.forEach((p) => {
-          patientsMap[p.id] = p
+          patientsMap[String(p.id)] = p
         })
 
         const doctorsMap: Record<string, Doctor> = {}
         doctorsData.forEach((d) => {
-          doctorsMap[d.id] = d
+          doctorsMap[String(d.id)] = d
         })
 
         setPatients(patientsMap)
@@ -71,6 +48,21 @@ export default function ReviewsPage() {
 
     fetchData()
   }, [])
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this review?")) return
+    
+    try {
+      setIsDeleting(id)
+      await deleteReview(id)
+      setReviews(reviews.filter(r => String(r.id) !== String(id)))
+    } catch (err) {
+      alert("Failed to delete review")
+      console.error(err)
+    } finally {
+      setIsDeleting(null)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -120,11 +112,15 @@ export default function ReviewsPage() {
                   <td className="px-6 py-4 text-sm">
                     <span className="text-yellow-400">{'★'.repeat(review.rating)}</span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{review.description}</td>
-                  <td className="px-6 py-4 text-sm">{review.date}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{review.comment}</td>
+                  <td className="px-6 py-4 text-sm">{new Date(review.createdAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-sm">
-                    <button className="text-red-600 hover:text-red-700">
-                      <Trash2 className="w-4 h-4" />
+                    <button 
+                      onClick={() => handleDelete(review.id)}
+                      disabled={isDeleting === review.id}
+                      className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                    >
+                      {isDeleting === review.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
                   </td>
                 </tr>
@@ -139,3 +135,4 @@ export default function ReviewsPage() {
     </AdminLayout>
   )
 }
+

@@ -193,10 +193,12 @@ export default function AdminDashboard() {
                   <div className="text-right">
                     <p className="text-sm text-gray-600">{apt.date}</p>
                     <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      apt.status === 'upcoming' 
-                        ? 'bg-green-100 text-green-700' 
-                        : apt.status === 'completed'
+                      apt.status === 'Pending' 
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : apt.status === 'In Progress'
                         ? 'bg-blue-100 text-blue-700'
+                        : apt.status === 'Completed'
+                        ? 'bg-green-100 text-green-700'
                         : 'bg-red-100 text-red-700'
                     }`}>
                       {apt.status}

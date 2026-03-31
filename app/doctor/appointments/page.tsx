@@ -1,27 +1,99 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
-import { Header } from '@/components/header';
-import { Footer } from '@/components/footer';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { DoctorSidebar } from '@/components/doctor/doctor-sidebar';
+import { useState, useEffect } from "react"
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { DoctorSidebar } from "@/components/doctor/doctor-sidebar"
+import { useAuth } from "@/lib/auth-context"
+import { getAppointmentsByDoctorId, updateAppointmentStatus, getPatientById } from "@/lib/api"
+import type { Appointment } from "@/lib/types"
+import { Loader2, Calendar, Search, CheckCircle, XCircle, Clock } from "lucide-react"
+import { toast } from "sonner"
 
 export default function DoctorAppointments() {
-  const [filter, setFilter] = useState('upcoming');
+  const { user } = useAuth()
+  const [filter, setFilter] = useState("upcoming")
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [patients, setPatients] = useState<Record<string, any>>({})
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const appointments = [
-    { id: '#Apr0001', patient: 'Adrian', time: '11 Nov 2024 10:45 AM', email: 'adran@example.com', type: 'General Visit', communication: 'Video Call', phone: '+1 504 368 6874' },
-    { id: '#Apr0003', patient: 'Kelly', time: '05 Nov 2024 11:50 AM', email: 'kelly@example.com', type: 'General Visit', communication: 'Audio Call', phone: '+1 832 891 8403', badge: 'Pro' },
-    { id: '#Apr0003', patient: 'Samuel', time: '27 Oct 2024 09:30 AM', email: 'samuel@example.com', type: 'General Visit', communication: 'Video Call', phone: '+1 749 104 6291' },
-    { id: '#Apr0004', patient: 'Catherine', time: '18 Oct 2024 12:20 PM', email: 'catherine@example.com', type: 'General Visit', communication: 'Direct Visit', phone: '+1 584 920 7183' },
-    { id: '#Apr0005', patient: 'Robert', time: '10 Oct 2024 11:30 AM', email: 'robert@example.com', type: 'General Visit', communication: 'Chat', phone: '+1 059 327 6729' },
-    { id: '#Apr0006', patient: 'Anderea', time: '26 Sep 2024 10:20 AM', email: 'anderea@example.com', type: 'General Visit', communication: 'Chat', phone: '+1 278 402 7103' },
-    { id: '#Apr0007', patient: 'Peter', time: '14 Sep 2024 08:10 AM', email: 'peter@example.com', type: 'General Visit', communication: 'Chat', phone: '+1 638 278 0249' },
-    { id: '#Apr0008', patient: 'Emily', time: '03 Sep 2024 06:00 PM', email: 'emily@example.com', type: 'General Visit', communication: 'Video Call', phone: '+1 261 037 1873' },
-  ];
+  useEffect(() => {
+    if (user?.id) {
+      fetchData()
+    }
+  }, [user?.id])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const apts = await getAppointmentsByDoctorId(user!.id)
+      setAppointments(apts)
+
+      // Fetch patient details for each appointment
+      const patientIds = Array.from(new Set(apts.map(a => a.patientId)))
+      const patientData: Record<string, any> = {}
+
+      await Promise.all(
+        patientIds.map(async (id) => {
+          const p = await getPatientById(id)
+          if (p) patientData[id] = p
+        })
+      )
+      setPatients(patientData)
+    } catch (err) {
+      toast.error("Failed to load appointments")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateStatus = async (id: string, newStatus: Appointment["status"]) => {
+    if (!newStatus) return;
+    
+    try {
+      setActionLoading(id)
+      await updateAppointmentStatus(id, newStatus)
+      setAppointments(prev => prev.map(apt =>
+        apt.id === id ? { ...apt, status: newStatus } : apt
+      ))
+      toast.success(`Appointment marked as ${newStatus}`)
+    } catch (error) {
+      toast.error("Failed to update appointment status")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // Group appointments by status based on the selected filter tab
+  const filteredAppointments = appointments.filter(apt => {
+    const patientName = patients[apt.patientId]?.name || apt.patientName || ""
+    const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase())
+
+    if (!matchesSearch) return false
+
+    if (filter === "upcoming") {
+      return apt.status === "Pending"      // Hasn't started yet
+    } else if (filter === "active") {
+      return apt.status === "In Progress"  // Currently happening
+    } else if (filter === "completed") {
+      return apt.status === "Completed"    // Finished
+    } else if (filter === "cancelled") {
+      return apt.status === "Cancelled"    // Cancelled
+    }
+    return true
+  })
+
+  // Count metrics for badges
+  const upcomingCount = appointments.filter(a => a.status === "Pending").length
+  const activeCount = appointments.filter(a => a.status === "In Progress").length
+  const completedCount = appointments.filter(a => a.status === "Completed").length
+  const cancelledCount = appointments.filter(a => a.status === "Cancelled").length
 
   return (
     <>
@@ -43,65 +115,129 @@ export default function DoctorAppointments() {
 
               <Card>
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold">Appointments</h2>
-                    <div className="flex items-center gap-4">
-                      <Input placeholder="Search" className="w-48" />
-                      <Button variant="outline" size="sm">📅</Button>
-                      <Button variant="outline" size="sm">📊</Button>
-                      <Button variant="outline" size="sm">📋</Button>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <h2 className="text-xl font-bold">Manage Bookings</h2>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
+                      <Search className="w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search patient..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="bg-transparent border-none outline-none w-32 focus:w-48 transition-all"
+                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 mb-6">
-                    <Button variant={filter === 'upcoming' ? 'default' : 'outline'} onClick={() => setFilter('upcoming')}>
-                      Upcoming <Badge className="ml-2">21</Badge>
+                  <div className="flex flex-wrap items-center gap-2 mb-6">
+                    <Button variant={filter === "upcoming" ? "default" : "outline"} onClick={() => setFilter("upcoming")} className="flex items-center gap-2">
+                      Upcoming <Badge variant={filter === "upcoming" ? "secondary" : "default"} className="ml-1">{upcomingCount}</Badge>
                     </Button>
-                    <Button variant={filter === 'cancelled' ? 'default' : 'outline'} onClick={() => setFilter('cancelled')}>
-                      Cancelled <Badge className="ml-2" variant="outline">16</Badge>
+                    <Button variant={filter === "active" ? "default" : "outline"} onClick={() => setFilter("active")} className="flex items-center gap-2">
+                      Active <Badge variant={filter === "active" ? "secondary" : "default"} className="ml-1 bg-green-500 text-white hover:bg-green-600">{activeCount}</Badge>
                     </Button>
-                    <Button variant={filter === 'completed' ? 'default' : 'outline'} onClick={() => setFilter('completed')}>
-                      Completed <Badge className="ml-2" variant="outline">214</Badge>
+                    <Button variant={filter === "completed" ? "default" : "outline"} onClick={() => setFilter("completed")} className="flex items-center gap-2">
+                      Completed <Badge variant={filter === "completed" ? "secondary" : "default"} className="ml-1">{completedCount}</Badge>
+                    </Button>
+                    <Button variant={filter === "cancelled" ? "default" : "outline"} onClick={() => setFilter("cancelled")} className="flex items-center gap-2">
+                      Cancelled <Badge variant={filter === "cancelled" ? "secondary" : "default"} className="ml-1 bg-red-500 text-white hover:bg-red-600">{cancelledCount}</Badge>
                     </Button>
                   </div>
 
-                  <div className="space-y-4">
-                    {appointments.map((apt, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-gradient-to-br from-yellow-200 to-yellow-300 rounded-full flex items-center justify-center">
-                            <span>🧑</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{apt.id}</p>
-                            <p className="text-sm font-semibold">{apt.patient}</p>
-                            {apt.badge && <Badge className="text-xs">{apt.badge}</Badge>}
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <span>●</span>
-                            <span>{apt.time}</span>
-                          </div>
-                          <span className="text-xs text-gray-600">{apt.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600">{apt.type}</span>
-                          <span className="text-xs text-gray-600">{apt.communication}</span>
-                          <span className="text-xs text-gray-600">{apt.phone}</span>
-                          <Button size="sm" className="text-xs">Start Now</Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {loading ? (
+                    <div className="flex justify-center items-center py-20">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    </div>
+                  ) : filteredAppointments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                      <Calendar className="w-12 h-12 text-gray-300 mb-3" />
+                      <p className="text-lg font-medium">No {filter} appointments found.</p>
+                      <p className="text-sm">When patients book, they will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredAppointments.map((apt) => {
+                        const patient = patients[apt.patientId]
+                        const patientName = patient?.name || apt.patientName || "Unknown Patient"
+                        const isActionLoading = actionLoading === apt.id
 
-                  <div className="flex items-center justify-center gap-2 mt-6 pt-6 border-t">
-                    <Button variant="outline" size="sm">&lt;</Button>
-                    <Button variant="outline" size="sm">1</Button>
-                    <Button className="text-xs">2</Button>
-                    <Button variant="outline" size="sm">3</Button>
-                    <Button variant="outline" size="sm">4</Button>
-                    <span className="text-sm text-gray-600">...</span>
-                    <Button variant="outline" size="sm">&gt;</Button>
-                  </div>
+                        return (
+                          <div key={apt.id} className="flex flex-col md:flex-row md:items-center justify-between p-5 border border-gray-100 rounded-xl hover:shadow-md transition-shadow bg-white">
+                            <div className="flex items-start md:items-center gap-4 mb-4 md:mb-0">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center text-xl shrink-0">
+                                🧑
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-bold text-gray-900 text-lg">{patientName}</p>
+                                  <span className="text-xs text-gray-400">ID: {apt.id?.substring(0, 8)}</span>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                                  <div className="flex items-center gap-1 font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    <span>{apt.date} • {apt.time}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+                                  <span>Type: <b>{apt.bookingFor || 'General Visit'}</b></span>
+                                  <span>•</span>
+                                  <span>Problem: <b>{apt.problem || 'None specified'}</b></span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons based on Status */}
+                            <div className="flex items-center gap-2 self-start md:self-center">
+                              {apt.status === "Pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    onClick={() => handleUpdateStatus(apt.id!, "Cancelled")}
+                                    disabled={isActionLoading}
+                                  >
+                                    <XCircle className="w-4 h-4 mr-1" /> Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-500 hover:bg-green-600 text-white"
+                                    onClick={() => handleUpdateStatus(apt.id!, "In Progress")}
+                                    disabled={isActionLoading}
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" /> Check-in
+                                  </Button>
+                                </>
+                              )}
+
+                              {apt.status === "In Progress" && (
+                                <Button
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
+                                  onClick={() => handleUpdateStatus(apt.id!, "Completed")}
+                                  disabled={actionLoading === apt.id}
+                                >
+                                  {actionLoading === apt.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete Consultation (Check-out)"}
+                                </Button>
+                              )}
+
+                              {apt.status === "Completed" && (
+                                <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-200 pointer-events-none px-3 py-1">
+                                  <CheckCircle className="w-3 h-3 mr-1" /> Completed
+                                </Badge>
+                              )}
+
+                              {apt.status === "Cancelled" && (
+                                <Badge className="bg-red-50 text-red-600 hover:bg-red-100 border-red-100 pointer-events-none px-3 py-1">
+                                  <XCircle className="w-3 h-3 mr-1" /> Cancelled
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>
@@ -110,5 +246,6 @@ export default function DoctorAppointments() {
       </div>
       <Footer />
     </>
-  );
+  )
 }
+
