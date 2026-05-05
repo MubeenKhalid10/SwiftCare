@@ -31,7 +31,7 @@ export default function Hero() {
             <div className="flex bg-white rounded-full p-2 mb-8 shadow-lg">
               <input
                 type="text"
-                placeholder="Search doctors, hospital..."
+                placeholder="Search doctors,..."
                 className="flex-1 px-6 py-3 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none"
               />
               <button className="bg-blue-600 text-white px-6 py-3 rounded-full font-medium hover:bg-blue-700 transition">
@@ -59,6 +59,11 @@ export default function Hero() {
               <div className="text-center">
                 <div className="w-32 h-40 bg-gradient-to-br from-blue-300 to-blue-200 rounded-xl mb-4 mx-auto flex items-center justify-center">
                   <span className="text-blue-900 font-semibold">Doctor Image</span>
+                 <img 
+  src="https://plus.unsplash.com/premium_vector-1714618853170-099b7070c9c7?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGRvY3RvcnxlbnwwfHwwfHx8MA%3D%3D" 
+  alt="Doctor" 
+  className="absolute inset-0 w-full h-full object-cover rounded-xl"
+/>
                 </div>
                 <p className="text-white text-sm">Professional Healthcare Provider</p>
               </div>

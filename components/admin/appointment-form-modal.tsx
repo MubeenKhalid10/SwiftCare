@@ -31,7 +31,6 @@ export function AppointmentFormModal({
       date: '',
       time: '',
       status: 'upcoming',
-      type: 'Direct Visit',
       email: '',
       phone: '',
     }
@@ -55,7 +54,6 @@ export function AppointmentFormModal({
         date: '',
         time: '',
         status: 'upcoming',
-        type: 'Direct Visit',
         email: '',
         phone: '',
       })
@@ -118,22 +116,6 @@ export function AppointmentFormModal({
               onChange={handleChange}
               required
             />
-          </div>
-
-          <div>
-            <Label htmlFor="type">Appointment Type</Label>
-            <select
-              id="type"
-              name="type"
-              value={formData.type || 'Direct Visit'}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="Direct Visit">Direct Visit</option>
-              <option value="Video Call">Video Call</option>
-              <option value="Audio Call">Audio Call</option>
-              <option value="Chat">Chat</option>
-            </select>
           </div>
 
           <div>

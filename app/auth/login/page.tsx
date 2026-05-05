@@ -62,14 +62,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      <Link href="/admin/login" className="absolute right-4 top-4 z-20">
+        <Button type="button" variant="outline" className="bg-white/90 backdrop-blur hover:bg-white">
+          Admin Login
+        </Button>
+      </Link>
+
       {/* Left Side */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 items-center justify-center p-8">
         <div className="w-full max-w-md text-center">
           <h2 className="text-4xl font-bold text-white mb-4">SwiftCare</h2>
           <p className="text-blue-100 text-lg">Your Health, Our Priority</p>
           <img
-            src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=600&fit=crop"
+            src="https://plus.unsplash.com/premium_vector-1682306895029-1c07dc2c0dfc?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
             alt="Healthcare"
             className="w-full h-auto object-contain mt-8 rounded-2xl shadow-2xl"
           />

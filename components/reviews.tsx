@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Star, Loader2 } from "lucide-react"
-import { getReviews, getPatients } from "@/lib/api"
+import { getReviews, getPatients, getDoctors } from "@/lib/api"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/avatar-utils"
 import type { Review } from "@/lib/types"
@@ -15,14 +15,38 @@ export default function Reviews() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [reviewsData, patientsData] = await Promise.all([
+        const [reviewsData, patientsData, doctorsData] = await Promise.all([
           getReviews(),
-          getPatients()
+          getPatients(),
+          getDoctors(),
         ])
+
+        const patientMap = new Map(
+          patientsData.map((patient: any) => [String(patient.id || patient._id), patient])
+        )
+
+        const doctorMap = new Map(
+          doctorsData.map((doctor: any) => [String(doctor.id || doctor._id), doctor])
+        )
+
         // Get top 3 reviews by rating
         const topReviews = reviewsData
+          .map((review: any) => {
+            const patient = patientMap.get(String(review.patientId))
+            const doctor = doctorMap.get(String(review.doctorId))
+
+            return {
+              ...review,
+              patientName: review.patientName || patient?.name || "Anonymous Patient",
+              avatar: review.avatar || patient?.avatar || patient?.image || "/placeholder.svg",
+              doctorName: review.doctorName || doctor?.name || "Unknown Doctor",
+              comment: review.comment || review.text || review.notes || "",
+              createdAt: review.createdAt || review.date || new Date().toISOString(),
+            }
+          })
           .sort((a, b) => b.rating - a.rating)
           .slice(0, 3)
+
         setReviews(topReviews)
         setTotalPatients(patientsData.length)
       } catch (err) {
@@ -74,7 +98,7 @@ export default function Reviews() {
                     />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-4 italic">"{review.text}"</p>
+                <p className="text-gray-700 mb-4 italic">"{review.comment || 'No review text provided.'}"</p>
                 <div className="flex items-center space-x-3">
                   <Avatar className="w-10 h-10">
                     <AvatarImage src={review.avatar || "/placeholder.svg"} alt={review.patientName} />
@@ -84,7 +108,7 @@ export default function Reviews() {
                   </Avatar>
                   <div>
                     <p className="font-semibold text-sm">{review.patientName}</p>
-                    <p className="text-xs text-gray-500">Verified Patient • {review.date}</p>
+                    <p className="text-xs text-gray-500">Posted on {new Date(review.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-200">

@@ -5,11 +5,46 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Phone, Mail, Star, Calendar, Plus, Edit2, Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
-import { getDoctors, updateDoctor, deleteDoctor, createDoctor } from '@/lib/api'
-import { DoctorFormModal } from '@/components/admin/doctor-form-modal'
+import { getDoctors, updateDoctor, deleteDoctor, createDoctor, getAppointments, getReviews } from '@/lib/api'
+import { DoctorFormModal, type DoctorFormData } from '@/components/admin/doctor-form-modal'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import type { Doctor } from '@/lib/types'
+
+function normalizeDoctor(raw: any, totalAppointments?: number, computedRating?: number): Doctor {
+  const locationObject = typeof raw?.location === 'object' ? raw.location : undefined
+  const specialization = raw?.specialty || raw?.specialization || raw?.professionalInfo?.specialization || ''
+  const consultationFee = typeof raw?.consultationFee === 'number'
+    ? raw.consultationFee
+    : raw?.fee
+      ? Number(String(raw.fee).replace(/[^0-9.]/g, ''))
+      : 0
+
+  return {
+    ...raw,
+    id: raw?.id || raw?._id,
+    name: raw?.name || 'Unnamed Doctor',
+    email: String(raw?.email || raw?.credentials?.email || raw?.professionalInfo?.email || '').trim(),
+    specialty: specialization,
+    specialization,
+    phone: String(raw?.phone || raw?.contactNo || raw?.clinicPhone || raw?.clinicInfo?.phone || '').trim(),
+    experience: raw?.experience || '',
+    about: raw?.about || '',
+    image: raw?.image || '',
+    clinicName: raw?.clinicName || locationObject?.clinicName || '',
+    locationLabel: raw?.locationLabel || locationObject?.label || (typeof raw?.location === 'string' ? raw.location : ''),
+    fee: `RS. ${Number.isFinite(consultationFee) ? consultationFee : 0}`,
+    rating: computedRating ?? raw?.rating ?? raw?.averageRating ?? 0,
+    totalAppointments: totalAppointments ?? raw?.totalAppointments ?? 0,
+  }
+}
+
+function splitCommaSeparated(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
 
 export default function DoctorsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -30,8 +65,42 @@ export default function DoctorsPage() {
 
     async function fetchDoctors() {
       try {
-        const data = await getDoctors()
-        setDoctors(data)
+        const [doctorData, appointmentData, reviewData] = await Promise.all([
+          getDoctors(undefined, undefined, true),
+          getAppointments(),
+          getReviews(),
+        ])
+
+        const appointmentCountByDoctor = new Map<string, number>()
+        for (const apt of appointmentData) {
+          const key = String(apt.doctorId || '')
+          if (!key) continue
+          appointmentCountByDoctor.set(key, (appointmentCountByDoctor.get(key) || 0) + 1)
+        }
+
+        const reviewStatsByDoctor = new Map<string, { sum: number; count: number }>()
+        for (const review of reviewData) {
+          const key = String(review.doctorId || '')
+          if (!key) continue
+          const current = reviewStatsByDoctor.get(key) || { sum: 0, count: 0 }
+          reviewStatsByDoctor.set(key, {
+            sum: current.sum + Number(review.rating || 0),
+            count: current.count + 1,
+          })
+        }
+
+        const normalizedDoctors = doctorData.map((doc: any) => {
+          const doctorId = String((doc as any)?.id || (doc as any)?._id || '')
+          const appointmentCount = appointmentCountByDoctor.get(doctorId) || 0
+          const ratingStats = reviewStatsByDoctor.get(doctorId)
+          const averageRating = ratingStats && ratingStats.count > 0
+            ? ratingStats.sum / ratingStats.count
+            : Number((doc as any).averageRating || (doc as any).rating || 0)
+
+          return normalizeDoctor(doc, appointmentCount, averageRating)
+        })
+
+        setDoctors(normalizedDoctors)
       } catch (err) {
         setError('Failed to load doctors')
         console.error(err)
@@ -71,16 +140,54 @@ export default function DoctorsPage() {
     }
   }
 
-  const handleFormSubmit = async (data: Partial<Doctor>) => {
+  const handleFormSubmit = async (data: DoctorFormData) => {
     try {
       setIsSubmitting(true)
       if (selectedDoctor) {
-        await updateDoctor(String(selectedDoctor.id), data)
-        setDoctors(doctors.map(d => String(d.id) === String(selectedDoctor.id) ? { ...d, ...data } : d))
+        const selectedDoctorAny = selectedDoctor as any
+        const currentLocation = typeof selectedDoctorAny.location === 'object' ? selectedDoctorAny.location : {}
+        const currentGeo = currentLocation?.geo || {
+          type: 'Point',
+          coordinates: selectedDoctorAny.locationCoordinates || [0, 0],
+        }
+
+        const feeValue = Number(data.consultationFee)
+
+        const payload: any = {
+          name: data.name.trim(),
+          specialization: data.specialization.trim(),
+          experience: data.experience.trim(),
+          about: data.about.trim(),
+          image: data.image.trim() || undefined,
+          contactNo: data.phone.trim() || undefined,
+          consultationFee: Number.isFinite(feeValue) ? feeValue : undefined,
+          credentials: {
+            ...(selectedDoctorAny.credentials || {}),
+            email: data.email.trim(),
+          },
+          professionalInfo: {
+            ...(selectedDoctorAny.professionalInfo || {}),
+            specialization: data.specialization.trim(),
+          },
+          location: {
+            ...currentLocation,
+            clinicName: data.clinicName.trim() || undefined,
+            label: data.clinicLocation.trim() || undefined,
+            geo: currentGeo,
+          },
+          schedule: {
+            availableDays: splitCommaSeparated(data.availableDays),
+            availableHours: splitCommaSeparated(data.availableHours),
+          },
+        }
+
+        const updated = await updateDoctor(String(selectedDoctor.id), payload)
+        const normalizedUpdated = normalizeDoctor(updated)
+        setDoctors(doctors.map((d) => String(d.id) === String(selectedDoctor.id) ? normalizedUpdated : d))
         toast({ description: 'Doctor updated successfully' })
       } else {
-        const newDoctor = await createDoctor(data as Omit<Doctor, 'id'>)
-        setDoctors([...doctors, newDoctor])
+        const newDoctor = await createDoctor(data as unknown as Omit<Doctor, 'id'>)
+        setDoctors([...doctors, normalizeDoctor(newDoctor)])
         toast({ description: 'Doctor created successfully' })
       }
       setIsFormOpen(false)
@@ -110,10 +217,6 @@ export default function DoctorsPage() {
             <h1 className="text-3xl font-bold">Doctors</h1>
             <p className="text-gray-600">Dashboard / Doctors</p>
           </div>
-          <Button onClick={handleAddDoctor} className="bg-blue-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Doctor
-          </Button>
         </div>
 
         {error && (
@@ -127,25 +230,31 @@ export default function DoctorsPage() {
               className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow"
             >
               <div className="flex flex-col items-center text-center mb-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold mb-3">
-                  {doctor.name.split(' ').map(n => n[0]).join('')}
+                <div className="w-20 h-20 rounded-full mb-3 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
+                  {doctor.image ? (
+                    <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {(doctor.name || 'Doctor').split(' ').map(n => n[0]).join('')}
+                    </div>
+                  )}
                 </div>
                 <h3 className="font-bold text-lg">{doctor.name}</h3>
-                <p className="text-blue-600 text-sm">{doctor.specialty}</p>
+                <p className="text-blue-600 text-sm">{doctor.specialty || 'Unspecified'}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm font-medium">{doctor.rating}</span>
+                  <span className="text-sm font-medium">{Number(doctor.rating || 0).toFixed(1)}</span>
                 </div>
               </div>
               
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
                   <Phone className="w-4 h-4" />
-                  <span>{doctor.phone}</span>
+                  <span>{doctor.phone || 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Mail className="w-4 h-4" />
-                  <span className="truncate">{doctor.email}</span>
+                  <span className="truncate">{doctor.email || 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Calendar className="w-4 h-4" />
@@ -153,14 +262,7 @@ export default function DoctorsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  doctor.available
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                }`}>
-                  {doctor.available ? 'Available' : 'Unavailable'}
-                </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex gap-2">
                   <Button
                     size="sm"

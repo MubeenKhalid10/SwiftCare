@@ -58,13 +58,14 @@ export default function BookingStep4({ data, user, onNext, onBack }: BookingStep
       <Card className="p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-300 to-blue-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
-            {data.doctor.image ? (
-              <img src={data.doctor.image || "/placeholder.svg"} alt={data.doctor.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-blue-700 font-bold">
-                {data.doctor.name?.split(' ').map((n: string) => n[0]).join('') || 'DR'}
-              </span>
-            )}
+            <img
+              src={data.doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+              alt={data.doctor.name}
+              className="w-full h-full object-cover"
+              onError={(event) => {
+                event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
+              }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">

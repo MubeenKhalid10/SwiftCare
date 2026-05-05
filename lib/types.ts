@@ -1,4 +1,4 @@
-// API Response Types based on the backend at http://localhost:3000
+// API Response Types based on the backend at http://localhost:5000
 
 export interface Doctor {
   id: number | string
@@ -7,7 +7,18 @@ export interface Doctor {
   password?: string
   specialty?: string
   specialization?: string
-  location?: string
+  location?: string | {
+    label?: string
+    clinicName?: string
+    coordinates?: [number, number]
+    geo?: {
+      type?: string
+      coordinates?: [number, number]
+    }
+  }
+  locationLabel?: string
+  locationCoordinates?: [number, number]
+  clinicName?: string
   rating?: number
   experience?: string
   fee?: string
@@ -29,6 +40,10 @@ export interface Doctor {
   verificationStatus?: 'pending' | 'submitted' | 'approved' | 'rejected';
   averageRating?: number
   reviewCount?: number
+  accountStatus?: {
+    registered?: boolean
+    verificationStatus?: 'pending' | 'submitted' | 'approved' | 'rejected'
+  }
 }
 
 export interface Patient {
@@ -122,15 +137,19 @@ export interface RegisterData {
   email: string
   password: string
   role?: "patient" | "doctor"
+  phone?: string
   specialization?: string
   location?: {
     label: string;
-    coordinates: [number, number];
+    coordinates?: [number, number];
+    clinicName?: string;
+    source?: "browser" | "ip" | "address" | "manual";
   };
   schedule?: {
     availableDays: string[];
     availableHours: string[];
   };
+  clinicName?: string
 }
 
 // Dashboard stats types
@@ -139,6 +158,8 @@ export interface DashboardStats {
   totalPatients: number
   totalAppointments: number
   totalRevenue: number
+  revenueAnalytics: Array<{ year: number; revenue: number }>
+  statusAnalytics: Array<{ year: number; doctors: number; patients: number }>
   topDoctors: (Doctor & { totalAppointments: number })[]
   recentAppointments: (Appointment & { doctorName: string; patientName: string })[]
 }

@@ -12,6 +12,7 @@ import { getDoctorById, getAppointmentsByDoctorId, getReviewsByDoctorId, createR
 import { getInitials } from '@/lib/avatar-utils'
 import { useAuth } from '@/lib/auth-context'
 import type { Doctor, Review } from '@/lib/types'
+import { ClinicLocationMap } from '@/components/doctor/clinic-location-map';
 
 export default function DoctorProfilePage() {
   const params = useParams()
@@ -29,6 +30,7 @@ export default function DoctorProfilePage() {
   const [newRating, setNewRating] = useState(0)
   const [newComment, setNewComment] = useState('')
   const [reviewError, setReviewError] = useState<string | null>(null)
+  const isRegisteredDoctor = doctor?.accountStatus?.registered !== false
 
   useEffect(() => {
     async function fetchData() {
@@ -141,13 +143,15 @@ export default function DoctorProfilePage() {
             <div className="md:col-span-1">
               <Card className="p-6 sticky top-6">
                 {/* Profile Image */}
-                <div className="w-full h-48 rounded-lg mb-4 overflow-hidden flex items-center justify-center">
-                  <Avatar className="w-full h-full">
-                    <AvatarImage src={doctor.image || "/placeholder.svg"} alt={doctor.name} className="object-cover" />
-                    <AvatarFallback className="text-4xl font-bold bg-blue-600 text-white rounded-none w-full h-full flex items-center justify-center">
-                      {getInitials(doctor.name)}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="w-full h-48 rounded-lg mb-4 overflow-hidden flex items-center justify-center bg-gray-100">
+                  <img
+                    src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+                    alt={doctor.name}
+                    className="w-full h-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
+                    }}
+                  />
                 </div>
 
                 <div className="flex flex-col items-center justify-center mb-4">
@@ -159,6 +163,9 @@ export default function DoctorProfilePage() {
                       />
                     ))}
                   </div>
+                  <span className={`mb-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${isRegisteredDoctor ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {isRegisteredDoctor ? 'Registered' : 'Not Registered'}
+                  </span>
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold">{(doctor.averageRating || 0).toFixed(1)}</span>
                     <span className="text-sm text-gray-500">({doctor.reviewCount || 0} reviews)</span>
@@ -166,12 +173,21 @@ export default function DoctorProfilePage() {
                 </div>
 
                 {/* Booking Button */}
-                <Button
-                  onClick={() => router.push(`/booking?doctorId=${doctor.id}`)}
-                  className="w-full bg-blue-600 mb-3"
-                >
-                  Book Appointment
-                </Button>
+                  {isRegisteredDoctor ? (
+                    <Button
+                      onClick={() => router.push(`/booking?doctorId=${doctor.id}`)}
+                      className="w-full bg-blue-600 mb-3"
+                    >
+                      Book Appointment
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full bg-gray-200 text-gray-700 mb-3 cursor-not-allowed hover:bg-gray-200"
+                      disabled
+                    >
+                      Information Only
+                    </Button>
+                  )}
 
                 {/* Call Button */}
                 <Button
@@ -203,9 +219,16 @@ export default function DoctorProfilePage() {
                     <MapPin className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
                     <div>
                       <p className="text-xs text-gray-500">Location</p>
-                      <p className="text-sm font-medium">{doctor.location || 'Not provided'}</p>
+                      <p className="text-sm font-medium">{doctor.locationLabel || (typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || doctor.location?.clinicName || 'Not provided')}</p>
                     </div>
                   </div>
+                </div>
+
+                <div className="mt-4">
+                  <ClinicLocationMap
+                    label={doctor.locationLabel || (typeof doctor.location === 'string' ? doctor.location : doctor.location?.label) || 'Clinic location'}
+                    coordinates={doctor.locationCoordinates || (typeof doctor.location === 'object' ? doctor.location?.coordinates || doctor.location?.geo?.coordinates : undefined) || null}
+                  />
                 </div>
               </Card>
             </div>

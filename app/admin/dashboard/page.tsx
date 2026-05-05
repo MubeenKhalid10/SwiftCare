@@ -9,23 +9,6 @@ import { useAuth } from '@/lib/auth-context'
 import { getDashboardStats } from '@/lib/api'
 import type { DashboardStats } from '@/lib/types'
 
-const revenueData = [
-  { year: 2020, revenue: 100 },
-  { year: 2021, revenue: 250 },
-  { year: 2022, revenue: 150 },
-  { year: 2023, revenue: 200 },
-  { year: 2024, revenue: 300 },
-  { year: 2025, revenue: 350 }
-]
-
-const statusData = [
-  { year: 2021, doctors: 50, patients: 30 },
-  { year: 2022, doctors: 80, patients: 60 },
-  { year: 2023, doctors: 120, patients: 100 },
-  { year: 2024, doctors: 140, patients: 120 },
-  { year: 2025, doctors: 150, patients: 140 }
-]
-
 export default function AdminDashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
@@ -91,7 +74,7 @@ export default function AdminDashboard() {
     },
     {
       title: 'Revenue',
-      value: `$${(stats?.totalRevenue || 0).toLocaleString()}`,
+      value: `RS. ${(stats?.totalRevenue || 0).toLocaleString()}`,
       icon: DollarSign,
       bgColor: 'bg-yellow-100',
       iconColor: 'text-yellow-500',
@@ -127,7 +110,7 @@ export default function AdminDashboard() {
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <h3 className="text-xl font-bold mb-4">Revenue</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
+              <LineChart data={stats?.revenueAnalytics || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" />
                 <YAxis />
@@ -140,7 +123,7 @@ export default function AdminDashboard() {
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <h3 className="text-xl font-bold mb-4">Status</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={statusData}>
+              <LineChart data={stats?.statusAnalytics || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" />
                 <YAxis />

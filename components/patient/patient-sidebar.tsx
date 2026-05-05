@@ -90,6 +90,11 @@ export function PatientSidebar() {
           <span>Settings</span>
         </Link>
 
+        <Link href="/notifications" className={navItemClass('/notifications')}>
+          <span>🔔</span>
+          <span>Notifications</span>
+        </Link>
+
         <Link href="/privacy-policy" className={navItemClass('/privacy-policy')}>
           <span>🔒</span>
           <span>Privacy Policy</span>

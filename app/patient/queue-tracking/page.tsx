@@ -11,7 +11,8 @@ import Footer from "@/components/footer"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import { useAuth } from "@/lib/auth-context"
 import { getQueueState, trackQueue } from "@/lib/api"
-import { socket } from "@/lib/socket"
+import { socket, connectSocket } from "@/lib/socket"
+import type { QueueState } from "@/lib/types"
 
 export default function QueueTrackingPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -19,9 +20,12 @@ export default function QueueTrackingPage() {
 
   const [shiftId, setShiftId] = useState("")
   const [trackingId, setTrackingId] = useState<string | null>(null)
-  const [currentServing, setCurrentServing] = useState<number | null>(null)
+  const [queueState, setQueueState] = useState<QueueState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const remainingQueue = queueState ? Math.max(0, queueState.lastQueueNumber - queueState.currentServing) : 0
+  const estimatedWaitMinutes = remainingQueue * 10
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || user?.role !== "patient")) {
@@ -32,12 +36,16 @@ export default function QueueTrackingPage() {
 
   useEffect(() => {
     if (!socket.connected) {
-      socket.connect()
+      connectSocket()
     }
 
     const onQueueUpdated = (data: { shiftId: string; currentServing: number }) => {
       if (data.shiftId === trackingId) {
-        setCurrentServing(data.currentServing)
+        setQueueState(prev => prev ? { ...prev, currentServing: data.currentServing } : {
+          shiftId: data.shiftId,
+          currentServing: data.currentServing,
+          lastQueueNumber: 0,
+        })
       }
     }
 
@@ -57,7 +65,7 @@ export default function QueueTrackingPage() {
       setError(null)
       
       const state = await trackQueue(shiftId, "") // phoneLast4 is not needed for authenticated users
-      setCurrentServing(state.currentServing)
+      setQueueState(state)
       setTrackingId(shiftId)
       
       socket.emit("joinQueueRoom", shiftId)
@@ -130,7 +138,7 @@ export default function QueueTrackingPage() {
               </CardContent>
             </Card>
 
-            {trackingId && currentServing !== null && (
+            {trackingId && queueState !== null && (
               <Card className="border-blue-200 bg-blue-50/50">
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center justify-center text-center p-8">
@@ -143,18 +151,24 @@ export default function QueueTrackingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-md">
                       <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
                         <p className="text-sm text-gray-500 mb-1 capitalize">Currently Serving</p>
-                        <p className="text-4xl font-extrabold text-blue-600">{currentServing}</p>
+                        <p className="text-4xl font-extrabold text-blue-600">
+                          {queueState.currentServing > 0 ? `Queue #${queueState.currentServing}` : 'Waiting'}
+                        </p>
                       </div>
                       <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 flex flex-col items-center justify-center">
-                        <p className="text-sm text-gray-500 mb-1">Status</p>
-                        <div className="flex items-center gap-2 text-green-600 font-bold">
+                        <p className="text-sm text-gray-500 mb-1">Remaining Queue</p>
+                        <div className="flex items-center gap-2 text-indigo-600 font-bold">
                           <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
                           </span>
-                          Live Updates
+                          {remainingQueue > 0 ? `${remainingQueue} patients ahead` : 'No patients waiting'}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700">
+                      Approx. wait: {estimatedWaitMinutes} min
                     </div>
                   </div>
                 </CardContent>

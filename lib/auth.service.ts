@@ -29,11 +29,10 @@ export const login = async (email: string, password: string): Promise<AuthRespon
     const normalizedEmail = email.trim();
     console.log("[v0] Login attempt for:", normalizedEmail);
 
-    // Hardcoded admin for testing
+    // Temporary hardcoded admin login
     if (normalizedEmail === "admin@swiftcare.com" && password === "admin123") {
-      console.log("[v0] Admin hardcoded login successful");
       const adminData: AuthResponse = {
-        accessToken: "mock-admin-token-" + Date.now(),
+        accessToken: `mock-admin-token-${Date.now()}`,
         role: "admin",
         userId: "admin-id-001",
         user: {
@@ -43,11 +42,21 @@ export const login = async (email: string, password: string): Promise<AuthRespon
           role: "admin",
         },
       };
-      if (adminData.accessToken) {
-        localStorage.setItem("accessToken", adminData.accessToken);
-      }
+
+      localStorage.setItem("accessToken", adminData.accessToken);
+      localStorage.setItem(
+        "swiftcare_auth",
+        JSON.stringify({
+          user: adminData.user,
+          role: adminData.role,
+          userId: adminData.userId,
+        })
+      );
+
+      console.log("[v0] Hardcoded admin login successful");
       return adminData;
     }
+
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,9 +95,11 @@ export const login = async (email: string, password: string): Promise<AuthRespon
     const data = await res.json();
     console.log("[v0] Login successful, role:", data.role);
 
+    // Store access token for Authorization header
     if (data.accessToken) {
       localStorage.setItem("accessToken", data.accessToken);
     }
+    // Refresh token is stored in HTTPONLY cookie by backend, don't duplicate in localStorage
 
     return data;
   } catch (err) {
@@ -103,15 +114,19 @@ export const register = async (payload: {
   email: string;
   password: string;
   roleHint: "patient" | "doctor";
+  phone?: string;
   specialization?: string;
   location?: {
     label: string;
-    coordinates: [number, number];
+    coordinates?: [number, number];
+    clinicName?: string;
+    source?: "browser" | "ip" | "address" | "manual";
   };
   schedule?: {
     availableDays: string[];
     availableHours: string[];
   };
+  clinicName?: string;
 }): Promise<SignupResponse> => {
   try {
     console.log("[v0] Signup attempt for:", payload.email, "as", payload.roleHint);
@@ -123,10 +138,12 @@ export const register = async (payload: {
         name: payload.name,
         email: payload.email,
         password: payload.password,
+        phone: payload.phone,
         roleHint: payload.roleHint,
         specialization: payload.specialization,
         location: payload.location,
         schedule: payload.schedule,
+        clinicName: payload.clinicName,
       }),
       credentials: "include",
     });
@@ -172,9 +189,11 @@ export const verifyEmailOtp = async (
 
   const data: AuthResponse = await res.json();
 
+  // Store access token for Authorization header
   if (data.accessToken) {
     localStorage.setItem("accessToken", data.accessToken);
   }
+  // Refresh token is stored in HTTPONLY cookie by backend, don't duplicate in localStorage
 
   return data;
 };
@@ -258,9 +277,17 @@ export const uploadProfileImage = async (
   formData.append("userId", userId);
   formData.append("role", role);
 
+  const token = getAccessToken();
+  const headers: Record<string, string> = {};
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${BASE_URL}/api/user/upload-image`, {
     method: "POST",
     body: formData,
+    headers,
     credentials: "include",
   });
 
@@ -275,6 +302,7 @@ export const uploadProfileImage = async (
 export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"): Promise<AuthResponse> => {
   try {
     console.log("[v0] Google auth attempt as", roleHint);
+    console.log("[v0] Sending idToken to backend at:", `${BASE_URL}/auth/google`);
 
     const res = await fetch(`${BASE_URL}/auth/google`, {
       method: "POST",
@@ -285,21 +313,25 @@ export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
-      console.error("[v0] Google auth failed:", error);
-      throw new Error(error.error || "Google authentication failed");
+      console.error("[v0] Google auth failed with status:", res.status);
+      console.error("[v0] Backend response:", error);
+      throw new Error(error.error || `Google authentication failed (${res.status})`);
     }
 
     const data = await res.json();
     console.log("[v0] Google auth successful");
 
+    // Store access token for Authorization header
     if (data.accessToken) {
       localStorage.setItem("accessToken", data.accessToken);
     }
+    // Refresh token is stored in HTTPONLY cookie by backend, don't duplicate in localStorage
 
     return data;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Google authentication failed";
     console.error("[v0] Google auth error:", message);
+    console.error("[v0] Full error object:", err);
     throw new Error(message);
   }
 };
@@ -308,41 +340,45 @@ export const refreshAccessToken = async (): Promise<string> => {
   try {
     console.log("[v0] Attempting to refresh access token");
 
-    // Don't refresh for mock admin
-    const stored = localStorage.getItem("swiftcare_auth");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed?.user?.email === "admin@swiftcare.com") {
-          console.log("[v0] Skipping token refresh for mock admin");
-          return localStorage.getItem("accessToken") || "mock-admin-token";
-        }
-      } catch (e) {}
+    const currentToken = getAccessToken()
+    if (!currentToken) {
+      throw new Error("Unauthorized")
     }
 
+    // Backend stores refresh token in HTTPONLY cookie, send credentials: 'include'
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      credentials: "include", // This sends the refreshToken cookie
     });
 
     if (!res.ok) {
-      console.error("[v0] Token refresh failed, clearing auth state");
+      const errorData = await res.json().catch(() => ({}));
+      if (res.status !== 401) {
+        console.error("[v0] Token refresh failed with status:", res.status)
+        console.error("[v0] Backend error response:", errorData)
+      }
       localStorage.removeItem("accessToken");
       localStorage.removeItem("swiftcare_auth");
-      throw new Error("Failed to refresh token");
+      if (res.status === 401) {
+        throw new Error("Unauthorized")
+      }
+      throw new Error(errorData.error || `Token refresh failed (${res.status})`)
     }
 
     const data = await res.json();
     console.log("[v0] Token refresh successful");
 
+    // Update access token if provided (backend may also send via cookie)
     if (data.accessToken) {
       localStorage.setItem("accessToken", data.accessToken);
     }
 
-    return data.accessToken;
+    return data.accessToken || getAccessToken() || "";
   } catch (err) {
-    console.error("[v0] Refresh token error:", err);
+    if (!(err instanceof Error && (err.message === "Unauthorized" || err.message === "No refresh token"))) {
+      console.error("[v0] Refresh token error:", err)
+    }
     throw err;
   }
 };
@@ -360,11 +396,44 @@ export const logout = async (): Promise<void> => {
     console.error("[v0] Logout error:", err);
   }
 
+  // Clear all auth tokens and data
   localStorage.removeItem("accessToken");
   localStorage.removeItem("swiftcare_auth");
+  console.log("[v0] All auth tokens cleared");
 };
 
+/* ── Get Access Token (Session Persistence) ── */
 export const getAccessToken = (): string | null => {
-  return localStorage.getItem("accessToken");
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    console.log("[v0] Access token found in localStorage");
+  }
+  return token;
+};
+
+/* ── Check if user has valid session ── */
+export const hasValidSession = (): boolean => {
+  const token = getAccessToken();
+  const authData = localStorage.getItem("swiftcare_auth");
+  
+  if (!token || !authData) {
+    console.log("[v0] No valid session found");
+    return false;
+  }
+  
+  try {
+    JSON.parse(authData);
+    console.log("[v0] Valid session found");
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/* ── Clear all auth data securely ── */
+export const clearAuthData = (): void => {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("swiftcare_auth");
+  console.log("[v0] Auth data cleared");
 };
 

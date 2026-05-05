@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { trackQueue } from "@/lib/api"
-import { socket } from "@/lib/socket"
+import { socket, connectSocket } from "@/lib/socket"
 import { useAuth } from "@/lib/auth-context"
 
 export default function TrackQueue() {
@@ -17,9 +17,12 @@ export default function TrackQueue() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const remainingQueue = trackingData ? Math.max(0, trackingData.lastQueueNumber - trackingData.currentServing) : 0
+  const estimatedWaitMinutes = remainingQueue * 10
+
   useEffect(() => {
     if (!socket.connected) {
-      socket.connect()
+      connectSocket()
     }
 
     const onQueueUpdated = (data: { shiftId: string; currentServing: number }) => {
@@ -160,6 +163,17 @@ export default function TrackQueue() {
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                         </span>
                         Live Updates Active
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                      <div className="bg-white rounded-xl border border-blue-100 p-4 text-center">
+                        <p className="text-xs uppercase tracking-widest font-bold text-gray-500 mb-1">Remaining Queue</p>
+                        <p className="text-2xl font-black text-gray-900">{remainingQueue}</p>
+                      </div>
+                      <div className="bg-white rounded-xl border border-blue-100 p-4 text-center">
+                        <p className="text-xs uppercase tracking-widest font-bold text-gray-500 mb-1">Approx. Wait</p>
+                        <p className="text-2xl font-black text-gray-900">{estimatedWaitMinutes} min</p>
                       </div>
                     </div>
                   </div>

@@ -137,19 +137,14 @@ function FavouritesContent() {
                 {filteredDoctors.map((doctor) => (
                   <Card key={doctor.id} className="overflow-hidden hover:shadow-lg transition">
                     <div className="relative h-48 bg-gray-200">
-                      {doctor.image ? (
-                        <img
-                          src={doctor.image}
-                          alt={doctor.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-blue-300 to-blue-200 flex items-center justify-center">
-                          <span className="text-blue-700 font-bold text-2xl">
-                            {doctor.name.split(" ").map((n) => n[0]).join("")}
-                          </span>
-                        </div>
-                      )}
+                      <img
+                        src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+                        alt={doctor.name}
+                        className="w-full h-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
+                        }}
+                      />
                       <button
                         className="absolute top-3 right-3 bg-white p-2 rounded-full shadow"
                         onClick={() => removeFromFavourites(doctor.id)}

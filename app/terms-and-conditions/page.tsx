@@ -11,7 +11,7 @@ export default function TermsAndConditionsPage() {
     {
       title: 'Introduction',
       content:
-        'Welcome to Doccure, a platform that allows you to book appointments with healthcare professionals. By using our services, you agree to these Terms & Conditions. Please read them carefully before proceeding.',
+        'Welcome to SwiftCare. These Terms & Conditions govern your use of the SwiftCare platform for booking healthcare appointments and related services. By using SwiftCare, you agree to these terms.',
       subsections: [
         'You must be at least 18 years old to use this website or have parental/guardian consent.',
         'Ensure that all information provided is accurate and up-to-date.',
@@ -22,31 +22,60 @@ export default function TermsAndConditionsPage() {
       title: 'Booking Appointments',
       content: '',
       subsections: [
-        'Appointments are booked in real-time, subject to availability.',
-        'Users are responsible for attending the scheduled appointments or canceling in a timely manner.',
-        'Cancellations should be made before the appointment to avoid any penalties.',
+        'Appointments are booked through SwiftCare and are subject to provider availability and the provider’s scheduling rules.',
+        'Users must attend scheduled appointments or follow the provider’s cancellation policy.',
+        'Cancellation or rescheduling fees, if any, are presented at the time of booking.',
       ],
     },
     {
       title: 'Medical Disclaimer',
       content: '',
       subsections: [
-        'Doccure provides a platform for scheduling appointments and is not responsible for the medical services provided.',
-        'Healthcare providers listed on the platform are independent practitioners, and [Website Name] does not guarantee the quality or accuracy of medical advice provided.',
+        'SwiftCare provides the platform for appointment scheduling; SwiftCare does not practice medicine and is not responsible for the professional services provided by healthcare providers.',
+        'Healthcare providers are independent and responsible for the care they deliver. SwiftCare does not guarantee outcomes or the suitability of any provider.',
       ],
     },
     {
       title: 'Payment & Fees',
       content: '',
       subsections: [
-        'Payment for appointments may be made through [Payment Method] and is subject to [Insert Payment Terms].',
-        'Any additional fees, such as cancellation or no-show fees, will be disclosed at the time of booking.',
+        'Payments are processed via third-party payment providers. Charges, refunds, and any service fees are described at checkout.',
+        'Providers or SwiftCare may charge cancellation or no-show fees as disclosed during booking.',
       ],
     },
     {
       title: 'Changes to Terms & Conditions',
       content:
-        'Doccure may update these Terms & Conditions periodically. Any changes will be communicated through the website or via email.',
+        'SwiftCare may update these Terms & Conditions from time to time. We will post changes on the site and notify users where required by law.',
+    },
+    {
+      title: 'User Conduct & Obligations',
+      content: '',
+      subsections: [
+        'You must provide accurate information and act lawfully and respectfully toward providers and other users.',
+        'You must not misuse the platform, submit fraudulent information, or attempt to access other users’ accounts.',
+      ],
+    },
+    {
+      title: 'Intellectual Property',
+      content: '',
+      subsections: [
+        'All content on SwiftCare (branding, text, graphics) is owned by SwiftCare or its licensors. You may not reproduce content without permission.',
+      ],
+    },
+    {
+      title: 'Limitation of Liability',
+      content: '',
+      subsections: [
+        'To the maximum extent permitted by law, SwiftCare is not liable for indirect, incidental, or consequential damages arising from use of the service.',
+      ],
+    },
+    {
+      title: 'Contact',
+      content: '',
+      subsections: [
+        'For questions about these Terms, contact support@swiftcare.com.',
+      ],
     },
   ]
 

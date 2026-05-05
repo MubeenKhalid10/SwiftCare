@@ -40,26 +40,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    const accessToken = getAccessToken();
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    const initializeAuth = () => {
+      const accessToken = getAccessToken();
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
 
-    if (accessToken && stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed?.user) {
-          setAuthState({
-            user: parsed.user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-          return;
+      if (accessToken && stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.user) {
+            console.log("[v0] Restoring user session:", parsed.user.role, parsed.user.email);
+            setAuthState({
+              user: parsed.user,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            return;
+          }
+        } catch (e) {
+          console.error("[v0] Failed to parse stored auth:", e);
+          // Clear corrupted auth data
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          localStorage.removeItem("accessToken");
         }
-      } catch (e) {
-        console.error("[v0] Failed to parse stored auth:", e);
+      } else if (!accessToken) {
+        console.log("[v0] No access token found, clearing stored auth");
+        localStorage.removeItem(AUTH_STORAGE_KEY);
       }
-    }
 
-    setAuthState((p) => ({ ...p, isLoading: false }));
+      setAuthState((p) => ({ ...p, isLoading: false }));
+    };
+
+    initializeAuth();
   }, []);
 
   /* ── Fetch Full Profile (if missing Name/Avatar) ── */
@@ -80,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data) {
             const updates: Partial<User> = {
               name: data.name, 
+              email: (data as any).credentials?.email || (data as any).email || authState.user?.email,
               avatar: (data as any).avatar || (data as any).image 
             };
             
@@ -147,9 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         password: data.password,
         roleHint,
+        phone: data.phone,
         specialization: data.specialization,
         location: data.location,
         schedule: data.schedule,
+        clinicName: data.clinicName,
       });
 
       setAuthState((p) => ({ ...p, isLoading: false }));
@@ -214,18 +228,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthState((p) => ({ ...p, isLoading: true }));
       const response = await googleAuthService(idToken, roleHint);
 
-      const user: User = response.user || {
-        id: response.userId,
-        name: "",
-        email: "",
-        role: response.role,
+      // Validate response has required fields
+      if (!response?.userId && !response?.user?.id) {
+        throw new Error("Invalid response from Google authentication");
+      }
+
+      const user: User = {
+        id: response.user?.id || response.userId,
+        name: response.user?.name || "",
+        email: response.user?.email || "",
+        role: response.user?.role || response.role || "patient",
       };
 
+      // Ensure we have a valid role
+      if (!["patient", "doctor", "admin"].includes(user.role)) {
+        user.role = "patient";
+      }
+
       // For doctors, try to fetch verification status
-      if (response.role === "doctor") {
+      if (user.role === "doctor") {
         try {
           const { getDoctorById } = await import("./api");
-          const doctorData = await getDoctorById(response.userId);
+          const doctorData = await getDoctorById(user.id);
           if (doctorData?.accountStatus?.verificationStatus) {
             user.verificationStatus = doctorData.accountStatus.verificationStatus;
           }
@@ -253,6 +277,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[v0] Logout error:", err);
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem("accessToken");
+    console.log("[v0] User logged out, all auth data cleared");
     setAuthState({ user: null, isAuthenticated: false, isLoading: false });
   };
 

@@ -35,6 +35,55 @@ function ensureString(value: any, fallback?: string): string | undefined {
   return String(value)
 }
 
+function normalizeAppointmentStatusDisplay(status?: string): Appointment["status"] {
+  const raw = String(status || "").trim().toLowerCase()
+
+  if (raw === "in progress" || raw === "in-progress" || raw === "inprogress" || raw === "in_progress") {
+    return "In Progress"
+  }
+
+  if (raw === "pending" || raw === "confirmed") {
+    return "Pending"
+  }
+
+  if (raw === "completed") {
+    return "Completed"
+  }
+
+  if (raw === "cancelled" || raw === "canceled") {
+    return "Cancelled"
+  }
+
+  return "Pending"
+}
+
+function normalizeAppointmentRecord<T extends Appointment & { [key: string]: any }>(appointment: T): T {
+  return {
+    ...appointment,
+    status: normalizeAppointmentStatusDisplay(appointment.status),
+    type: ensureString(appointment.type),
+    location: ensureString(appointment.location),
+    patientName: appointment.patientName || appointment.bookingFor || 'Unknown Patient',
+  }
+}
+
+function extractLocationCoordinates(value: any): [number, number] | undefined {
+  const rawCoordinates = value?.coordinates || value?.geo?.coordinates
+  if (!Array.isArray(rawCoordinates) || rawCoordinates.length < 2) return undefined
+
+  const lng = Number(rawCoordinates[0])
+  const lat = Number(rawCoordinates[1])
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return undefined
+
+  return [lng, lat]
+}
+
+function extractLocationLabel(value: any): string | undefined {
+  if (!value) return undefined
+  if (typeof value === "string") return value
+  return value.label || value.clinicName || value.address || value.name || undefined
+}
+
 // Generic fetch wrapper with error handling and token management
 async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true): Promise<T> {
   try {
@@ -47,6 +96,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`
+      console.log(`[v0] Authorization token attached (length: ${token.length})`)
+    } else {
+      console.warn(`[v0] No access token available for: ${endpoint}`)
     }
 
     console.log(`[v0] API call: ${endpoint}`)
@@ -57,10 +109,14 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
       credentials: "include", // CRITICAL: Send cookies with request
     })
 
-    // Handle 401 - try to refresh token and retry
+    // Handle 401 - token expired, try to refresh and retry
     if (response.status === 401 && retry) {
+      if (!token) {
+        throw new Error("Unauthorized")
+      }
+
       try {
-        console.log(`[v0] Token expired, refreshing...`)
+        console.log(`[v0] Token expired (401), refreshing...`)
         const newToken = await refreshAccessToken()
         const retryHeaders: HeadersInit = {
           "Content-Type": "application/json",
@@ -79,11 +135,22 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
         }
 
         const data = await retryResponse.json()
+        console.log(`[v0] Retry successful after token refresh`)
         return data
       } catch (err) {
+        if (err instanceof Error && (err.message === "Unauthorized" || err.message === "No refresh token" || err.message === "Authentication failed. Please login again.")) {
+          throw err
+        }
         console.error(`[v0] Token refresh failed:`, err)
         throw new Error("Authentication failed. Please login again.")
       }
+    }
+
+    // Handle 403 - user doesn't have permission, don't retry
+    if (response.status === 403) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error(`[v0] Access forbidden (403):`, errorData)
+      throw new Error(errorData.message || errorData.error || "You don't have permission to access this resource")
     }
 
     if (!response.ok) {
@@ -96,13 +163,21 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
     return data
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
-    console.error(`[v0] Error fetching ${endpoint}:`, errorMessage)
+    if (errorMessage !== "Unauthorized") {
+      console.error(`[v0] Error fetching ${endpoint}:`, errorMessage)
+    }
     throw err
   }
 }
 
+function normalizeAppointmentStatusValue(status: string): string {
+  const raw = String(status || '').trim().toLowerCase()
+  if (raw === 'in progress' || raw === 'in-progress' || raw === 'inprogress' || raw === 'in_progress') return 'in-progress'
+  return raw
+}
+
 // ============ DOCTORS API ============
-export async function getDoctors(minRating?: number, sortBy?: string): Promise<Doctor[]> {
+export async function getDoctors(minRating?: number, sortBy?: string, includeUnapproved?: boolean): Promise<Doctor[]> {
   try {
     const params = new URLSearchParams()
     if (minRating) params.append('minRating', minRating.toString())
@@ -112,12 +187,26 @@ export async function getDoctors(minRating?: number, sortBy?: string): Promise<D
     const data = await fetchAPI<any[]>(`/doctors${query}`)
     const reviews = await getReviews()
     
-    return transformMongoArray(data).map((doc) => {
+    // Filter out unapproved doctors unless explicitly requested
+    const filteredData = includeUnapproved ? data : data.filter(doc => 
+      (doc as any)?.accountStatus?.verificationStatus === 'approved'
+    )
+    
+    return filteredData.map((doc) => {
       const transformed = { ...doc }
-      transformed.location = ensureString(doc.location) || (doc as any).clinicInfo?.location
+      
+      // Transform MongoDB _id to id if needed
+      if ((doc as any)._id && !transformed.id) {
+        transformed.id = (doc as any)._id
+      }
+      
+      const locationValue = (doc as any).location || (doc as any).clinicInfo?.location
+      transformed.location = ensureString(locationValue) || (doc as any).clinicInfo?.location
+      transformed.locationLabel = extractLocationLabel(locationValue) || transformed.location
+      transformed.locationCoordinates = extractLocationCoordinates(locationValue) || extractLocationCoordinates((doc as any).location?.geo)
       
       // Calculate ratings for this doctor
-      const docReviews = reviews.filter(r => String(r.doctorId) === String(doc.id || doc._id))
+      const docReviews = reviews.filter(r => String(r.doctorId) === String(transformed.id || doc.id || (doc as any)._id))
       transformed.reviewCount = docReviews.length
       transformed.averageRating = docReviews.length > 0 
         ? docReviews.reduce((acc, r) => acc + r.rating, 0) / docReviews.length 
@@ -150,9 +239,20 @@ export async function getDoctorById(id: string): Promise<Doctor | null> {
     const doc = transformMongoDocument(docData)
     if (!doc) return null
     
+    // Extract schedule from nested or top-level structure
+    const schedule = (doc as any).schedule || {
+      availableDays: (doc as any).availableDays || [],
+      availableHours: (doc as any).availableHours || []
+    }
+    
     return {
       ...doc,
       location: ensureString(doc.location) || (doc as any).clinicInfo?.location,
+      locationLabel: extractLocationLabel((doc as any).location) || ensureString(doc.location) || (doc as any).clinicInfo?.location,
+      locationCoordinates: extractLocationCoordinates((doc as any).location) || extractLocationCoordinates((doc as any).location?.geo),
+      schedule: schedule,  // Ensure schedule is included
+      availableDays: schedule.availableDays,  // Also map to top-level for compatibility
+      availableHours: schedule.availableHours,
       // Aggregated ratings
       reviewCount: reviews.length,
       averageRating: reviews.length > 0 
@@ -212,12 +312,17 @@ export async function rejectDoctorVerification(id: string): Promise<Doctor> {
 // ============ PATIENTS API ============
 export async function getPatients(): Promise<Patient[]> {
   try {
-    const data = await fetchAPI<any[]>("/patients")
-    return transformMongoArray(data).map(p => ({
+    const data = await fetchAPI<any>("/patients")
+    // Handle both array response and paginated response
+    const items = Array.isArray(data) ? data : (data?.items || [])
+    return transformMongoArray(items).map((p: any) => ({
       ...p,
+      id: p.id || p._id,
+      email: p.email || p.credentials?.email || '',
       location: ensureString((p as any).location),
-      address: p.address || ensureString((p as any).location)
-    }))
+      address: p.address || ensureString((p as any).location),
+      avatar: p.avatar || p.image
+    })) as Patient[]
   } catch (err) {
     console.error("[v0] Error fetching patients:", err)
     return []
@@ -232,12 +337,19 @@ export async function getPatientById(id: string): Promise<Patient | null> {
     
     return {
       ...p,
+      id: (p as any).id || (p as any)._id,
+      email: (p as any).email || (p as any).credentials?.email || '',
       location: ensureString((p as any).location),
       address: p.address || ensureString((p as any).location),
       avatar: (p as any).image || p.avatar // Map backend 'image' to 'avatar'
     }
   } catch (err) {
-    console.error("[v0] Error fetching patient:", err)
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    // 403 Forbidden is expected when non-admin users try to access other users' patient profiles
+    // Only log other errors
+    if (!errorMsg.includes('403')) {
+      console.error("[v0] Error fetching patient:", err)
+    }
     return null
   }
 }
@@ -286,8 +398,10 @@ export async function deletePatient(id: string): Promise<void> {
 // ============ REVIEWS API ============
 export async function getReviews(): Promise<Review[]> {
   try {
-    const data = await fetchAPI<any[]>("/reviews")
-    return transformMongoArray(data)
+    const data = await fetchAPI<any>("/reviews")
+    // Backend returns paginated response: { page, limit, totalCount, items: [...] }
+    const items = Array.isArray(data) ? data : (data?.items || [])
+    return transformMongoArray(items)
   } catch (err) {
     console.error("[v0] Error fetching reviews:", err)
     return []
@@ -328,13 +442,16 @@ export async function deleteReview(id: string): Promise<void> {
 // ============ APPOINTMENTS API ============
 export async function getAppointments(): Promise<Appointment[]> {
   try {
-    const data = await fetchAPI<any[]>("/appointments")
-    return transformMongoArray(data).map((apt) => ({
+    const data = await fetchAPI<any>("/appointments")
+    // Handle both array response and paginated response
+    const items = Array.isArray(data) ? data : (data?.items || [])
+    return transformMongoArray(items).map((apt: any) => normalizeAppointmentRecord({
       ...apt,
       // Backend sometimes stores type or location as nested objects
       type: ensureString(apt.type),
       location: ensureString(apt.location),
-    }))
+      patientName: apt.patientName || apt.bookingFor || 'Unknown Patient',
+    })) as Appointment[]
   } catch (err) {
     console.error("[v0] Error fetching appointments:", err)
     return []
@@ -344,7 +461,7 @@ export async function getAppointments(): Promise<Appointment[]> {
 export async function getAppointmentById(id: string): Promise<Appointment | null> {
   try {
     const data = await fetchAPI<any>(`/appointments/${id}`)
-    return transformMongoDocument(data)
+    return normalizeAppointmentRecord(transformMongoDocument(data))
   } catch (err) {
     console.error("[v0] Error fetching appointment:", err)
     return null
@@ -363,8 +480,21 @@ export async function getAppointmentsByPatientId(patientId: string): Promise<App
 
 export async function getAppointmentsByDoctorId(doctorId: string): Promise<Appointment[]> {
   try {
-    const appointments = await getAppointments()
-    return appointments.filter((a) => String(a.doctorId) === String(doctorId))
+    const [appointments, patients] = await Promise.all([
+      getAppointments(),
+      getPatients(),
+    ])
+
+    const patientNameById = new Map(
+      patients.map((patient: any) => [String(patient.id || patient._id), patient.name || 'Unknown Patient'])
+    )
+
+    return appointments
+      .filter((a) => String(a.doctorId) === String(doctorId))
+      .map((appointment) => ({
+        ...appointment,
+        patientName: appointment.patientName || patientNameById.get(String(appointment.patientId)) || appointment.bookingFor || 'Unknown Patient',
+      }))
   } catch (err) {
     console.error("Error fetching appointments by doctor:", err)
     return []
@@ -378,34 +508,90 @@ export async function getMedicalRecordsByPatientId(patientId: string): Promise<a
 }
 
 export async function createAppointment(appointment: Omit<Appointment, "id">): Promise<Appointment> {
-  return fetchAPI<Appointment>("/appointments", {
+  const data = await fetchAPI<Appointment>("/appointments", {
     method: "POST",
     body: JSON.stringify(appointment),
   })
+
+  return normalizeAppointmentRecord(transformMongoDocument(data as any))
 }
 
 export async function updateAppointment(id: string, appointment: Partial<Appointment>): Promise<Appointment> {
-  return fetchAPI<Appointment>(`/appointments/${id}`, {
+  const data = await fetchAPI<Appointment>(`/appointments/${id}`, {
     method: "PUT",
     body: JSON.stringify(appointment),
   })
+
+  return normalizeAppointmentRecord(transformMongoDocument(data as any))
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
-  await fetchAPI(`/appointments/${id}`, { method: "DELETE" })
+  const endpoint = `/appointments/${id}`
+
+  async function executeDelete(token?: string) {
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    return fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "DELETE",
+      headers,
+      credentials: "include",
+    })
+  }
+
+  const token = getAccessToken()
+  let response = await executeDelete(token || undefined)
+
+  if (response.status === 401) {
+    try {
+      const refreshedToken = await refreshAccessToken()
+      response = await executeDelete(refreshedToken || undefined)
+    } catch {
+      throw new Error("Authentication failed. Please login again.")
+    }
+  }
+
+  if (response.status === 404) {
+    return
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.message || errorData.error || `API Error: ${response.status} ${response.statusText}`)
+  }
 }
 
-export async function updateAppointmentStatus(id: string, status: string): Promise<Appointment> {
-  return fetchAPI<Appointment>(`/appointments/${id}/status`, {
+export async function updateAppointmentStatus(id: string, status: string, consultationNotes?: string): Promise<Appointment> {
+  const data = await fetchAPI<Appointment>(`/appointments/${id}/status`, {
     method: "PUT",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status: normalizeAppointmentStatusValue(status), ...(consultationNotes !== undefined && { consultationNotes }) }),
   })
+
+  return normalizeAppointmentRecord(transformMongoDocument(data as any))
 }
 
 export async function getAvailableSlots(doctorId: string, date: string, shiftId: string): Promise<string[]> {
   try {
     const res = await fetchAPI<any>(`/appointments/available-slots?doctorId=${doctorId}&date=${date}&shiftId=${shiftId}`)
     return res.freeSlots || []
+  } catch (err) {
+    return []
+  }
+}
+
+export async function getDoctorShiftsForBooking(doctorId: string): Promise<Shift[]> {
+  try {
+    return await fetchAPI<Shift[]>(`/shifts/upcoming?doctorId=${doctorId}`)
+  } catch (err) {
+    return []
+  }
+}
+
+export async function getDoctorShifts(doctorId: string): Promise<Shift[]> {
+  try {
+    return await fetchAPI<Shift[]>(`/shifts/upcoming?doctorId=${doctorId}`)
   } catch (err) {
     return []
   }
@@ -428,8 +614,46 @@ export async function confirmPayment(data: { appointmentId: string; amount: numb
 
 export async function getDoctorUniquePatients(doctorId: string): Promise<any[]> {
   try {
-    const data = await fetchAPI<any[]>(`/appointments/doctor/${doctorId}/patients`)
-    return data
+    const [appointments, patients] = await Promise.all([
+      getAppointmentsByDoctorId(doctorId),
+      getPatients(),
+    ])
+
+    const patientMap = new Map(
+      patients.map((patient: any) => [String(patient.id || patient._id), patient])
+    )
+
+    const uniquePatients = new Map<string, any>()
+    appointments
+      .filter((apt) => String(apt.doctorId) === String(doctorId))
+      .sort((a, b) => {
+        const dateB = b.date ? new Date(`${b.date} ${b.time || ''}`).getTime() : 0
+        const dateA = a.date ? new Date(`${a.date} ${a.time || ''}`).getTime() : 0
+        return dateB - dateA
+      })
+      .forEach((apt) => {
+        const patientId = String(apt.patientId)
+        if (!uniquePatients.has(patientId)) {
+          const patient = patientMap.get(patientId)
+          uniquePatients.set(patientId, {
+            id: patientId,
+            name: patient?.name || apt.patientName || 'Unknown Patient',
+            age: patient?.age || apt.age || 'N/A',
+            gender: patient?.gender || apt.gender || 'N/A',
+            blood: patient?.bloodType || patient?.bloodGroup || 'N/A',
+            location: patient?.location?.label || patient?.address || 'N/A',
+            time: apt.time,
+            lastBooking: apt.date,
+            totalVisits: 1,
+          })
+        } else {
+          const existing = uniquePatients.get(patientId)
+          existing.totalVisits += 1
+          existing.lastBooking = apt.date || existing.lastBooking
+        }
+      })
+
+    return Array.from(uniquePatients.values())
   } catch (err) {
     console.error("Error fetching unique patients:", err)
     return []
@@ -442,17 +666,88 @@ export async function getDoctorUniquePatients(doctorId: string): Promise<any[]> 
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
     const [doctors, patients, appointments] = await Promise.all([
-      getDoctors(),
+      getDoctors(undefined, undefined, true),
       getPatients(),
       getAppointments(),
     ])
 
-    // Calculate total revenue (sum of appointment fees)
+    // Calculate total revenue from appointment amounts when available.
+    // Fall back to doctor consultation fee for older records.
     const totalRevenue = appointments.reduce((sum, apt) => {
+      if (typeof apt.amount === 'number' && Number.isFinite(apt.amount)) {
+        return sum + apt.amount
+      }
+
       const doctor = doctors.find(d => String(d.id) === String(apt.doctorId))
       const fee = doctor?.fee ? parseInt(doctor.fee.replace(/[^0-9]/g, '')) : 0
       return sum + fee
     }, 0)
+
+    const getYear = (value: any): number | null => {
+      if (!value) return null
+      const dt = new Date(value)
+      return Number.isNaN(dt.getTime()) ? null : dt.getFullYear()
+    }
+
+    const currentYear = new Date().getFullYear()
+    const years = Array.from({ length: 6 }, (_, idx) => currentYear - (5 - idx))
+
+    const revenueByYear = new Map<number, number>()
+    years.forEach((y) => revenueByYear.set(y, 0))
+
+    for (const apt of appointments) {
+      const year = getYear((apt as any).fullDateIso) ?? getYear(apt.date) ?? getYear((apt as any).createdAt)
+      if (year == null || !revenueByYear.has(year)) continue
+
+      const amount = typeof apt.amount === 'number' && Number.isFinite(apt.amount)
+        ? apt.amount
+        : (() => {
+            const doctor = doctors.find(d => String(d.id) === String(apt.doctorId))
+            return doctor?.fee ? parseInt(doctor.fee.replace(/[^0-9]/g, '')) : 0
+          })()
+
+      revenueByYear.set(year, (revenueByYear.get(year) || 0) + amount)
+    }
+
+    const doctorRegistrationsByYear = new Map<number, number>()
+    const patientRegistrationsByYear = new Map<number, number>()
+    years.forEach((y) => {
+      doctorRegistrationsByYear.set(y, 0)
+      patientRegistrationsByYear.set(y, 0)
+    })
+
+    for (const doctor of doctors) {
+      const year = getYear((doctor as any).createdAt)
+      if (year != null && doctorRegistrationsByYear.has(year)) {
+        doctorRegistrationsByYear.set(year, (doctorRegistrationsByYear.get(year) || 0) + 1)
+      }
+    }
+
+    for (const patient of patients) {
+      const year = getYear((patient as any).createdAt)
+      if (year != null && patientRegistrationsByYear.has(year)) {
+        patientRegistrationsByYear.set(year, (patientRegistrationsByYear.get(year) || 0) + 1)
+      }
+    }
+
+    let runningDoctors = 0
+    let runningPatients = 0
+
+    const revenueAnalytics = years.map((year) => ({
+      year,
+      revenue: revenueByYear.get(year) || 0,
+    }))
+
+    const statusAnalytics = years.map((year) => {
+      runningDoctors += doctorRegistrationsByYear.get(year) || 0
+      runningPatients += patientRegistrationsByYear.get(year) || 0
+
+      return {
+        year,
+        doctors: runningDoctors,
+        patients: runningPatients,
+      }
+    })
 
     // Get top doctors by appointment count
     const doctorAppointmentCounts = doctors.map(doctor => ({
@@ -482,6 +777,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalPatients: patients.length,
       totalAppointments: appointments.length,
       totalRevenue,
+      revenueAnalytics,
+      statusAnalytics,
       topDoctors,
       recentAppointments,
     }
@@ -492,6 +789,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalPatients: 0,
       totalAppointments: 0,
       totalRevenue: 0,
+      revenueAnalytics: [],
+      statusAnalytics: [],
       topDoctors: [],
       recentAppointments: [],
     }
@@ -569,7 +868,7 @@ export const getActiveShift = async (doctorId: string): Promise<Shift | null> =>
 export const getBookableShifts = async (doctorId: string, date?: string): Promise<Shift[]> => {
   try {
     const query = date ? `?doctorId=${doctorId}&date=${date}` : `?doctorId=${doctorId}`
-    return await fetchAPI<Shift[]>(`/shifts/for-booking${query}`)
+    return await fetchAPI<Shift[]>(`/shifts/upcoming${query}`)
   } catch (err) {
     return []
   }
@@ -586,6 +885,13 @@ export const endRestShift = async (shiftId: string): Promise<any> => {
   return fetchAPI<any>('/shifts/end', {
     method: 'POST',
     body: JSON.stringify({ shiftId })
+  })
+}
+
+export const generateNextShifts = async (doctorId: string, days = 30): Promise<any> => {
+  return fetchAPI<any>('/shifts/generate-next', {
+    method: 'POST',
+    body: JSON.stringify({ doctorId, days })
   })
 }
 

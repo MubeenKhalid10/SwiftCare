@@ -56,7 +56,7 @@ export function Header() {
           <span className="font-bold text-lg text-gray-900">SwiftCare</span>
         </Link>
 
-        {user?.role !== 'patient' && (
+        {(!isAuthenticated || user?.role === 'admin') && (
           <nav className="hidden md:flex items-center space-x-6 text-gray-600 text-sm">
             <Link href="/" className="hover:text-gray-900">
               Home
@@ -134,7 +134,7 @@ export function Header() {
                          ) : (
                              notifications.map((n, i) => (
                                  <div key={n._id || n.id || i} className="group">
-                                    <div className={`flex flex-col items-start p-4 hover:bg-gray-50 transition ${!n.read ? 'bg-blue-50/50' : ''}`} onClick={async () => {
+                                    <div className={`flex flex-col items-start p-4 hover:bg-gray-50 transition cursor-pointer ${!n.read ? 'bg-blue-50/50' : ''}`} onClick={async () => {
                                         if (!n.read) {
                                             try {
                                                 await markNotificationAsRead(String(n._id || n.id));
@@ -157,13 +157,14 @@ export function Header() {
                              ))
                          )}
                       </div>
+                      <DropdownMenuSeparator className="m-0" />
+                      <DropdownMenuItem asChild>
+                        <Link href="/notifications" className="cursor-pointer justify-center text-center font-medium text-blue-600 hover:text-blue-700 py-3">
+                          View All Notifications
+                        </Link>
+                      </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <button className="relative p-2 hover:bg-gray-100 rounded-full">
-                  <MessageSquare className="w-5 h-5 text-gray-500" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-                </button>
               </div>
 
               <DropdownMenu>
@@ -188,10 +189,6 @@ export function Header() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href={getDashboardLink()} className="cursor-pointer">
-                      <User className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Link>
                   </DropdownMenuItem>
                   {user?.role === 'patient' && (
                     <>

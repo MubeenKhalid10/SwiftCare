@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { getAccessToken } from '@/lib/auth.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,8 +18,6 @@ interface PersonalInfo {
     email: string;
     phone: string;
     address: string;
-    dob?: string;
-    gender?: string;
 }
 interface Identification {
     idNumber: string;
@@ -49,6 +48,43 @@ interface ClinicInfo {
 
 const STORAGE_KEY = 'swiftcare_doctor_verification';
 
+const SPECIALIZATION_OPTIONS = [
+    'Cardiologist',
+    'Dermatologist',
+    'Neurologist',
+    'Orthopedist',
+    'Psychiatrist',
+    'Radiologist',
+    'Urologist',
+    'Gynecologist',
+    'Nephrologist',
+    'Oncologist',
+    'Other',
+] as const;
+
+const normalizeSpecialization = (value?: string) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+
+    const aliases: Record<string, string> = {
+        cardiology: 'Cardiologist',
+        dermatologist: 'Dermatologist',
+        dermatology: 'Dermatologist',
+        neurology: 'Neurologist',
+        orthopedics: 'Orthopedist',
+        psychiatry: 'Psychiatrist',
+        radiology: 'Radiologist',
+        urology: 'Urologist',
+        gynecology: 'Gynecologist',
+        nephrology: 'Nephrologist',
+        oncology: 'Oncologist',
+    };
+
+    return aliases[normalized.toLowerCase()] || normalized;
+};
+
+const looksLikeFieldName = (value: string) => /(?:ology|ics)$/i.test(value.trim());
+
 const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -74,13 +110,15 @@ export default function DoctorVerification() {
     const { user, isAuthenticated, isLoading: authLoading } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [isProfileLoading, setIsProfileLoading] = useState(true);
     const [error, setError] = useState('');
     const [customSpecialization, setCustomSpecialization] = useState('');
     const [isCurrentStepValid, setIsCurrentStepValid] = useState(false);
+    const [doctorProfile, setDoctorProfile] = useState<any>(null);
 
     // Form State
     const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
-        profilePic: null, name: '', email: '', phone: '', address: '', dob: '', gender: ''
+        profilePic: null, name: '', email: '', phone: '', address: ''
     });
     const [identInfo, setIdentInfo] = useState<Identification>({
         idNumber: '', cnicFront: null, cnicBack: null
@@ -94,11 +132,6 @@ export default function DoctorVerification() {
     const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({
         clinicName: '', days: [], hours: [], fees: '', location: '', speciality: '', diseases: [], contactNumber: ''
     });
-
-    // Common specializations (can be extended)
-    const SPECIALIZATIONS = [
-        'General Practitioner', 'Cardiology', 'Dermatology', 'Pediatrics', 'Orthopedics', 'ENT', 'Neurology', 'Other'
-    ];
 
     // Load from local storage on mount
     useEffect(() => {
@@ -132,6 +165,74 @@ export default function DoctorVerification() {
         }
     }, [user]);
 
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadDoctorProfile = async () => {
+            if (!user?.id || user.role !== 'doctor') {
+                setIsProfileLoading(false);
+                return;
+            }
+
+            setIsProfileLoading(true);
+
+            try {
+                const { getDoctorById } = await import('@/lib/api');
+                const profile = await getDoctorById(user.id);
+
+                if (!profile || cancelled) {
+                    setIsProfileLoading(false);
+                    return;
+                }
+
+                const doctorData = profile as any;
+                setDoctorProfile(doctorData);
+
+                setPersonalInfo(prev => ({
+                    ...prev,
+                    name: doctorData.name || prev.name || user.name || '',
+                    email: doctorData.credentials?.email || user.email || prev.email,
+                    phone: doctorData.contactNo || prev.phone,
+                }));
+
+                setIdentInfo(prev => ({
+                    ...prev,
+                    idNumber: doctorData.identification?.idNumber || prev.idNumber,
+                }));
+
+                setProfInfo(prev => ({
+                    ...prev,
+                    degree: doctorData.professionalInfo?.degree || prev.degree,
+                    specialization: normalizeSpecialization(doctorData.specialty || doctorData.specialization || prev.specialization),
+                    registrationNumber: doctorData.professionalInfo?.registrationNumber || prev.registrationNumber,
+                    yearsOfExperience: doctorData.experience || prev.yearsOfExperience,
+                }));
+
+                setClinicInfo(prev => ({
+                    ...prev,
+                    clinicName: doctorData.location?.clinicName || prev.clinicName,
+                    location: doctorData.location?.label || doctorData.location || prev.location,
+                    days: doctorData.schedule?.availableDays || prev.days,
+                    hours: doctorData.schedule?.availableHours || prev.hours,
+                    fees: doctorData.consultationFee ? String(doctorData.consultationFee) : prev.fees,
+                    contactNumber: doctorData.contactNo || prev.contactNumber,
+                }));
+            } catch (err) {
+                console.error('Failed to load doctor profile for verification form', err);
+            } finally {
+                if (!cancelled) {
+                    setIsProfileLoading(false);
+                }
+            }
+        };
+
+        loadDoctorProfile();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, user?.role, user?.email, user?.name]);
+
     if (authLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -149,16 +250,17 @@ export default function DoctorVerification() {
         // All fields must be filled (basic validation) for the given step
         if (stepIndex === 0) {
             // Address is optional; do not block progress on it
-            return !!personalInfo.name && !!personalInfo.email && !!personalInfo.phone && !!identInfo.idNumber && !!personalInfo.dob && !!personalInfo.gender;
+            return !!personalInfo.name && !!personalInfo.email && !!personalInfo.phone && !!identInfo.idNumber;
         }
         if (stepIndex === 1) {
             return !!profInfo.degree && (!!profInfo.specialization || !!customSpecialization) && !!profInfo.registrationNumber;
         }
         if (stepIndex === 2) {
-            // documents: degreeCert and regCert required; CNIC files optional if idNumber provided
-            return !!docsInfo.degreeCert && !!docsInfo.regCert;
+            // documents: degreeCert, regCert, CNIC front and back are required
+            return !!docsInfo.degreeCert && !!docsInfo.regCert && !!identInfo.cnicFront && !!identInfo.cnicBack;
         }
         if (stepIndex === 3) {
+            if (isProfileLoading) return false;
             return !!clinicInfo.clinicName && clinicInfo.days.length > 0 && clinicInfo.hours.length > 0 && !!clinicInfo.fees && !!clinicInfo.location && !!clinicInfo.contactNumber;
         }
         return false;
@@ -172,8 +274,6 @@ export default function DoctorVerification() {
             if (!personalInfo.phone) missing.push('Phone');
             // Address is optional
             if (!identInfo.idNumber) missing.push('CNIC');
-            if (!personalInfo.dob) missing.push('Date of birth');
-            if (!personalInfo.gender) missing.push('Gender');
         }
         if (stepIndex === 1) {
             if (!profInfo.degree) missing.push('Degree');
@@ -183,9 +283,12 @@ export default function DoctorVerification() {
         if (stepIndex === 2) {
             if (!docsInfo.degreeCert) missing.push('Degree certificate');
             if (!docsInfo.regCert) missing.push('Registration certificate');
+            if (!identInfo.cnicFront) missing.push('CNIC front');
+            if (!identInfo.cnicBack) missing.push('CNIC back');
         }
         if (stepIndex === 3) {
             if (!clinicInfo.clinicName) missing.push('Clinic name');
+            if (isProfileLoading) missing.push('Clinic schedule is still loading');
             if (clinicInfo.days.length === 0) missing.push('Availability days');
             if (clinicInfo.hours.length === 0) missing.push('Availability hours');
             if (!clinicInfo.fees) missing.push('Consultation fee');
@@ -205,6 +308,15 @@ export default function DoctorVerification() {
     const validateSize = (file: File) => {
         if (file.size > 1024 * 1024) {
             alert("File size exceeds 1MB limit.");
+            return false;
+        }
+        return true;
+    };
+
+    const validateDocumentType = (file: File) => {
+        const isJpeg = file.type === 'image/jpeg' || /\.(jpe?g)$/i.test(file.name || '');
+        if (!isJpeg) {
+            alert('Only JPG/JPEG files are allowed for verification documents.');
             return false;
         }
         return true;
@@ -275,7 +387,7 @@ export default function DoctorVerification() {
         return null;
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string, setter: any, parentKey?: string, acceptPdf = false) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string, setter: any, parentKey?: string, requireJpeg = false) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
         const file = files[0];
@@ -283,14 +395,13 @@ export default function DoctorVerification() {
             e.target.value = '';
             return;
         }
-        if (acceptPdf && file.type !== 'application/pdf') {
-            alert('Only PDF files are allowed for this field.');
+        if (requireJpeg && !validateDocumentType(file)) {
             e.target.value = '';
             return;
         }
         try {
             // If profilePic and Cloudinary env config exists, try client-side upload
-            if (!acceptPdf && fieldName === 'profilePic' && process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME && process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET) {
+            if (!requireJpeg && fieldName === 'profilePic' && process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME && process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET) {
                 try {
                     const url = `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/upload`;
                     const fd = new FormData();
@@ -353,7 +464,6 @@ export default function DoctorVerification() {
                 if (clinicInfo.fees) updatePayload.consultationFee = parseInt(String(clinicInfo.fees).replace(/[^0-9]/g, '')) || undefined;
                 const chosenSpec = profInfo.specialization === 'Other' ? customSpecialization : profInfo.specialization;
                 if (chosenSpec) updatePayload.specialization = chosenSpec;
-                if (clinicInfo.location) updatePayload.location = clinicInfo.location; // send as plain string to avoid malformed GeoJSON
 
                 if (Object.keys(updatePayload).length) {
                     // Use API updateDoctor route
@@ -379,8 +489,7 @@ export default function DoctorVerification() {
             const professionalToSend = { ...profInfo, specialization: profInfo.specialization === 'Other' ? customSpecialization : profInfo.specialization };
             formData.append('professionalInfo', JSON.stringify(professionalToSend));
 
-            // Build schedule payload expected by backend
-            // Normalize availableHours entries to '09:00 AM - 06:00 PM' format
+            // Build schedule payload expected by backend from the immutable profile values.
             const normalizedHours: string[] = [];
             for (const h of clinicInfo.hours) {
                 const n = normalizeHoursEntry(h);
@@ -421,9 +530,15 @@ export default function DoctorVerification() {
                 }
             }
 
+            const token = getAccessToken();
+            const headers: Record<string, string> = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/doctors/verification/submit`, {
                 method: 'POST',
+                headers,
                 body: formData, // Auto sets multipart/form-data boundary
+                credentials: 'include',
             });
 
             if (!response.ok) {
@@ -494,23 +609,10 @@ export default function DoctorVerification() {
                                         <p className="text-xs text-gray-500 mt-1">Email is taken from your account and cannot be changed here.</p>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Phone <span className="text-red-500">*</span></label>
                                         <Input type="tel" placeholder="03xx-xxxxxxx" value={personalInfo.phone} onChange={(e) => setPersonalInfo({ ...personalInfo, phone: formatPhone(e.target.value) })} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Date of Birth <span className="text-red-500">*</span></label>
-                                        <Input type="date" value={personalInfo.dob} onChange={(e) => setPersonalInfo({ ...personalInfo, dob: e.target.value })} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Gender <span className="text-red-500">*</span></label>
-                                        <select value={personalInfo.gender} onChange={(e) => setPersonalInfo({ ...personalInfo, gender: e.target.value })} className="w-full p-2 border rounded">
-                                            <option value="">Select gender</option>
-                                            <option value="female">Female</option>
-                                            <option value="male">Male</option>
-                                            <option value="other">Other</option>
-                                        </select>
                                     </div>
                                 </div>
 
@@ -535,10 +637,13 @@ export default function DoctorVerification() {
                                         <label className="block text-sm font-medium mb-1">Specialization <span className="text-red-500">*</span></label>
                                         <select value={profInfo.specialization} onChange={(e) => setProfInfo({ ...profInfo, specialization: e.target.value })} className="w-full p-2 border rounded">
                                             <option value="">Select specialization</option>
-                                            {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                            {SPECIALIZATION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                         {profInfo.specialization === 'Other' && (
-                                            <Input placeholder="Type your specialization" value={customSpecialization} onChange={(e) => setCustomSpecialization(e.target.value)} className="mt-2" />
+                                            <div className="mt-2 space-y-1">
+                                                <Input placeholder="Type your specialist title, e.g. dermatologist" value={customSpecialization} onChange={(e) => setCustomSpecialization(e.target.value)} />
+                                                <p className="text-xs text-gray-500">Use a specialist title, not a field name like dermatology.</p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -560,37 +665,37 @@ export default function DoctorVerification() {
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Degree Certificate (PDF, Max 1MB) <span className="text-red-500">*</span></label>
-                                        <Input type="file" accept="application/pdf" onChange={(e) => handleFileChange(e, 'degreeCert', setDocsInfo, undefined, true)} />
+                                        <label className="block text-sm font-medium mb-1">Degree Certificate (JPG/JPEG, Max 1MB) <span className="text-red-500">*</span></label>
+                                        <Input type="file" accept="image/jpeg,.jpg,.jpeg" onChange={(e) => handleFileChange(e, 'degreeCert', setDocsInfo, undefined, true)} />
                                         {docsInfo.degreeCert && <p className="text-xs text-green-600 mt-1">File selected</p>}
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Registration Certificate (PDF, Max 1MB) <span className="text-red-500">*</span></label>
-                                        <Input type="file" accept="application/pdf" onChange={(e) => handleFileChange(e, 'regCert', setDocsInfo, undefined, true)} />
+                                        <label className="block text-sm font-medium mb-1">Registration Certificate (JPG/JPEG, Max 1MB) <span className="text-red-500">*</span></label>
+                                        <Input type="file" accept="image/jpeg,.jpg,.jpeg" onChange={(e) => handleFileChange(e, 'regCert', setDocsInfo, undefined, true)} />
                                         {docsInfo.regCert && <p className="text-xs text-green-600 mt-1">File selected</p>}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Other Certificates (PDFs, Max 1MB each)</label>
-                                    <Input type="file" accept="application/pdf" multiple onChange={(e) => handleFileChange(e, 'otherCerts', setDocsInfo, 'docsInfo', true)} />
+                                    <label className="block text-sm font-medium mb-1">Other Certificates (JPG/JPEG, Max 1MB each)</label>
+                                    <Input type="file" accept="image/jpeg,.jpg,.jpeg" multiple onChange={(e) => handleFileChange(e, 'otherCerts', setDocsInfo, 'docsInfo', true)} />
                                     {docsInfo.otherCerts.length > 0 && <p className="text-xs text-green-600 mt-1">{docsInfo.otherCerts.length} files selected</p>}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">CNIC Front (PDF or image, Max 1MB)</label>
-                                        <Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'cnicFront', setIdentInfo)} />
+                                        <label className="block text-sm font-medium mb-1">CNIC Front (JPG/JPEG, Max 1MB) <span className="text-red-500">*</span></label>
+                                        <Input type="file" accept="image/jpeg,.jpg,.jpeg" onChange={(e) => handleFileChange(e, 'cnicFront', setIdentInfo, undefined, true)} />
                                         {identInfo.cnicFront && <p className="text-xs text-green-600 mt-1">File selected</p>}
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">CNIC Back (PDF or image, Max 1MB)</label>
-                                        <Input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'cnicBack', setIdentInfo)} />
+                                        <label className="block text-sm font-medium mb-1">CNIC Back (JPG/JPEG, Max 1MB) <span className="text-red-500">*</span></label>
+                                        <Input type="file" accept="image/jpeg,.jpg,.jpeg" onChange={(e) => handleFileChange(e, 'cnicBack', setIdentInfo, undefined, true)} />
                                         {identInfo.cnicBack && <p className="text-xs text-green-600 mt-1">File selected</p>}
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* Step 4: Clinic Info (days & hours picker) */}
+                        {/* Step 4: Clinic Info (locked schedule/location from profile) */}
                         {currentStep === 3 && (
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
@@ -609,8 +714,9 @@ export default function DoctorVerification() {
                                         <Input placeholder="03xx-xxxxxxx" value={clinicInfo.contactNumber || ''} onChange={(e) => setClinicInfo({ ...clinicInfo, contactNumber: formatPhone(e.target.value) })} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Location (address) <span className="text-red-500">*</span></label>
-                                        <Input placeholder="Clinic address (will be shown on profile)" value={clinicInfo.location} onChange={(e) => setClinicInfo({ ...clinicInfo, location: e.target.value })} />
+                                        <label className="block text-sm font-medium mb-1">Location (from signup) <span className="text-red-500">*</span></label>
+                                        <Input value={clinicInfo.location} readOnly className="bg-gray-100" />
+                                        <p className="text-xs text-gray-500 mt-1">This value is loaded from your doctor profile and cannot be changed here.</p>
                                     </div>
                                 </div>
 
@@ -620,57 +726,39 @@ export default function DoctorVerification() {
                                     <Input placeholder="e.g. Cardiology" value={clinicInfo.speciality} onChange={(e) => setClinicInfo({ ...clinicInfo, speciality: e.target.value })} />
                                 </div>
 
-                                {/* Days & Hours picker */}
-                                <div className="grid grid-cols-3 gap-3 items-end">
-                                    <select id="day-select" className="p-2 border rounded">
-                                        <option value="">Select day</option>
-                                        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => <option key={d} value={d}>{d}</option>)}
-                                    </select>
-                                    <input id="start-time" type="time" className="p-2 border rounded" />
-                                    <input id="end-time" type="time" className="p-2 border rounded" />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => {
-                                        const daySel = (document.getElementById('day-select') as HTMLSelectElement);
-                                        const start = (document.getElementById('start-time') as HTMLInputElement);
-                                        const end = (document.getElementById('end-time') as HTMLInputElement);
-                                        if (!daySel || !start || !end) return;
-                                        if (!daySel.value || !start.value || !end.value) return alert('Select day and start/end times');
-                                        const day = daySel.value;
-                                        // Validate times
-                                        if (start.value >= end.value) return alert('End time must be after start time');
-                                        const hoursStr = formatTimeRange(start.value, end.value);
-                                        // avoid duplicates for day+same-range
-                                        if (!clinicInfo.days.includes(day)) {
-                                            setClinicInfo({ ...clinicInfo, days: [...clinicInfo.days, day], hours: [...clinicInfo.hours, hoursStr] });
-                                        } else {
-                                            // allow multiple ranges per day; prevent exact duplicate range
-                                            const exists = clinicInfo.hours.includes(hoursStr);
-                                            if (!exists) setClinicInfo({ ...clinicInfo, hours: [...clinicInfo.hours, hoursStr] });
-                                        }
-                                    }} className="px-4 py-2 bg-blue-600 text-white rounded">Add Availability</button>
-                                    <button type="button" onClick={() => { setClinicInfo({ ...clinicInfo, days: [], hours: [] }) }} className="px-4 py-2 bg-gray-100 rounded">Clear</button>
-                                </div>
-                                <div>
-                                    {clinicInfo.days.length > 0 ? (
-                                        <div className="mt-3 space-y-2">
-                                            {clinicInfo.days.map((d, idx) => (
-                                                <div key={idx} className="flex items-center justify-between p-2 border rounded">
-                                                    <div>
-                                                        <p className="font-medium">{d}</p>
-                                                        <p className="text-xs text-gray-600">{clinicInfo.hours[idx] || clinicInfo.hours.join(', ')}</p>
-                                                    </div>
-                                                    <button type="button" onClick={() => {
-                                                        const newDays = clinicInfo.days.filter((_, i) => i !== idx);
-                                                        const newHours = clinicInfo.hours.filter((_, i) => i !== idx);
-                                                        setClinicInfo({ ...clinicInfo, days: newDays, hours: newHours });
-                                                    }} className="text-red-500">Remove</button>
-                                                </div>
-                                            ))}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Available Days <span className="text-red-500">*</span></label>
+                                        <div className="min-h-12 rounded border bg-gray-50 p-3 flex flex-wrap gap-2">
+                                            {isProfileLoading ? (
+                                                <span className="text-sm text-gray-500">Loading from your doctor profile...</span>
+                                            ) : clinicInfo.days.length > 0 ? (
+                                                clinicInfo.days.map((day) => (
+                                                    <span key={day} className="px-3 py-1 bg-indigo-100 text-indigo-900 text-xs font-semibold rounded-full">
+                                                        {day}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-sm text-gray-500">No availability found on your profile.</span>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <p className="text-xs text-gray-500">No availability added yet.</p>
-                                    )}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Available Hours <span className="text-red-500">*</span></label>
+                                        <div className="min-h-12 rounded border bg-gray-50 p-3 flex flex-wrap gap-2">
+                                            {isProfileLoading ? (
+                                                <span className="text-sm text-gray-500">Loading from your doctor profile...</span>
+                                            ) : clinicInfo.hours.length > 0 ? (
+                                                clinicInfo.hours.map((hour) => (
+                                                    <span key={hour} className="px-3 py-1 bg-indigo-100 text-indigo-900 text-xs font-semibold rounded-full">
+                                                        {hour}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-sm text-gray-500">No hours found on your profile.</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}

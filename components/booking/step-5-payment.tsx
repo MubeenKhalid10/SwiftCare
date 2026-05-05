@@ -32,6 +32,7 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
 
     if (selectedMethod === "clinic") {
       // Pay at Clinic doesn't require Stripe
+      setIsProcessing(true)
       onNext({ payment: { method: "clinic", status: "pending" } })
       return
     }
@@ -111,13 +112,14 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
       <Card className="p-6 mb-6">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-300 to-blue-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
-            {data.doctor.image ? (
-              <img src={data.doctor.image || "/placeholder.svg"} alt={data.doctor.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-blue-700 font-bold">
-                {data.doctor.name?.split(' ').map((n: string) => n[0]).join('') || 'DR'}
-              </span>
-            )}
+            <img
+              src={data.doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+              alt={data.doctor.name}
+              className="w-full h-full object-cover"
+              onError={(event) => {
+                event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
+              }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -227,14 +229,6 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
                   <span className="text-gray-600">Consultation Fee</span>
                   <span className="font-semibold text-blue-600">{data.doctor.fee || "RS. 0"}</span>
                 </div>
-                <div className="flex justify-between text-gray-400">
-                  <span className="text-gray-400">Booking Fee</span>
-                  <span className="font-medium line-through">RS. 10</span>
-                </div>
-                <div className="flex justify-between text-gray-400">
-                  <span className="text-gray-400">Tax</span>
-                  <span className="font-medium line-through">RS. 5</span>
-                </div>
               </div>
 
               <div className="bg-gray-900 text-white rounded-lg p-4 flex items-center justify-between">
@@ -254,7 +248,7 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                {selectedMethod === 'clinic' ? 'Confirming Booking...' : 'Processing...'}
               </>
             ) : (
               selectedMethod === 'clinic' ? 'Confirm Booking' : `Pay RS. ${totalAmount}`

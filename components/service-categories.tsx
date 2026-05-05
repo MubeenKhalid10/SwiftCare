@@ -4,13 +4,13 @@ import { useRouter } from "next/navigation"
 import { Heart, Bone, Brain, Baby, Activity, Wind } from "lucide-react"
 
 const categories = [
-  { icon: Heart, label: "Cardiology", color: "bg-cyan-100" },
+  { icon: Heart, label: "Cardiologist", color: "bg-cyan-100" },
   { icon: Bone, label: "Orthopedics", color: "bg-blue-100" },
-  { icon: Brain, label: "Neurology", color: "bg-purple-100" },
+  { icon: Brain, label: "Neurologist", color: "bg-purple-100" },
   { icon: Baby, label: "Pediatrics", color: "bg-pink-100" },
-  { icon: Activity, label: "Psychiatry", color: "bg-orange-100" },
-  { icon: Wind, label: "Endocrinology", color: "bg-green-100" },
-  { icon: Heart, label: "Dermatology", color: "bg-red-100" },
+  { icon: Activity, label: "Psychiatrics", color: "bg-orange-100" },
+  { icon: Wind, label: "Endocrinologist", color: "bg-green-100" },
+  { icon: Heart, label: "Dermatologist", color: "bg-red-100" },
 ]
 
 export default function ServiceCategories() {

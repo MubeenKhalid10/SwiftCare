@@ -40,19 +40,27 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
   const buttonRef = useRef<HTMLDivElement>(null)
   const { googleAuth } = useAuth()
   const router = useRouter()
+  
+  // Use the provided roleHint (patient or doctor)
+  const effectiveRoleHint = roleHint
 
   const handleCredentialResponse = useCallback(async (response: { credential: string }) => {
     try {
       console.log('[v0] Google sign-in initiated')
+      console.log('[v0] Frontend Google Client ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+      console.log('[v0] Role hint:', effectiveRoleHint)
       
-      const result = await googleAuth(response.credential, roleHint)
+      const result = await googleAuth(response.credential, effectiveRoleHint)
 
       if (!result.success) {
-        toast.error(result.error || 'Google sign-in failed')
+        const errorMsg = result.error || 'Google sign-in failed'
+        console.error('[v0] Google sign-in failed:', errorMsg)
+        toast.error(errorMsg)
         return
       }
 
       toast.success('Successfully signed in with Google!')
+      console.log('[v0] Google sign-in successful')
       
       // Get user role and redirect
       const stored = JSON.parse(localStorage.getItem('swiftcare_auth') || '{}')
@@ -61,7 +69,7 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
       if (onSuccess) {
         onSuccess()
       } else {
-        // Default redirect based on role
+        // Redirect based on authenticated user's role
         if (role === 'doctor') {
           router.push('/doctor/dashboard')
         } else if (role === 'admin') {
@@ -71,10 +79,12 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
         }
       }
     } catch (error) {
-      console.error('[v0] Google sign-in error:', error)
-      toast.error('Google sign-in failed')
+      const errorMsg = error instanceof Error ? error.message : 'Google sign-in failed'
+      console.error('[v0] Google sign-in error:', errorMsg)
+      console.error('[v0] Full error:', error)
+      toast.error(errorMsg)
     }
-  }, [googleAuth, roleHint, onSuccess, router])
+  }, [googleAuth, effectiveRoleHint, onSuccess, router])
 
   useEffect(() => {
     // Load Google Identity Services script only once
@@ -125,7 +135,7 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
         buttonRef.current.innerHTML = ''
       }
     }
-  }, [text, handleCredentialResponse, roleHint])
+  }, [text, handleCredentialResponse, effectiveRoleHint])
 
   return <div ref={buttonRef} className="w-full" />
 }

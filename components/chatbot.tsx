@@ -5,6 +5,7 @@ import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config"
+import { getAccessToken } from "@/lib/auth.service"
 import { toast } from "sonner"
 
 type Message = {
@@ -54,16 +55,60 @@ export function Chatbot() {
         setIsLoading(true)
 
         try {
-            const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHATBOT}`, {
+            const token = getAccessToken()
+            console.log('[chatbot] sending message, token present:', !!token)
+
+            let response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHATBOT}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
                 body: JSON.stringify({ message: userMessage.content }),
+                credentials: "include",
             })
 
+            // If unauthorized, try to refresh once (refresh token is HTTP-only cookie)
+            if (response.status === 401) {
+                console.warn('[chatbot] initial request 401, attempting token refresh')
+                try {
+                    const refreshRes = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                    })
+
+                    if (refreshRes.ok) {
+                        const refreshData = await refreshRes.json().catch(() => ({}))
+                        if (refreshData.accessToken) {
+                            localStorage.setItem('accessToken', refreshData.accessToken)
+                            console.log('[chatbot] token refreshed, retrying chat request')
+                        }
+                        // retry original request with new token if available
+                        const newToken = getAccessToken()
+                        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHATBOT}`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                ...(newToken ? { Authorization: `Bearer ${newToken}` } : {}),
+                            },
+                            body: JSON.stringify({ message: userMessage.content }),
+                            credentials: "include",
+                        })
+                    } else {
+                        const txt = await refreshRes.text().catch(() => '')
+                        console.warn('[chatbot] refresh failed', refreshRes.status, txt)
+                    }
+                } catch (refreshErr) {
+                    console.error('[chatbot] refresh attempt error', refreshErr)
+                }
+            }
+
             if (!response.ok) {
-                throw new Error("Failed to get response")
+                // attempt to read body for diagnostics
+                const text = await response.text().catch(() => '')
+                console.error('[chatbot] response not ok', response.status, text)
+                throw new Error(`Failed to get response: ${response.status} ${text ? '- ' + text : ''}`)
             }
 
             const data = await response.json()

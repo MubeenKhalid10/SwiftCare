@@ -287,7 +287,37 @@ export default function SettingsPage() {
                   <h3 className="text-lg font-semibold mb-4">Address</h3>
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Address *</label>
-                    <Input placeholder="Address" name="address" className="w-full" value={patientData.address || ''} onChange={handleProfileChange} />
+                    <Input 
+                      placeholder="Address" 
+                      name="address" 
+                      className="w-full" 
+                      value={patientData.address || ''} 
+                      onChange={handleProfileChange}
+                      onBlur={async () => {
+                        // Auto-geocode address when user leaves the field
+                        if (patientData.address && patientData.address.trim()) {
+                          try {
+                            const { geocodeAddress } = await import('@/lib/geocode');
+                            const coords = await geocodeAddress(patientData.address);
+                            if (coords) {
+                              // Update location data with coordinates
+                              setPatientData(prev => ({
+                                ...prev,
+                                location: {
+                                  label: patientData.address || '',
+                                  type: 'Point',
+                                  coordinates: [coords.lng, coords.lat]
+                                }
+                              }));
+                              console.log(`📍 Geocoded "${patientData.address}" to:`, coords);
+                            }
+                          } catch (err) {
+                            console.warn('Geocoding unavailable', err);
+                          }
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">💡 Location coordinates will be auto-filled from address</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

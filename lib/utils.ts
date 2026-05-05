@@ -67,3 +67,13 @@ export function toggleFavouriteDoctor(doctorId: string | number, patientId?: str
 
   return !exists
 }
+
+export function getAppointmentDisplayName(appointment: { patientName?: string; bookingFor?: string } | null | undefined): string {
+  const explicitName = String(appointment?.patientName || '').trim()
+  if (explicitName && explicitName.toLowerCase() !== 'self') return explicitName
+
+  const bookingFor = String(appointment?.bookingFor || '').trim()
+  if (!bookingFor || bookingFor.toLowerCase() === 'self') return 'Patient'
+
+  return bookingFor
+}

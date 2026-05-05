@@ -21,7 +21,7 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
-import { getAppointmentsByPatientId, getDoctors, getPatientById, getQueueState, updateAppointmentStatus } from "@/lib/api"
+import { getAppointmentsByPatientId, getDoctors, getPatientById, getQueueState, updateAppointmentStatus, nextQueuePatient } from "@/lib/api"
 import { toast } from 'sonner';
 import { Appointment, Patient, Doctor } from "@/lib/types"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
@@ -40,6 +40,35 @@ export default function AppointmentsPage() {
   const [queueStates, setQueueStates] = useState<Record<string, number>>({})
   const [trackedShifts, setTrackedShifts] = useState<Set<string>>(new Set())
   const [reviewPopup, setReviewPopup] = useState<{show: boolean, appointmentId: string | null}>({show: false, appointmentId: null})
+
+  const normalizeStatus = (status?: string) => String(status || '').trim().toLowerCase()
+  const isUpcomingStatus = (status?: string) => {
+    const normalized = normalizeStatus(status)
+    return normalized === 'pending' || normalized === 'confirmed' || normalized === 'in progress' || normalized === 'in-progress' || normalized === 'inprogress' || normalized === 'in_progress'
+  }
+  const formatStatus = (status?: string) => {
+    const normalized = normalizeStatus(status)
+    if (normalized === 'in progress' || normalized === 'in-progress' || normalized === 'inprogress' || normalized === 'in_progress') return 'In Progress'
+    if (normalized === 'pending') return 'Pending'
+    if (normalized === 'confirmed') return 'Pending'
+    if (normalized === 'completed') return 'Completed'
+    if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled'
+    return status || 'Pending'
+  }
+
+  const getQueueMetrics = (shiftId?: string, queueNumber?: number) => {
+    if (!shiftId || typeof queueNumber !== 'number') {
+      return { positionsAhead: null as number | null, estimatedWaitMinutes: null as number | null }
+    }
+
+    const currentServing = queueStates[shiftId] || 0
+    const positionsAhead = Math.max(0, queueNumber - currentServing - 1)
+
+    return {
+      positionsAhead,
+      estimatedWaitMinutes: positionsAhead * 10,
+    }
+  }
 
   const fetchData = async () => {
     if (!user?.id) return
@@ -97,7 +126,7 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => {
-    const upcoming = appointments.filter(a => a.status === 'Pending' || a.status === 'In Progress');
+    const upcoming = appointments.filter(a => isUpcomingStatus(a.status));
     upcoming.forEach(async (apt) => {
       if (apt.shiftId) {
         socket.emit('joinQueueRoom', apt.shiftId);
@@ -132,16 +161,20 @@ export default function AppointmentsPage() {
   }
 
   const filteredAppointments = appointments.filter((apt) => {
-    if (activeTab === "upcoming") return apt.status === "Pending" || apt.status === "In Progress"
-    if (activeTab === "cancelled") return apt.status === "Cancelled"
-    if (activeTab === "completed") return apt.status === "Completed"
+    const status = normalizeStatus(apt.status)
+    if (activeTab === "upcoming") return isUpcomingStatus(apt.status)
+    if (activeTab === "cancelled") return status === "cancelled" || status === "canceled"
+    if (activeTab === "completed") return status === "completed"
     return true
   })
 
   const counts = {
-    upcoming: appointments.filter((a) => a.status === "Pending" || a.status === "In Progress").length,
-    cancelled: appointments.filter((a) => a.status === "Cancelled").length,
-    completed: appointments.filter((a) => a.status === "Completed").length,
+    upcoming: appointments.filter((a) => isUpcomingStatus(a.status)).length,
+    cancelled: appointments.filter((a) => {
+      const status = normalizeStatus(a.status)
+      return status === 'cancelled' || status === 'canceled'
+    }).length,
+    completed: appointments.filter((a) => normalizeStatus(a.status) === "completed").length,
   }
 
   if (authLoading) {
@@ -270,14 +303,14 @@ export default function AppointmentsPage() {
                             <span className="font-medium">{apt.doctorName}</span>
                             <Badge
                               className={
-                                apt.status === "Pending" || apt.status === "In Progress"
+                                isUpcomingStatus(apt.status)
                                   ? "bg-green-100 text-green-700"
-                                  : apt.status === "Completed"
+                                  : normalizeStatus(apt.status) === "completed"
                                     ? "bg-blue-100 text-blue-700"
                                     : "bg-red-100 text-red-700"
                               }
                             >
-                              {apt.status}
+                              {formatStatus(apt.status)}
                             </Badge>
                           </div>
 
@@ -296,7 +329,7 @@ export default function AppointmentsPage() {
                                 : apt.type}
                             </span>
                           </div>
-                          {(apt.status === "Pending" || apt.status === "In Progress") && apt.shiftId && (
+                          {isUpcomingStatus(apt.status) && apt.shiftId && (
                             <div className="mt-2 flex items-center gap-2 flex-wrap">
                               {/* Queue Tracking */}
                               {!trackedShifts.has(apt.shiftId) ? (
@@ -312,6 +345,10 @@ export default function AppointmentsPage() {
                                   Track Queue
                                 </Button>
                               ) : (
+                                (() => {
+                                  const queueMetrics = getQueueMetrics(apt.shiftId, apt.queueNumber)
+
+                                  return (
                                 <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
                                   <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Currently Serving</span>
@@ -319,8 +356,17 @@ export default function AppointmentsPage() {
                                   </div>
                                   <div className="w-px h-8 bg-blue-200" />
                                   <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Your Position</span>
-                                    <span className="text-2xl font-black text-indigo-700 leading-none">{apt.queueNumber || 'N/A'}</span>
+                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Ahead of You</span>
+                                    <span className="text-2xl font-black text-indigo-700 leading-none">
+                                      {queueMetrics.positionsAhead === null ? 'N/A' : queueMetrics.positionsAhead}
+                                    </span>
+                                  </div>
+                                  <div className="w-px h-8 bg-blue-200" />
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Est. Wait</span>
+                                    <span className="text-2xl font-black text-emerald-700 leading-none">
+                                      {queueMetrics.estimatedWaitMinutes === null ? 'N/A' : `${queueMetrics.estimatedWaitMinutes}m`}
+                                    </span>
                                   </div>
                                   <button 
                                     className="ml-4 p-1.5 hover:bg-blue-100 rounded-full text-blue-400 hover:text-blue-600 transition-colors"
@@ -337,6 +383,8 @@ export default function AppointmentsPage() {
                                     <X className="w-4 h-4" />
                                   </button>
                                 </div>
+                                  )
+                                })()
                               )}
 
                               {/* Cancellation Button Logic */}
@@ -357,7 +405,7 @@ export default function AppointmentsPage() {
                                 const nowMs = Date.now();
                                 const isMoreThan2HoursOffline = (aptTimeMs - nowMs) > (2 * 60 * 60 * 1000);
                                 
-                                if (isMoreThan2HoursOffline && apt.status === "Pending") {
+                                if (isMoreThan2HoursOffline && normalizeStatus(apt.status) === "pending") {
                                   return (
                                     <Button
                                       size="sm"
@@ -367,6 +415,16 @@ export default function AppointmentsPage() {
                                         if (confirm("Are you sure you want to cancel this appointment?")) {
                                           try {
                                             await updateAppointmentStatus(String(apt._id || apt.id), 'Cancelled');
+                                            
+                                              // Auto-advance queue when appointment is cancelled
+                                              if (apt.shiftId) {
+                                                try {
+                                                  await nextQueuePatient(String(apt.shiftId));
+                                                } catch (err) {
+                                                  console.error("Failed to advance queue:", err);
+                                                }
+                                              }
+                                            
                                             toast.success("Appointment cancelled successfully");
                                             fetchData();
                                           } catch (e: any) {
@@ -387,7 +445,7 @@ export default function AppointmentsPage() {
 
                         <div className="flex items-center gap-2">
                           <Heart className="w-5 h-5 text-gray-600 cursor-pointer" />
-                                {(apt.status === "Completed") && (
+                                {normalizeStatus(apt.status) === "completed" && (
                             <Button 
                               className="bg-green-600 text-white"
                               onClick={() => setReviewPopup({show: true, appointmentId: String(apt.id)})}

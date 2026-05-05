@@ -19,7 +19,7 @@ export function DoctorSidebar() {
     const fetchVerificationStatus = async () => {
       if (user?.id) {
         try {
-          const profile = await getDoctorById(String(user.id));
+          const profile: any = await getDoctorById(String(user.id));
           setVerificationStatus(profile?.accountStatus?.verificationStatus || 'pending');
         } catch (err) {
           console.error('Error fetching doctor profile:', err);
@@ -92,9 +92,6 @@ export function DoctorSidebar() {
           className="w-full px-3 py-2 border rounded-lg bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={hasLimitedAccess}
         >
-          <option>I am Available Now</option>
-          <option>Busy</option>
-          <option>Away</option>
         </select>
       </div>
 
@@ -171,7 +168,7 @@ export function DoctorSidebar() {
           <span>My Patients</span>
         </Link>
 
-        <Link 
+        {/* <Link 
           href="/doctor/specialities" 
           className={navItemClass('/doctor/specialities')}
           onClick={(e) => {
@@ -181,7 +178,7 @@ export function DoctorSidebar() {
         >
           <span>⚕️</span>
           <span>Specialities & Services</span>
-        </Link>
+        </Link> */}
 
         <Link 
           href="/doctor/reviews" 
@@ -195,7 +192,7 @@ export function DoctorSidebar() {
           <span>Reviews</span>
         </Link>
 
-        <Link 
+        {/* <Link 
           href="/doctor/accounts" 
           className={navItemClass('/doctor/accounts')}
           onClick={(e) => {
@@ -205,7 +202,7 @@ export function DoctorSidebar() {
         >
           <span>💳</span>
           <span>Accounts</span>
-        </Link>
+        </Link> */}
 
         <Link
           href="/doctor/profile-settings"
@@ -219,7 +216,7 @@ export function DoctorSidebar() {
           <span>Profile Settings</span>
         </Link>
 
-        <Link
+        {/* <Link
           href="/doctor/change-password"
           className={navItemClass('/doctor/change-password')}
           onClick={(e) => {
@@ -229,6 +226,18 @@ export function DoctorSidebar() {
         >
           <span>🔐</span>
           <span>Change Password</span>
+        </Link> */}
+
+        <Link
+          href="/notifications"
+          className={navItemClass('/notifications')}
+          onClick={(e) => {
+            if (!handleNavClick(e, '/notifications')) e.preventDefault();
+          }}
+          style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
+        >
+          <span>🔔</span>
+          <span>Notifications</span>
         </Link>
 
         <Link 

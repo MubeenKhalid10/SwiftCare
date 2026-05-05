@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { Search, Plus, Download, FileText, Share2, Trash2, Loader2 } from "lucide-react"
+import { Search, Plus, Download, FileText, Share2, Trash2, Loader2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -31,6 +31,7 @@ function MedicalRecordsContent() {
   const [doctors, setDoctors] = useState<Record<string, Doctor>>({})
   const [appointments, setAppointments] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -61,24 +62,64 @@ function MedicalRecordsContent() {
     loadData()
   }, [user?.id])
 
+  const handleRefresh = async () => {
+    if (!user?.id) return
+    try {
+      setIsRefreshing(true)
+      const [appointmentsData, doctorsData] = await Promise.all([
+        getAppointmentsByPatientId(user.id.toString()),
+        getDoctors(),
+      ])
+      setAppointments(appointmentsData)
+      const doctorMap: Record<string, Doctor> = {}
+      doctorsData.forEach(doc => {
+        doctorMap[doc.id || ''] = doc
+      })
+      setDoctors(doctorMap)
+    } catch (err) {
+      console.error("Failed to refresh data:", err)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  const normalizeStatus = (status?: string) => String(status || '').trim().toLowerCase()
+
+  const isRecordStatus = (status?: string) => {
+    const normalized = normalizeStatus(status)
+    return normalized === 'completed' || normalized === 'cancelled'
+  }
+
+  const formatStatus = (status?: string) => {
+    const normalized = normalizeStatus(status)
+    if (normalized === 'completed') return 'Completed'
+    if (normalized === 'cancelled') return 'Cancelled'
+    return status || 'Unknown'
+  }
 
   // Combine database records with past appointments
   const pastAppointments = appointments
-    .filter(apt => apt.status === "Completed" || apt.status === "Cancelled" || apt.status === "Absent")
+    .filter((apt) => isRecordStatus(apt.status))
     .map((apt) => {
       const doctor = doctors[apt.doctorId]
+      // Check for consultation notes - handle different field names
+      const notes = apt.consultationNotes || apt.consultationNote || apt.notes || ""
+      const comments = notes && notes.trim()
+        ? notes
+        : (normalizeStatus(apt.status) === "cancelled" ? "This appointment was cancelled." : "No consultation notes provided.")
+
       return {
         id: `#APT${apt.id?.substring(0, 8) || apt._id?.substring(0, 8)}`,
-        name: apt.status === "Completed" ? "Consultation Notes" : `Appointment (${apt.status})`,
+        name: normalizeStatus(apt.status) === "completed" ? "Consultation Notes" : `Appointment (${formatStatus(apt.status)})`,
         date: apt.date || new Date().toLocaleDateString(),
         time: apt.time || "N/A",
-        recordFor: apt.bookingFor || "Self",
-        comments: apt.consultationNotes || (apt.status === "Cancelled" ? "This appointment was cancelled." : "No specific notes provided."),
+        recordFor: user?.name || 'Patient',
+        comments,
         doctor: doctor?.name || apt.doctorName || "Unknown Doctor",
         avatar: doctor?.image || "/default-doctor.jpg",
         appointmentId: apt.id || apt._id,
         problem: apt.reasonForVisit || apt.problem || "Checkup",
-        status: apt.status,
+        status: formatStatus(apt.status),
       }
     })
 
@@ -133,22 +174,34 @@ function MedicalRecordsContent() {
               <CardHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid">
                     <TabsTrigger value="medical">Medical Records</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardHeader>
 
               <CardContent>
-                {/* Search */}
-                <div className="relative mb-6">
-                  <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Search"
-                    className="pl-10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+                {/* Search and Refresh */}
+                <div className="flex gap-3 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Search"
+                      className="pl-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-2"
+                  >
+                    <RotateCcw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  </Button>
                 </div>
 
                 {/* Loading State */}
@@ -168,7 +221,6 @@ function MedicalRecordsContent() {
                           <TableHead>Record For</TableHead>
                           <TableHead>Notes / Comments</TableHead>
                           <TableHead>Doctor</TableHead>
-                          <TableHead>Action</TableHead>
                         </TableRow>
                       </TableHeader>
 
@@ -203,14 +255,6 @@ function MedicalRecordsContent() {
                                 {record.comments}
                               </TableCell>
                               <TableCell className="text-sm">{record.doctor}</TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Download className="w-4 h-4 cursor-pointer text-gray-500 hover:text-blue-600" aria-label="Download" />
-                                  <Share2 className="w-4 h-4 cursor-pointer text-gray-500 hover:text-blue-600" aria-label="Share" />
-                                  <FileText className="w-4 h-4 cursor-pointer text-gray-500 hover:text-blue-600" aria-label="View Details" onClick={(e) => { e.stopPropagation(); handleViewDetails(record); }} />
-                                  <Trash2 className="w-4 h-4 cursor-pointer text-gray-500 hover:text-red-600" aria-label="Delete" onClick={(e) => e.stopPropagation()} />
-                                </div>
-                              </TableCell>
                             </TableRow>
                           ))
                         )}

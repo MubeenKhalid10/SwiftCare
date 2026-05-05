@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Zap, Users, LinkIcon } from "lucide-react"
 
 const services = [
@@ -21,9 +22,12 @@ const services = [
 ]
 
 export default function Services() {
+  const [active, setActive] = useState<number | null>(null)
+
   return (
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         <div className="flex justify-center mb-4">
           <div className="inline-block bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
             Why Choose Us
@@ -37,13 +41,37 @@ export default function Services() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {services.map((service, idx) => {
             const Icon = service.icon
+            const isActive = active === idx
+
             return (
-              <div key={idx} className="p-8 border border-gray-100 rounded-xl hover:shadow-lg transition">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-6">
-                  <Icon className="w-6 h-6 text-blue-600" />
+              <div
+                key={idx}
+                onMouseEnter={() => setActive(idx)}
+                onMouseLeave={() => setActive(null)}
+                className={`p-8 border rounded-xl cursor-pointer transition-all duration-300
+                  ${isActive 
+                    ? "bg-blue-600 text-white shadow-2xl scale-105 border-blue-600" 
+                    : "bg-white border-gray-100 hover:shadow-lg hover:-translate-y-2"
+                  }`}
+              >
+                <div
+                  className={`w-12 h-12 rounded-lg flex items-center justify-center mb-6 transition
+                  ${isActive ? "bg-white/20" : "bg-blue-100"}`}
+                >
+                  <Icon
+                    className={`w-6 h-6 transition
+                    ${isActive ? "text-white" : "text-blue-600"}`}
+                  />
                 </div>
+
                 <h3 className="text-xl font-bold mb-4">{service.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{service.description}</p>
+
+                <p
+                  className={`leading-relaxed transition
+                  ${isActive ? "text-blue-100" : "text-gray-600"}`}
+                >
+                  {service.description}
+                </p>
               </div>
             )
           })}

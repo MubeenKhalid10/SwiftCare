@@ -11,42 +11,79 @@ export default function PrivacyPolicyPage() {
     {
       title: 'Introduction',
       content:
-        'Welcome to Doccure, a platform that allows you to book appointments with healthcare professionals. By using our services, you agree to these Terms & Conditions. Please read them carefully before proceeding.',
+        'Welcome to SwiftCare. SwiftCare is a healthcare appointment platform that connects patients with licensed healthcare professionals and clinics. This Privacy Policy explains how we collect, use, disclose, and protect your personal data when you use our services.',
       subsections: [
         'You must be at least 18 years old to use this website or have parental/guardian consent.',
         'Ensure that all information provided is accurate and up-to-date.',
-        'You are responsible for maintaining the confidentiality of your account and password.',
+        'You are responsible for maintaining the confidentiality of your account and credentials.',
       ],
     },
     {
       title: 'Booking Appointments',
       content: '',
       subsections: [
-        'Appointments are booked in real-time, subject to availability.',
-        'Users are responsible for attending the scheduled appointments or canceling in a timely manner.',
-        'Cancellations should be made before the appointment to avoid any penalties.',
+        'Appointments are booked in real-time through SwiftCare and are subject to provider availability.',
+        'Users are responsible for attending scheduled appointments or canceling in accordance with the provider’s cancellation policy.',
+        'Cancellation or rescheduling rules and any applicable fees are disclosed at booking.',
       ],
     },
     {
       title: 'Medical Disclaimer',
       content: '',
       subsections: [
-        'Doccure provides a platform for scheduling appointments and is not responsible for the medical services provided.',
-        'Healthcare providers listed on the platform are independent practitioners, and [Website Name] does not guarantee the quality or accuracy of medical advice provided.',
+        'SwiftCare provides a platform to facilitate appointments and related communications; SwiftCare is not a healthcare provider and does not provide medical advice.',
+        'Healthcare providers listed on SwiftCare are independent practitioners; you should verify provider credentials and seek a second opinion for medical concerns.',
       ],
     },
     {
       title: 'Payment & Fees',
       content: '',
       subsections: [
-        'Payment for appointments may be made through [Payment Method] and is subject to [Insert Payment Terms].',
-        'Any additional fees, such as cancellation or no-show fees, will be disclosed at the time of booking.',
+        'Payments for services may be processed through third-party payment providers; fees, taxes, and refund policies are disclosed at checkout.',
+        'Providers may enforce cancellation or no-show fees; such fees are shown during booking.',
       ],
     },
     {
       title: 'Changes to Privacy Policy',
       content:
-        'Doccure may update these Privacy Policy periodically. Any changes will be communicated through the website or via email.',
+        'SwiftCare may update this Privacy Policy from time to time. We will notify users of material changes via the website or email where required by law.',
+    },
+    {
+      title: 'Information We Collect',
+      content: '',
+      subsections: [
+        'Personal information you provide (name, email, phone, date of birth, profile photo).',
+        'Health-related information you enter when booking (symptoms, medical history) where required by providers.',
+        'Transaction and payment data necessary to process payments.',
+        'Usage and device data to improve the service (logs, cookies, IP address).',
+      ],
+    },
+    {
+      title: 'How We Use Your Information',
+      content: '',
+      subsections: [
+        'To provide and improve SwiftCare services and to facilitate bookings and communications with providers.',
+        'To process payments and send transactional notifications.',
+        'To comply with legal obligations and to protect the safety and security of users.',
+      ],
+    },
+    {
+      title: 'Sharing & Disclosure',
+      content: '',
+      subsections: [
+        'We share information with healthcare providers you book with so they can deliver care.',
+        'We may share data with trusted service providers (payment processors, analytics) under contract.',
+        'We do not sell personal data for advertising purposes.',
+      ],
+    },
+    {
+      title: 'Your Rights & Choices',
+      content: '',
+      subsections: [
+        'You can access, correct, or delete your personal data where permitted by law.',
+        'You may opt out of non-essential communications and marketing.',
+        'Contact SwiftCare at privacy@swiftcare.com for data requests or questions.',
+      ],
     },
   ]
 

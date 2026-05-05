@@ -18,7 +18,7 @@ export default function AboutPage() {
   const [isLoadingReviews, setIsLoadingReviews] = useState(true)
   const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [openIndex, setOpenIndex] = useState<number | null>(null)
-
+  const FALLBACK_AVATAR = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
   // Fetch doctors
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -179,19 +179,13 @@ export default function AboutPage() {
                 <div key={doctor.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
                   <div className="relative">
                     <Avatar className="w-full h-64">
-                      <AvatarImage src={doctor.image || "/placeholder.svg"} alt={doctor.name} className="object-cover w-full h-full" />
-                      <AvatarFallback className="w-full h-full text-2xl font-bold bg-blue-600 text-white flex items-center justify-center">
-                        {getInitials(doctor.name)}
-                      </AvatarFallback>
+                      <AvatarImage src={doctor.image || FALLBACK_AVATAR} alt={doctor.name} className="object-cover w-full h-full" />
                     </Avatar>
-                    <span className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                      {doctor.available ? "Available" : "Unavailable"}
-                    </span>
                   </div>
                   <div className="p-6">
                     <h3 className="font-bold text-gray-900 mb-2">{doctor.name}</h3>
                     <p className="text-blue-600 font-bold mb-3">{doctor.specialty}</p>
-                    <p className="text-sm text-gray-600 mb-4">{doctor.location}</p>
+                    <p className="text-sm text-gray-600 mb-4">{typeof doctor.location === 'string' ? doctor.location : doctor.location?.clinicName ?? doctor.location?.label ?? ''}</p>
                     <Button size="sm" className="w-full bg-gray-900 text-white hover:bg-gray-800">
                       <a href={`/doctor-profile?id=${doctor.id}`}>Book Now</a>
                     </Button>
@@ -243,32 +237,6 @@ export default function AboutPage() {
                   <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform flex-shrink-0 ${openIndex === idx ? "rotate-180" : ""}`} />
                 </button>
                 {openIndex === idx && <div className="px-6 pb-6 text-gray-600 border-t border-gray-100">{faq.a}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 text-center">
-            {(isLoadingStats || !stats ? [
-              { label: "Happy Patients", value: "95k+" },
-              { label: "Years of Experience", value: "17+" },
-              { label: "Specialist Doctors", value: "29K" },
-              { label: "Hospital Partnerships", value: "95+" },
-              { label: "Success Rate", value: "94%" },
-            ] : [
-              { label: "Doctors", value: stats.totalDoctors },
-              { label: "Patients", value: stats.totalPatients },
-              { label: "Appointments", value: stats.totalAppointments },
-              { label: "Revenue", value: `$${stats.totalRevenue.toLocaleString()}` },
-              { label: "Top Doctor", value: stats.topDoctors[0]?.name || "-" },
-            ]).map((stat, idx) => (
-              <div key={idx}>
-                <p className="text-3xl font-bold text-blue-600">{stat.value}</p>
-                <p className="text-gray-600 text-sm mt-2">{stat.label}</p>
               </div>
             ))}
           </div>

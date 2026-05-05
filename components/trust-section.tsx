@@ -34,12 +34,27 @@ export default function TrustSection() {
           </div>
 
           {/* Right side - Image placeholder */}
-          <div className="relative h-96">
-            <div className="grid grid-cols-2 gap-4 h-full">
-              <div className="bg-gray-700 rounded-xl"></div>
-              <div className="bg-gray-700 rounded-xl"></div>
-            </div>
-          </div>
+<div className="relative h-96">
+  <div className="grid grid-cols-2 gap-4 h-full">
+    
+    <div className="rounded-xl overflow-hidden">
+      <img
+        src="https://plus.unsplash.com/premium_vector-1682300485707-f6493f29a095?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGRvY3RvcnxlbnwwfHwwfHx8MA%3D%3D"
+        alt="Doctor consultation"
+        className="w-full h-full object-cover"
+      />
+    </div>
+
+    <div className="rounded-xl overflow-hidden">
+      <img
+        src="https://plus.unsplash.com/premium_vector-1682311126611-83ad4baa54f5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8ZG9jdG9yfGVufDB8fDB8fHww"
+        alt="Online appointment system"
+        className="w-full h-full object-cover"
+      />
+    </div>
+
+  </div>
+</div>
         </div>
 
         {/* Features grid */}

@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth-context';
 import { getFavouriteDoctorIds, toggleFavouriteDoctor } from '@/lib/utils';
 import type { Doctor, Review } from '@/lib/types';
 import Loading from './loading'; // Import the Loading component
+import { ClinicLocationMap } from '@/components/doctor/clinic-location-map';
 
 function DoctorProfileContent() {
   const searchParams = useSearchParams();
@@ -30,6 +31,7 @@ function DoctorProfileContent() {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const isRegisteredDoctor = doctor?.accountStatus?.registered !== false;
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -164,17 +166,14 @@ function DoctorProfileContent() {
             {/* Doctor Image */}
             <div className="flex-shrink-0">
               <div className="w-40 h-40 bg-gradient-to-br from-blue-300 to-blue-200 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
-                {doctor.image ? (
-                  <img 
-                    src={doctor.image || "/placeholder.svg"} 
-                    alt={doctor.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-blue-700 font-bold text-4xl">
-                    {doctor.name.split(' ').map(n => n[0]).join('')}
-                  </span>
-                )}
+                <img 
+                  src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"} 
+                  alt={doctor.name}
+                  className="w-full h-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
+                  }}
+                />
               </div>
             </div>
 
@@ -186,6 +185,9 @@ function DoctorProfileContent() {
                     <h2 className="text-3xl font-bold">{doctor.name}</h2>
                     <span className="bg-orange-500 text-white px-2 py-1 rounded text-sm font-semibold flex items-center gap-1">
                       {doctor.rating} <Star className="w-3 h-3" />
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${isRegisteredDoctor ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {isRegisteredDoctor ? 'Registered' : 'Not Registered'}
                     </span>
                   </div>
                   <p className="text-gray-600 mb-2">{doctor.experience} Experience</p>
@@ -218,11 +220,17 @@ function DoctorProfileContent() {
                   </div>
                   <div className="text-sm text-gray-600 mb-4">{reviews.length} Feedback</div>
                   <div className="text-lg font-semibold mb-4 text-blue-600">{doctor.fee || 'Contact'} per session</div>
-                  <Link href={`/booking?doctorId=${doctor.id}`}>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8">
-                      Book Appointment
+                  {isRegisteredDoctor ? (
+                    <Link href={`/booking?doctorId=${doctor.id}`}>
+                      <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8">
+                        Book Appointment
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button className="bg-gray-200 text-gray-700 rounded-full px-8 cursor-not-allowed hover:bg-gray-200">
+                      Information Only
                     </Button>
-                  </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -327,10 +335,14 @@ function DoctorProfileContent() {
             <div className="bg-gray-50 p-6 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-5 h-5 text-blue-600" />
-                <span className="font-semibold">{doctor.location || 'Location not specified'}</span>
+                <span className="font-semibold">{doctor.locationLabel || doctor.location || 'Location not specified'}</span>
               </div>
               <p className="text-gray-600">Contact the clinic for detailed address and directions.</p>
             </div>
+            <ClinicLocationMap
+              label={doctor.locationLabel || (typeof doctor.location === 'string' ? doctor.location : doctor.location?.label) || 'Clinic location'}
+              coordinates={doctor.locationCoordinates || (typeof doctor.location === 'object' ? doctor.location?.coordinates || doctor.location?.geo?.coordinates : undefined) || null}
+            />
           </div>
         )}
 

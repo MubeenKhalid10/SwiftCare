@@ -57,7 +57,7 @@ function DoctorsContent() {
         const ratingValue = selectedRating ? parseInt(selectedRating.charAt(0)) : undefined
         const sortBy = appliedFilters.sortBy === 'Rating (High to Low)' ? 'rating' : undefined
         
-        const data = await getDoctors(ratingValue, sortBy)
+        const data = await getDoctors(ratingValue, sortBy, true)
         setDoctors(data)
       } catch (err) {
         setError("Failed to load doctors")
@@ -168,6 +168,8 @@ function DoctorsContent() {
   const experiences = ["0 - 5 Years", "5+ Years"]
   const ratings = ["5 Star", "4 Star", "3 Star", "2 Star", "1 Star"]
 
+  const isDoctorRegistered = (doctor: Doctor) => doctor.accountStatus?.registered !== false
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -191,10 +193,25 @@ function DoctorsContent() {
             <div className="flex items-center gap-2 bg-white px-4 rounded-lg border border-gray-300">
               <MapPin className="w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Location"
+                placeholder="Location (for nearby search)"
                 className="border-0 pl-0 w-32"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
+                onBlur={async () => {
+                  // Geocode location for nearby doctors search
+                  if (location && location.trim()) {
+                    try {
+                      const { geocodeAddress } = await import('@/lib/geocode');
+                      const coords = await geocodeAddress(location);
+                      if (coords) {
+                        console.log(`📍 Location "${location}" geocoded to:`, coords);
+                        // Coordinates can be used for nearby doctor filtering
+                      }
+                    } catch (err) {
+                      console.warn('Location geocoding unavailable', err);
+                    }
+                  }
+                }}
               />
             </div>
             <Button onClick={applyFilters} className="bg-blue-600 text-white hover:bg-blue-700 gap-2">
@@ -433,28 +450,23 @@ function DoctorsContent() {
                     >
                       <div className={`relative ${viewMode === "list" ? "flex" : ""}`}>
                         <div className={`relative ${viewMode === "list" ? "w-48 h-48" : "h-48"} bg-gray-200`}>
-                          {doctor.image ? (
-                            <img
-                              src={doctor.image || "/placeholder.svg"}
-                              alt={doctor.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-300 to-blue-200 flex items-center justify-center">
-                              <span className="text-blue-700 font-bold text-2xl">
-                                {doctor.name.split(' ').map(n => n[0]).join('')}
-                              </span>
+                          <img
+                            src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+                            alt={doctor.name}
+                            className="w-full h-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
+                            }}
+                          />
+                          <div className="absolute top-3 left-3 flex flex-col gap-2">
+                            <div className="bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1 w-fit">
+                              {(doctor.averageRating || 0).toFixed(1)}
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> 
+                              <span className="text-[10px] text-gray-500 font-normal">({doctor.reviewCount || 0})</span>
                             </div>
-                          )}
-                          {!doctor.available && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                              <span className="text-white font-semibold text-lg">Unavailable</span>
+                            <div className={`text-[10px] font-bold px-2 py-1 rounded-full shadow-sm w-fit ${isDoctorRegistered(doctor) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {isDoctorRegistered(doctor) ? 'Registered' : 'Not Registered'}
                             </div>
-                          )}
-                          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1">
-                            {(doctor.averageRating || 0).toFixed(1)}
-                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> 
-                            <span className="text-[10px] text-gray-500 font-normal">({doctor.reviewCount || 0})</span>
                           </div>
                           <button
                             className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-md hover:shadow-lg"
@@ -475,7 +487,7 @@ function DoctorsContent() {
                           <h3 className="font-bold text-gray-900">{doctor.name}</h3>
                           <p className="text-sm text-blue-600 mb-2">{doctor.specialty}</p>
                           <p className="text-sm text-gray-600 mb-3 flex items-center gap-1">
-                            <MapPin className="w-4 h-4" /> {doctor.location} • {doctor.experience}
+                            <MapPin className="w-4 h-4" /> {typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || doctor.location?.clinicName || 'Location not provided'} • {doctor.experience}
                           </p>
                           
                           {/* Schedule / Business Hours */}
@@ -499,7 +511,7 @@ function DoctorsContent() {
                             </div>
                             <Link href={`/doctor-profile?id=${doctor.id}`}>
                               <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 h-9">
-                                Details
+                                {isDoctorRegistered(doctor) ? 'Details' : 'Information Only'}
                               </Button>
                             </Link>
                           </div>

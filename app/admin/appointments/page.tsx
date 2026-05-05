@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Video, Phone, MessageCircle, Calendar, Plus, Edit2, Trash2 } from 'lucide-react'
+import { Loader2, Video, Phone, MessageCircle, Calendar, Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
-import { getAppointments, updateAppointment, deleteAppointment, createAppointment } from '@/lib/api'
-import { AppointmentFormModal } from '@/components/admin/appointment-form-modal'
+import { getAppointments, deleteAppointment, getPatients } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import type { Appointment } from '@/lib/types'
+import { getAppointmentDisplayName } from '@/lib/utils'
 
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -18,8 +18,6 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -30,9 +28,34 @@ export default function AppointmentsPage() {
 
     async function fetchAppointments() {
       try {
-        const data = await getAppointments()
-        setAppointments(Array.isArray(data) ? data : [])
+        const [appointmentsData, patientsData] = await Promise.all([
+          getAppointments(),
+          getPatients(),
+        ])
+
+        const isCancelled = (status?: string) => String(status || '').trim().toLowerCase() === 'cancelled'
+
+        const patientNameById = new Map(
+          patientsData.map((patient: any) => [String(patient.id || patient._id), patient.name || 'Unknown Patient'])
+        )
+
+        const hydrated = Array.isArray(appointmentsData)
+          ? appointmentsData
+              .filter((appointment: any) => !isCancelled(appointment.status))
+              .map((appointment: any) => ({
+                ...appointment,
+                patientName: patientNameById.get(String(appointment.patientId)) || getAppointmentDisplayName(appointment),
+              }))
+          : []
+
+        setAppointments(hydrated)
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (message === 'Unauthorized') {
+          router.push('/admin/login')
+          return
+        }
+
         setError('Failed to load appointments')
         console.error(err)
       } finally {
@@ -44,16 +67,6 @@ export default function AppointmentsPage() {
       fetchAppointments()
     }
   }, [user, isAuthenticated, authLoading, router])
-
-  const handleAddAppointment = () => {
-    setSelectedAppointment(null)
-    setIsFormOpen(true)
-  }
-
-  const handleEditAppointment = (apt: Appointment) => {
-    setSelectedAppointment(apt)
-    setIsFormOpen(true)
-  }
 
   const handleDeleteAppointment = async (id: string) => {
     if (confirm('Are you sure you want to delete this appointment?')) {
@@ -68,27 +81,6 @@ export default function AppointmentsPage() {
       } finally {
         setIsSubmitting(false)
       }
-    }
-  }
-
-  const handleFormSubmit = async (data: Partial<Appointment>) => {
-    try {
-      setIsSubmitting(true)
-      if (selectedAppointment) {
-        await updateAppointment(String(selectedAppointment.id), data)
-        setAppointments(appointments.map(a => String(a.id) === String(selectedAppointment.id) ? { ...a, ...data } : a))
-        toast({ description: 'Appointment updated successfully' })
-      } else {
-        const newAppointment = await createAppointment(data as Omit<Appointment, 'id'>)
-        setAppointments([...appointments, newAppointment])
-        toast({ description: 'Appointment created successfully' })
-      }
-      setIsFormOpen(false)
-    } catch (err) {
-      toast({ description: 'Failed to save appointment', variant: 'destructive' })
-      console.error(err)
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -123,10 +115,6 @@ export default function AppointmentsPage() {
             <h1 className="text-3xl font-bold">Appointments</h1>
             <p className="text-gray-600">Dashboard / Appointments</p>
           </div>
-          <Button onClick={handleAddAppointment} className="bg-blue-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Appointment
-          </Button>
         </div>
 
         {error && (
@@ -146,7 +134,6 @@ export default function AppointmentsPage() {
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Speciality</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Patient Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date & Time</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
@@ -174,20 +161,13 @@ export default function AppointmentsPage() {
                     </td>
 
                     <td className="px-6 py-4 text-sm font-medium">
-                      {apt?.patientName ?? 'N/A'}
+                      {getAppointmentDisplayName(apt)}
                     </td>
 
                     <td className="px-6 py-4 text-sm">
                       <div>
                         <p>{apt?.date ?? 'N/A'}</p>
                         <p className="text-gray-500 text-xs">{apt?.time ?? ''}</p>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(apt?.type)}
-                        <span>{apt?.type ?? 'N/A'}</span>
                       </div>
                     </td>
 
@@ -206,13 +186,6 @@ export default function AppointmentsPage() {
                     </td>
 
                     <td className="px-6 py-4 text-sm space-x-2 flex">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEditAppointment(apt)}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
                       <Button
                         size="sm"
                         variant="destructive"
@@ -236,14 +209,6 @@ export default function AppointmentsPage() {
             <span>Showing {appointments.length} entries</span>
           </div>
         </div>
-
-        <AppointmentFormModal
-          isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
-          onSubmit={handleFormSubmit}
-          initialData={selectedAppointment}
-          isLoading={isSubmitting}
-        />
       </div>
     </AdminLayout>
   )

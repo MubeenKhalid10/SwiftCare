@@ -1,170 +1,254 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { getBookableShifts, getAvailableSlots } from "@/lib/api"
-import type { Shift } from "@/lib/types"
+import { getAvailableSlots, getDoctorShiftsForBooking } from "@/lib/api"
 import { Loader2 } from "lucide-react"
+import type { Shift } from "@/lib/types"
 
-function timeToMinutes(timeStr: string) {
-  const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i)
-  if (!match) return 0
-  let hours = parseInt(match[1])
-  const mins = parseInt(match[2])
-  const period = match[3].toUpperCase()
-  if (period === "PM" && hours !== 12) hours += 12
-  if (period === "AM" && hours === 12) hours = 0
-  return hours * 60 + mins
+function timeToMinutes(timeStr: string): number {
+  try {
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+    if (!match) return 0
+    let hours = parseInt(match[1])
+    const minutes = parseInt(match[2])
+    const meridiem = match[3].toUpperCase()
+    if (hours === 12) hours = 0
+    if (meridiem === 'PM') hours += 12
+    return hours * 60 + minutes
+  } catch {
+    return 0
+  }
+}
+
+function minutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours)
+  return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`
+}
+
+function generateSlots(startTime: string, endTime: string, slotDuration: number = 10): string[] {
+  const startMins = timeToMinutes(startTime)
+  const endMins = timeToMinutes(endTime)
+  const slots: string[] = []
+  for (let mins = startMins; mins < endMins; mins += slotDuration) {
+    slots.push(minutesToTime(mins))
+  }
+  return slots
+}
+
+function isTimeInRange(time: string, start: string, end: string): boolean {
+  const value = timeToMinutes(time)
+  const startMins = timeToMinutes(start)
+  const endMins = timeToMinutes(end)
+  return value >= startMins && value < endMins
+}
+
+function normalizeTimeLabel(time: string): string {
+  return String(time || '').trim().toUpperCase()
+}
+
+interface AvailableDate {
+  date: Date
+  dateString: string
+  dayName: string
+  shifts: Shift[]
+}
+
+function getDateKey(value: string | Date): string {
+  const date = typeof value === "string" ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return ""
+  return date.toISOString().split('T')[0]
 }
 
 export default function BookingStep3({ data, onNext, onBack }: any) {
-  const doctorId = data.doctor.id
-  const [shifts, setShifts] = useState<Shift[]>([])
-  const [isLoadingShifts, setIsLoadingShifts] = useState(true)
-
-  const [selectedDayObj, setSelectedDayObj] = useState<any>(null)
-  const [selectedShift, setSelectedShift] = useState<Shift | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string>("")
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("")
+  const doctorSchedule = data.doctor || {}
+  // Handle both nested schedule object and top-level fields
+  const availableDays = (doctorSchedule as any).schedule?.availableDays || doctorSchedule.availableDays || []
+  const availableHours = (doctorSchedule as any).schedule?.availableHours || doctorSchedule.availableHours || []
   
+  console.log("[step3] Doctor availability:", { availableDays, availableHours, doctorSchedule })
+  
+  const [selectedDate, setSelectedDate] = useState<AvailableDate | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string>("")
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
-  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [shifts, setShifts] = useState<Shift[]>([])
+  const [loadingShifts, setLoadingShifts] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth())
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear())
 
-  useEffect(() => {
-    if (!doctorId) return
-    setIsLoadingShifts(true)
-    getBookableShifts(String(doctorId))
-      .then((res) => {
-        setShifts(res)
-      })
-      .catch(console.error)
-      .finally(() => setIsLoadingShifts(false))
-  }, [doctorId])
-
-  // Map shifts to days
-  const upcomingDays = useMemo(() => {
-    const daysList = []
+  // Generate available dates from actual generated shifts
+  const availableDates = useMemo(() => {
+    if (shifts.length === 0) return []
+    
+    const dateMap = new Map<string, AvailableDate>()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const maxDate = new Date(today)
+    maxDate.setDate(maxDate.getDate() + 90)
     
-    // Check next 30 days
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today)
-      d.setDate(today.getDate() + i)
-      
-      const dayName = d.toLocaleDateString('en-US', { weekday: 'long' })
-      const dateString = d.toISOString().split('T')[0]
-      
-      const dayShifts = shifts.filter(s => s.date.split('T')[0] === dateString || s.date === dateString)
-      const isAvailable = dayShifts.length > 0
+    shifts.forEach((shift) => {
+      const shiftDate = new Date(shift.date)
+      if (Number.isNaN(shiftDate.getTime())) return
+      shiftDate.setHours(0, 0, 0, 0)
+      if (shiftDate < today || shiftDate > maxDate) return
 
-      daysList.push({
-        dateObj: d,
-        date: d.getDate(),
-        month: d.getMonth(),
-        year: d.getFullYear(),
-        dayName,
-        isAvailable,
-        dateString,
-        shifts: dayShifts
-      })
-    }
-    return daysList
+      const dateString = getDateKey(shift.date)
+      if (!dateString) return
+
+      const dayName = shiftDate.toLocaleDateString('en-US', { weekday: 'long' })
+      const existing = dateMap.get(dateString)
+
+      if (existing) {
+        existing.shifts.push(shift)
+      } else {
+        dateMap.set(dateString, {
+          date: shiftDate,
+          dateString,
+          dayName,
+          shifts: [shift]
+        })
+      }
+    })
+
+    return Array.from(dateMap.values()).sort((a, b) => a.dateString.localeCompare(b.dateString))
   }, [shifts])
 
-  // Default selection
   useEffect(() => {
-    if (!selectedDayObj && upcomingDays.length > 0) {
-      const firstAvailable = upcomingDays.find(d => d.isAvailable)
-      if (firstAvailable) {
-        setSelectedDayObj(firstAvailable)
-      } else {
-        setSelectedDayObj(upcomingDays[0])
-      }
-    }
-  }, [upcomingDays, selectedDayObj])
+    setSelectedTime("")
+  }, [selectedDate?.dateString])
 
-  // Fetch available slots when day/shift changes
   useEffect(() => {
-    if (selectedDayObj && selectedDayObj.isAvailable && selectedDayObj.shifts.length > 0) {
-      const shiftToUse = selectedDayObj.shifts[0]
-      setSelectedShift(shiftToUse)
-      
-      setIsLoadingSlots(true)
-      getAvailableSlots(String(doctorId), selectedDayObj.dateString, shiftToUse._id || shiftToUse.id)
-        .then((slots) => {
-          setAvailableSlots(slots || [])
-          if (slots && slots.length > 0) {
-            setSelectedTime(slots[0])
-            const mins = timeToMinutes(slots[0])
-            if (mins < 12 * 60) setSelectedPeriod("morning")
-            else if (mins < 17 * 60) setSelectedPeriod("afternoon")
-            else setSelectedPeriod("evening")
-          } else {
-            setSelectedTime("")
-            setSelectedPeriod("")
-          }
-        })
-        .catch(console.error)
-        .finally(() => setIsLoadingSlots(false))
-    } else {
+    if (!selectedDate || !data.doctor.id || selectedDate.shifts.length === 0) {
       setAvailableSlots([])
       setSelectedTime("")
-      setSelectedPeriod("")
+      return
     }
-  }, [selectedDayObj, doctorId])
 
-  const currentSlots = useMemo(() => {
-    const grouped: { morning: string[], afternoon: string[], evening: string[] } = {
-      morning: [],
-      afternoon: [],
-      evening: []
+    const fetchSlots = async () => {
+      try {
+        setLoadingSlots(true)
+        const slotResults = await Promise.all(
+          selectedDate.shifts.map(async (shift) => {
+            const shiftId = shift._id || shift.id
+            if (!shiftId) {
+              return generateSlots(shift.startTime, shift.endTime, 10)
+            }
+
+            try {
+              return await getAvailableSlots(String(data.doctor.id), selectedDate.dateString, String(shiftId))
+            } catch {
+              return generateSlots(shift.startTime, shift.endTime, 10)
+            }
+          })
+        )
+
+        setAvailableSlots(Array.from(new Set(slotResults.flat())))
+      } catch (err) {
+        console.error("Failed to build slots:", err)
+        setAvailableSlots([])
+      } finally {
+        setLoadingSlots(false)
+      }
     }
-    
-    availableSlots.forEach((t: string) => {
-      const mins = timeToMinutes(t)
-      if (mins < 12 * 60) grouped.morning.push(t)
-      else if (mins < 17 * 60) grouped.afternoon.push(t)
-      else grouped.evening.push(t)
+
+    fetchSlots()
+  }, [selectedDate, data.doctor.id])
+
+  useEffect(() => {
+    if (!data.doctor.id) return
+
+    const fetchShifts = async () => {
+      try {
+        setLoadingShifts(true)
+        const fetched = await getDoctorShiftsForBooking(String(data.doctor.id))
+        setShifts(fetched || [])
+      } catch (err) {
+        console.error("Failed to fetch shifts for booking:", err)
+        setShifts([])
+      } finally {
+        setLoadingShifts(false)
+      }
+    }
+
+    fetchShifts()
+  }, [data.doctor.id])
+
+  const displaySlots = useMemo(() => {
+    if (availableSlots.length === 0) return []
+    const uniqueSlots = new Set<string>()
+    availableSlots.forEach((slot) => {
+      if (normalizeTimeLabel(slot)) {
+        uniqueSlots.add(slot)
+      }
     })
-    return grouped
+    return Array.from(uniqueSlots)
   }, [availableSlots])
 
   const handleNext = () => {
-    if (!selectedDayObj || !selectedTime || !selectedShift) return
-    
+    if (!selectedDate || !selectedTime) return
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const fullDate = `${months[selectedDayObj.month]} ${selectedDayObj.date}, ${selectedDayObj.year}`
+    const fullDate = `${months[selectedDate.date.getMonth()]} ${selectedDate.date.getDate()}, ${selectedDate.date.getFullYear()}`
     
     onNext({
       dateTime: {
-        date: selectedDayObj.date,
+        date: selectedDate.date.getDate(),
         time: selectedTime,
-        period: selectedPeriod,
+        period: getPeriod(selectedTime),
         fullDate: fullDate,
-        dayName: selectedDayObj.dayName,
-        shiftId: selectedShift._id || selectedShift.id,
-        dateString: selectedDayObj.dateString,
+        dayName: selectedDate.dayName,
+        dateString: selectedDate.dateString,
+        shiftId: selectedDate.shifts[0]?._id || selectedDate.shifts[0]?.id,
       },
     })
   }
 
-  // Generate calendar grid for current view month
-  const viewMonth = selectedDayObj ? selectedDayObj.month : new Date().getMonth()
-  const viewYear = selectedDayObj ? selectedDayObj.year : new Date().getFullYear()
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
-  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay()
-  
-  const calendarGrid = []
-  for (let i = 0; i < firstDayOfMonth; i++) calendarGrid.push(null)
-  for (let i = 1; i <= daysInMonth; i++) {
-    const match = upcomingDays.find(d => d.date === i && d.month === viewMonth && d.year === viewYear)
-    calendarGrid.push(match || { date: i, isPast: true, isAvailable: false })
+  const getPeriod = (timeStr: string): string => {
+    try {
+      const hours = parseInt(timeStr.split(':')[0])
+      if (hours < 12) return "morning"
+      else if (hours < 17) return "afternoon"
+      else return "evening"
+    } catch {
+      return "morning"
+    }
   }
 
-  const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+  // Generate calendar grid for current view month
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
+  
+  const calendarDays = []
+  for (let i = 0; i < firstDayOfMonth; i++) calendarDays.push(null)
+  for (let i = 1; i <= daysInMonth; i++) {
+    const match = availableDates.find(ad => ad.date.getDate() === i && ad.date.getMonth() === currentMonth && ad.date.getFullYear() === currentYear)
+    const isPast = new Date(currentYear, currentMonth, i) < new Date(new Date().setHours(0, 0, 0, 0))
+    calendarDays.push(match || { date: i, isPast, available: false })
+  }
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11)
+      setCurrentYear(currentYear - 1)
+    } else {
+      setCurrentMonth(currentMonth - 1)
+    }
+  }
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0)
+      setCurrentYear(currentYear + 1)
+    } else {
+      setCurrentMonth(currentMonth + 1)
+    }
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
@@ -202,101 +286,124 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
       </Card>
 
       <Card className="p-6 mb-6">
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="font-bold text-lg text-gray-800">
-                {monthNames[viewMonth]} {viewYear}
+        <h3 className="font-semibold text-gray-900 mb-4">Select Date & Time</h3>
+        
+        {availableDays.length === 0 || availableHours.length === 0 ? (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+            <p className="text-amber-800 font-semibold">No Availability Set</p>
+            <p className="text-amber-700 text-sm mt-1">This doctor has not set their schedule yet.</p>
+          </div>
+        ) : loadingShifts ? (
+          <div className="flex items-center justify-center h-40">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          </div>
+        ) : availableDates.length === 0 ? (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+            <p className="text-red-800 font-semibold">No Generated Shifts</p>
+            <p className="text-red-700 text-sm mt-1">This doctor has not generated shifts yet.</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Calendar Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={handlePrevMonth}
+                  className="px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded transition"
+                >
+                  ← Prev
+                </button>
+                <div className="font-bold text-lg text-gray-800">
+                  {monthNames[currentMonth]} {currentYear}
+                </div>
+                <button
+                  onClick={handleNextMonth}
+                  className="px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded transition"
+                >
+                  Next →
+                </button>
               </div>
-            </div>
 
-            {isLoadingShifts ? (
-               <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/></div>
-            ) : (
-                <div className="border border-gray-200 rounded-lg p-4">
+              <div className="border border-gray-200 rounded-lg p-4">
                 <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-gray-600 mb-4">
                   {weekDays.map((day) => <div key={day}>{day}</div>)}
                 </div>
                 <div className="grid grid-cols-7 gap-2 text-center text-sm">
-                  {calendarGrid.map((dayObj: any, idx) => {
-                    if (!dayObj) return <div key={`pad-${idx}`} /> // empty padding
+                  {calendarDays.map((dayObj: any, idx) => {
+                    if (!dayObj) return <div key={`pad-${idx}`} />
+                    const dayLabel = dayObj.date instanceof Date ? dayObj.date.getDate() : dayObj.date
                     if (dayObj.isPast) return (
                       <div key={`past-${idx}`} className="p-2 text-gray-300 cursor-not-allowed">
-                        {dayObj.date}
+                        {dayLabel}
                       </div>
                     )
                     
-                    const isSelected = selectedDayObj && selectedDayObj.date === dayObj.date && selectedDayObj.month === dayObj.month
+                    const isSelected = selectedDate && selectedDate.dateString === dayObj.dateString
+                    const isAvail = dayObj.dateString !== undefined
                     
                     return (
                       <button
                         key={`day-${idx}`}
-                        onClick={() => {
-                          if (dayObj.isAvailable) setSelectedDayObj(dayObj)
-                        }}
-                        disabled={!dayObj.isAvailable}
-                        className={`p-2 rounded transition ${
-                          isSelected 
-                            ? "bg-blue-600 text-white font-bold shadow-md" 
-                            : dayObj.isAvailable 
-                              ? "hover:bg-blue-50 text-blue-800 font-semibold" 
-                              : "text-gray-300 cursor-not-allowed decoration-red-300"
+                        onClick={() => isAvail && setSelectedDate(dayObj)}
+                        disabled={!isAvail}
+                        className={`p-2 rounded transition relative ${
+                          isSelected
+                            ? "bg-blue-600 text-white font-bold shadow-md"
+                            : isAvail
+                              ? "hover:bg-blue-50 text-blue-800 font-semibold border-2 border-blue-300"
+                              : "text-gray-300 cursor-not-allowed"
                         }`}
                       >
-                        {dayObj.date}
+                        {dayLabel}
+                        {isAvail && <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full"></div>}
                       </button>
                     )
                   })}
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {isLoadingSlots ? (
-                <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/></div>
-            ) : !selectedDayObj?.isAvailable ? (
-              <div className="flex items-center justify-center h-full text-gray-500 italic">
-                No shifts available on this date.
-              </div>
-            ) : availableSlots.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-500 italic">
-                  All slots are fully booked.
+                <div className="mt-4 text-xs text-gray-600 text-center">
+                  <p><span className="text-green-500">●</span> Green dot = Available day</p>
                 </div>
-            ) : (
-              <>
-                {(["morning", "afternoon", "evening"] as const).map((period) => {
-                  const slots = currentSlots[period]
-                  if (slots.length === 0) return null
-                  
-                  return (
-                    <div key={period} className="space-y-2">
-                      <h4 className="font-semibold text-gray-900 capitalize">{period}</h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        {slots.map((time) => (
-                          <button
-                            key={time}
-                            onClick={() => {
-                              setSelectedTime(time)
-                              setSelectedPeriod(period)
-                            }}
-                            className={`p-2 rounded transition text-sm font-semibold ${
-                              selectedTime === time && selectedPeriod === period
-                                ? "bg-teal-500 text-white shadow-sm"
-                                : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </>
-            )}
+              </div>
+            </div>
+
+            {/* Time Slots Section */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Available Times</h4>
+              
+              {!selectedDate ? (
+                <div className="flex items-center justify-center h-40 text-gray-500 italic border border-gray-200 rounded-lg">
+                  Select a date to see time slots
+                </div>
+              ) : loadingSlots ? (
+                <div className="flex items-center justify-center h-40">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                </div>
+              ) : displaySlots.length === 0 ? (
+                <div className="flex items-center justify-center h-40 text-gray-500 italic">
+                  No time slots available
+                </div>
+              ) : (
+                <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {displaySlots.map((slot, idx) => (
+                      <button
+                        key={`${slot}-${idx}`}
+                        onClick={() => setSelectedTime(slot)}
+                        className={`px-2 py-2 rounded-lg text-xs font-semibold transition ${
+                          selectedTime === slot
+                            ? "bg-green-600 text-white shadow-sm"
+                            : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </Card>
 
       <div className="flex justify-between">
@@ -305,10 +412,10 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={!selectedTime || !selectedShift}
+          disabled={!selectedDate || !selectedTime || loadingSlots}
           className="bg-blue-600 hover:bg-blue-700 px-8 disabled:opacity-50"
         >
-          Add Basic Information
+          Continue
         </Button>
       </div>
     </div>

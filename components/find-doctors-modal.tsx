@@ -89,7 +89,7 @@ export function FindDoctorsModal({ isOpen, onClose }: FindDoctorsModalProps) {
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="w-12 h-12">
-                      <AvatarImage src={doctor.image || "/placeholder.svg"} alt={doctor.name} />
+                      <AvatarImage src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"} alt={doctor.name} />
                       <AvatarFallback className="bg-blue-600 text-white">
                         {doctor.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR'}
                       </AvatarFallback>

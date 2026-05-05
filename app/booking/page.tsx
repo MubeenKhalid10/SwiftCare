@@ -47,6 +47,7 @@ function BookingContent() {
     payment: null as { method: string; cardData?: Record<string, string>; paymentIntentId?: string } | null,
     bookingNumber: "",
   })
+  const isRegisteredDoctor = doctor?.accountStatus?.registered !== false
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -65,6 +66,13 @@ function BookingContent() {
         const data = await getDoctorById(doctorId)
         if (data) {
           setDoctor(data)
+          // Extract schedule from nested structure or top-level fields
+          const schedule = (data as any).schedule || {}
+          const availableDays = schedule.availableDays || (data as any).availableDays || []
+          const availableHours = schedule.availableHours || (data as any).availableHours || []
+          
+          console.log("[booking] Doctor data received:", { data, availableDays, availableHours })
+          
           setBookingData(prev => ({
             ...prev,
             doctor: {
@@ -75,8 +83,9 @@ function BookingContent() {
               address: data.location || "Location not specified",
               image: data.image || "",
               fee: data.fee || "$100",
-              availableDays: (data as any).availableDays || [],
-              availableHours: (data as any).availableHours || [],
+              availableDays,
+              availableHours,
+              schedule: { availableDays, availableHours }, // Store full schedule object too
             },
           }))
         } else {
@@ -121,7 +130,10 @@ function BookingContent() {
           day: dayName,
           date: appointmentDate,
           time: bookingData.dateTime?.time || "10:00 AM",
-          bookingFor: bookingData.basicInfo?.patient || "Self",
+          bookingFor:
+            bookingData.basicInfo?.patient === 'Self'
+              ? (user?.name || 'Patient')
+              : (bookingData.basicInfo?.patient || user?.name || 'Patient'),
           problem: bookingData.basicInfo?.symptoms || bookingData.basicInfo?.reasonForVisit || "",
           amount: feeAmount,
           fullDateIso: dateObj.toISOString(),
@@ -173,6 +185,40 @@ function BookingContent() {
             >
               Browse Doctors
             </button>
+          </div>
+        </main>
+        <Footer />
+      </>
+    )
+  }
+
+  if (!isRegisteredDoctor) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+          <div className="max-w-2xl w-full bg-white border border-amber-200 rounded-2xl p-8 text-center shadow-sm">
+            <p className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 mb-4">
+              Not Registered
+            </p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">Information only</h1>
+            <p className="text-gray-600 mb-6">
+              This doctor profile is available for information only and cannot be booked online.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => router.push(`/doctor-profile?id=${doctor.id}`)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                View Profile
+              </button>
+              <button
+                onClick={() => router.push('/doctors')}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                Browse Doctors
+              </button>
+            </div>
           </div>
         </main>
         <Footer />

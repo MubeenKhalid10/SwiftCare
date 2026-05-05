@@ -6,8 +6,9 @@ import Link from "next/link"
 import { Star, Loader2 } from "lucide-react"
 import { getDoctors } from "@/lib/api"
 import { getInitials } from "@/lib/avatar-utils"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import type { Doctor } from "@/lib/types"
+
+const DOCTOR_FALLBACK_IMAGE = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
 
 export default function FeaturedDoctors() {
   const router = useRouter()
@@ -81,12 +82,14 @@ export default function FeaturedDoctors() {
               className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition block"
             >
               <div className="h-48 flex items-center justify-center overflow-hidden">
-                <Avatar className="w-full h-full">
-                  <AvatarImage src="/doctor-placeholder.png" alt={doctor.name} className="object-cover" />
-                  <AvatarFallback className="text-2xl font-semibold bg-blue-600 text-white rounded-none">
-                    {getInitials(doctor.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <img
+                  src={doctor.image || DOCTOR_FALLBACK_IMAGE}
+                  alt={doctor.name}
+                  className="w-full h-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = DOCTOR_FALLBACK_IMAGE
+                  }}
+                />
               </div>
 
               <div className="p-6">

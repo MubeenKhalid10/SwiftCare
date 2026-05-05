@@ -1,9 +1,87 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import AdminLayout from '@/components/admin/admin-layout'
+import { useAuth } from '@/lib/auth-context'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Mail, MapPin, ShieldCheck, UserCircle2 } from 'lucide-react'
+
+type ProfileFormState = {
+  name: string
+  email: string
+  avatar: string
+  about: string
+}
+
+const DEFAULT_ABOUT = 'Administrator account for managing the SwiftCare platform.'
 
 export default function AdminProfilePage() {
+  const router = useRouter()
+  const { user, isAuthenticated, isLoading: authLoading, updateUser } = useAuth()
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formData, setFormData] = useState<ProfileFormState>({
+    name: '',
+    email: '',
+    avatar: '',
+    about: DEFAULT_ABOUT,
+  })
+
+  useEffect(() => {
+    if (!authLoading && (!isAuthenticated || user?.role !== 'admin')) {
+      router.push('/admin/login')
+      return
+    }
+
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      avatar: user?.avatar || '',
+      about: DEFAULT_ABOUT,
+    })
+  }, [authLoading, isAuthenticated, router, user])
+
+  const initials = useMemo(() => {
+    const source = user?.name || 'Admin User'
+    return source
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
+  }, [user?.name])
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      updateUser({
+        name: formData.name.trim() || user?.name || 'Admin User',
+        email: formData.email.trim() || user?.email || 'admin@swiftcare.com',
+        avatar: formData.avatar.trim(),
+      })
+      setIsEditOpen(false)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      </AdminLayout>
+    )
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -12,21 +90,32 @@ export default function AdminProfilePage() {
           <p className="text-gray-600">Dashboard / Profile</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center gap-6 mb-6">
-            <div className="w-24 h-24 bg-gray-200 rounded-full"></div>
-            <div>
-              <h2 className="text-2xl font-bold">Ryan Taylor</h2>
-              <p className="text-gray-600">ryantaylor@admin.com</p>
-              <p className="text-gray-600 flex items-center gap-1">📍 Florida, United States</p>
-              <p className="text-gray-600 mt-2">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
+            <Avatar className="w-24 h-24 ring-4 ring-blue-100">
+              <AvatarImage src={user?.avatar} alt={user?.name || 'Admin'} />
+              <AvatarFallback className="bg-blue-600 text-white text-xl font-bold">{initials}</AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">{user?.name || 'Admin User'}</h2>
+                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Admin</Badge>
+              </div>
+              <p className="text-gray-600 flex items-center gap-2"><Mail className="w-4 h-4" />{user?.email || 'admin@swiftcare.com'}</p>
+              <p className="text-gray-600 flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Platform administrator</p>
+              <p className="text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" />SwiftCare Admin Portal</p>
+              <p className="text-gray-600 max-w-2xl">{formData.about}</p>
             </div>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-auto">Edit</Button>
+
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-auto" onClick={() => setIsEditOpen(true)}>
+              Edit
+            </Button>
           </div>
 
           <div className="flex gap-4 border-b border-gray-200 mb-6">
             <button className="px-4 py-2 text-cyan-500 border-b-2 border-cyan-500 font-medium">About</button>
-            <button className="px-4 py-2 text-gray-600 hover:text-gray-800">Password</button>
+            <button className="px-4 py-2 text-gray-600 hover:text-gray-800">Security</button>
           </div>
 
           <div className="space-y-4">
@@ -34,27 +123,90 @@ export default function AdminProfilePage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-gray-600 text-sm">Name</p>
-                <p className="font-medium">John Doe</p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">Date of Birth</p>
-                <p className="font-medium">24 Jul 1983</p>
+                <p className="font-medium">{user?.name || 'Admin User'}</p>
               </div>
               <div>
                 <p className="text-gray-600 text-sm">Email ID</p>
-                <p className="font-medium">johndoe@example.com</p>
+                <p className="font-medium">{user?.email || 'admin@swiftcare.com'}</p>
               </div>
               <div>
-                <p className="text-gray-600 text-sm">Mobile</p>
-                <p className="font-medium">305-310-5857</p>
+                <p className="text-gray-600 text-sm">Role</p>
+                <p className="font-medium capitalize">{user?.role || 'admin'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600 text-sm">Avatar</p>
+                <p className="font-medium truncate">{user?.avatar || 'Not set'}</p>
               </div>
               <div className="col-span-2">
-                <p className="text-gray-600 text-sm">Address</p>
-                <p className="font-medium">4663 Agriculture Lane, Miami, Florida - 33165, United States.</p>
+                <p className="text-gray-600 text-sm">About</p>
+                <p className="font-medium">{formData.about}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+            <div className="flex items-start gap-3">
+              <UserCircle2 className="w-5 h-5 text-gray-500 mt-0.5" />
+              <div>
+                <p className="font-semibold text-gray-900">Security</p>
+                <p className="text-sm text-gray-600">Password changes are handled from the sign-in flow in this frontend-only setup.</p>
               </div>
             </div>
           </div>
         </div>
+
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Profile</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="avatar">Avatar URL</Label>
+                <Input
+                  id="avatar"
+                  value={formData.avatar}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, avatar: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <Label htmlFor="about">About</Label>
+                <Textarea
+                  id="about"
+                  value={formData.about}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, about: e.target.value }))}
+                  rows={4}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" className="bg-transparent" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700">
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   )

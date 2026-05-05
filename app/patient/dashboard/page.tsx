@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Heart, Thermometer, Droplets, Activity, ChevronDown, MessageCircle, Loader2 } from "lucide-react"
+import { Heart, Thermometer, Droplets, Activity, ChevronDown, MessageCircle, Loader2, Clock, AlertCircle, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -13,8 +13,9 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import { useAuth } from "@/lib/auth-context"
+import { useNotifications } from "@/hooks/use-notifications"
 import { getAppointmentsByPatientId, getDoctors } from "@/lib/api"
-import type { Appointment, Doctor } from "@/lib/types"
+import type { Appointment, Doctor, Notification } from "@/lib/types"
 
 const chartData = [
   { day: "Mon", heartRate: 72, bloodPressure: 120 },
@@ -120,6 +121,8 @@ export default function PatientDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [appointmentsPage, setAppointmentsPage] = useState(0)
   const [pastAppointmentsPage, setPastAppointmentsPage] = useState(0)
+  const [appointmentReminders, setAppointmentReminders] = useState<Notification[]>([])
+  const [queueProgressNotifications, setQueueProgressNotifications] = useState<Notification[]>([])
 
   const pushWithParams = (pathname: string, params?: Record<string, string | number | undefined>) => {
     const searchParams = new URLSearchParams()
@@ -156,6 +159,20 @@ export default function PatientDashboard() {
     pastAppointmentsPage * pastAppointmentsPerPage,
     pastAppointmentsPage * pastAppointmentsPerPage + pastAppointmentsPerPage
   )
+
+  // Real-time notification updates
+  useNotifications({
+    showToasts: true,
+    onAppointmentReminder: (notif) => {
+      setAppointmentReminders(prev => [notif, ...prev.slice(0, 4)])
+    },
+    onQueueTurnNow: (notif) => {
+      setQueueProgressNotifications(prev => [notif, ...prev.slice(0, 2)])
+    },
+    onQueueApproaching: (notif) => {
+      setQueueProgressNotifications(prev => [notif, ...prev.slice(0, 2)])
+    }
+  })
 
   useEffect(() => {
     if (!authLoading) {
@@ -383,7 +400,7 @@ export default function PatientDashboard() {
                         <div key={apt.id} className="border-t pt-3">
                           <div className="flex gap-3 items-start mb-2">
                             <Avatar className="w-10 h-10">
-                              <AvatarImage src={doctor?.image || "/placeholder.svg"} />
+                              <AvatarImage src={doctor?.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"} />
                               <AvatarFallback>{doctor?.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
@@ -580,6 +597,82 @@ export default function PatientDashboard() {
                   ))}
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Appointment Reminders & Queue Progress */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Appointment Reminders */}
+              {appointmentReminders.length > 0 && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      <CardTitle className="text-lg">Upcoming Reminders</CardTitle>
+                      <Badge className="bg-blue-600 text-white">{appointmentReminders.length}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {appointmentReminders.map((reminder) => (
+                      <div key={reminder.id} className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg">
+                        <p className="font-medium text-sm text-blue-900">{reminder.title}</p>
+                        <p className="text-xs text-blue-700 mt-1">{reminder.body}</p>
+                        {reminder.data?.minutesUntil && (
+                          <p className="text-xs text-blue-600 font-semibold mt-2">
+                            ⏱️ {reminder.data.minutesUntil} minutes away
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Queue Progress Notifications */}
+              {queueProgressNotifications.length > 0 && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-green-600" />
+                      <CardTitle className="text-lg">Queue Status</CardTitle>
+                      <Badge className="bg-green-600 text-white">{queueProgressNotifications.length}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {queueProgressNotifications.map((notification) => {
+                      const isNow = notification.type === 'queue_turn_now'
+                      return (
+                        <div
+                          key={notification.id}
+                          className={`p-3 border rounded-lg ${
+                            isNow
+                              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+                              : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isNow && <AlertCircle className="w-4 h-4 text-green-600" />}
+                            {!isNow && <Clock className="w-4 h-4 text-yellow-600" />}
+                            <p className={`font-medium text-sm ${isNow ? 'text-green-900' : 'text-yellow-900'}`}>
+                              {notification.title}
+                            </p>
+                          </div>
+                          <p className={`text-xs mt-1 ${isNow ? 'text-green-700' : 'text-yellow-700'}`}>
+                            {notification.body}
+                          </p>
+                          {isNow && (
+                            <Button
+                              className="mt-2 w-full h-7 bg-green-600 text-white text-xs"
+                              onClick={() => pushWithParams("/patient/queue-tracking", { tab: "current" })}
+                            >
+                              Go to Queue →
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Favourites & Dependents */}

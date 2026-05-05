@@ -39,6 +39,12 @@ export default function ReviewsPage() {
         setDoctors(doctorsMap)
         setReviews(reviewsData)
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (message === 'Unauthorized') {
+          router.push('/admin/login')
+          return
+        }
+
         setError('Failed to load reviews')
         console.error(err)
       } finally {

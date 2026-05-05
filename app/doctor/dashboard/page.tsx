@@ -12,12 +12,16 @@ import { Badge } from '@/components/ui/badge';
 import { DoctorSidebar } from '@/components/doctor/doctor-sidebar';
 import { VerificationStatusAlert } from '@/components/doctor/verification-status-alert';
 import { useAuth } from '@/lib/auth-context';
-import { getAppointmentsByDoctorId, getPatients, getReviewsByDoctorId, getDoctorById, getDoctorInsights, getActiveShift, createShift, startRestShift, endRestShift, startShiftQueue, endShiftQueue, nextQueuePatient, getQueueState } from '@/lib/api';
+import { getAppointmentsByDoctorId, getPatients, getReviewsByDoctorId, getDoctorById, getDoctorInsights, getBookableShifts, createShift, startRestShift, endRestShift, startShiftQueue, endShiftQueue, nextQueuePatient, getQueueState, generateNextShifts } from '@/lib/api';
 import type { Appointment, Patient, Review, Doctor, DoctorInsights, Shift } from '@/lib/types';
-import { Loader2, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, AlertTriangle, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { socket } from '@/lib/socket';
+import { socket, connectSocket } from '@/lib/socket';
+import { isDoctorAvailableNow, getUnavailabilityReason } from '@/lib/shift-availability';
+import { useNotifications } from '@/hooks/use-notifications';
+import type { Notification } from '@/lib/types';
+import { getAppointmentDisplayName } from '@/lib/utils';
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -29,21 +33,105 @@ export default function DoctorDashboard() {
   const [insights, setInsights] = useState<DoctorInsights | null>(null);
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingShifts, setIsGeneratingShifts] = useState(false);
   const [previousStatus, setPreviousStatus] = useState<string | null>(null);
   const [showApprovalNotification, setShowApprovalNotification] = useState(false);
-
+  const [isAvailableNow, setIsAvailableNow] = useState(false);
+  const [unavailabilityReason, setUnavailabilityReason] = useState<string | null>(null);
   const [queueStates, setQueueStates] = useState<Record<string, number>>({});
+  const [currentServingPatient, setCurrentServingPatient] = useState<Appointment | null>(null);
+  const [newReviewNotifications, setNewReviewNotifications] = useState<Notification[]>([]);
+  const [lastSeenReviewCount, setLastSeenReviewCount] = useState<number>(0);
+
+  // Handle real-time notifications
+  useNotifications({
+    showToasts: true,
+    onReviewSubmitted: (notif) => {
+      setNewReviewNotifications(prev => [notif, ...prev.slice(0, 4)])
+      // Refresh reviews to show new ones
+      if (user?.id) {
+        getReviewsByDoctorId(String(user.id))
+          .then(setReviews)
+          .catch(err => console.error('Failed to refresh reviews:', err))
+      }
+    }
+  });
+
+  // Poll for new reviews every 10 seconds to catch reviews added by patients
+  useEffect(() => {
+    if (!user?.id) return
+    
+    // Store initial review count
+    setLastSeenReviewCount(reviews.length)
+  }, [reviews.length === 0]) // Only set on first load
 
   useEffect(() => {
-    if (!socket.connected) socket.connect();
+    if (!user?.id) return
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const updatedReviews = await getReviewsByDoctorId(String(user.id))
+        
+        // Check if new review was added
+        if (updatedReviews.length > lastSeenReviewCount) {
+          const newReviews = updatedReviews.slice(0, updatedReviews.length - lastSeenReviewCount)
+          newReviews.forEach(review => {
+            // Show toast for new review
+            toast.success('⭐ New Review Submitted', {
+              description: `A patient just left a ${review.rating}-star review!`
+            })
+            
+            // Add to notifications list
+            setNewReviewNotifications(prev => [
+              {
+                id: String(review.id),
+                userId: String(user.id),
+                role: 'doctor',
+                type: 'feedback_moderation',
+                title: 'New Review - Rating ' + review.rating + ' stars',
+                body: review.comment || 'A new review has been submitted',
+                data: {
+                  reviewId: String(review.id),
+                  doctorId: String(user.id),
+                  patientId: review.patientId,
+                  rating: review.rating
+                },
+                read: false,
+                readAt: null
+              } as Notification,
+              ...prev.slice(0, 4)
+            ])
+          })
+          
+          setLastSeenReviewCount(updatedReviews.length)
+          setReviews(updatedReviews)
+        }
+      } catch (err) {
+        console.error('Error polling for reviews:', err)
+      }
+    }, 10000) // Poll every 10 seconds
+    
+    return () => clearInterval(pollInterval)
+  }, [lastSeenReviewCount, user?.id])
+
+  useEffect(() => {
+    if (!socket.connected) connectSocket();
     
     const onQueueUpdated = (data: { shiftId: string, currentServing: number }) => {
       setQueueStates(prev => ({ ...prev, [data.shiftId]: data.currentServing }));
+      
+      // Update the currently serving patient based on queue number
+      if (activeShift && data.shiftId === String(activeShift._id || activeShift.id)) {
+        const servingPatient = doctorAppointments.find(
+          apt => apt.queueNumber === data.currentServing && apt.shiftId === data.shiftId
+        );
+        setCurrentServingPatient(servingPatient || null);
+      }
     };
     
     socket.on('queueUpdated', onQueueUpdated);
     return () => { socket.off('queueUpdated', onQueueUpdated); };
-  }, []);
+  }, [activeShift, doctorAppointments]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -64,20 +152,43 @@ export default function DoctorDashboard() {
           setPreviousStatus(profile?.accountStatus?.verificationStatus || 'pending');
           setDoctorProfile(profile);
 
+          // Check availability based on doctor's schedule
+          if (profile?.schedule?.availableDays && profile?.schedule?.availableHours) {
+            const available = isDoctorAvailableNow(profile.schedule.availableDays, profile.schedule.availableHours);
+            setIsAvailableNow(available);
+            if (!available) {
+              setUnavailabilityReason(getUnavailabilityReason(profile.schedule.availableDays, profile.schedule.availableHours));
+            }
+          }
+
           // Only fetch full stats if approved, to save load or just fetch anyway
           // We'll fetch anyway for now, but hide it in UI if pending
-          const [aptsData, patientsData, reviewsData, insightsData, shiftData] = await Promise.all([
+          const [aptsData, patientsData, reviewsData, insightsData, shiftsData] = await Promise.all([
             getAppointmentsByDoctorId(String(user?.id)),
             getPatients(),
             getReviewsByDoctorId(String(user?.id)),
             getDoctorInsights(String(user?.id)),
-            getActiveShift(String(user?.id))
+            getBookableShifts(String(user?.id))
           ]);
           setDoctorAppointments(aptsData);
           setPatients(patientsData);
           setReviews(reviewsData);
           setInsights(insightsData);
-          setActiveShift(shiftData);
+          setActiveShift(shiftsData && shiftsData.length > 0 ? shiftsData[0] : null);
+
+          // Update current serving patient if there's an active shift
+          if (shiftsData && shiftsData.length > 0) {
+            const active = shiftsData[0];
+            if (active.status === 'active' && active._id) {
+              const queueState = await getQueueState(String(active._id));
+              setQueueStates(prev => ({ ...prev, [String(active._id)]: queueState.currentServing }));
+              
+              const servingPatient = aptsData.find(
+                apt => apt.queueNumber === queueState.currentServing && apt.shiftId === String(active._id)
+              );
+              setCurrentServingPatient(servingPatient || null);
+            }
+          }
         } catch (err) {
           console.error('Error fetching data:', err);
         } finally {
@@ -138,7 +249,7 @@ export default function DoctorDashboard() {
         if (patient) {
           uniquePatientMap.set(String(apt.patientId), {
             id: apt.patientId,
-            name: patient.name || apt.bookingFor || 'Patient',
+            name: patient.name || getAppointmentDisplayName(apt),
             lastAppointment: apt.date,
             email: patient.email
           });
@@ -146,6 +257,24 @@ export default function DoctorDashboard() {
       }
     });
   const recentPatients = Array.from(uniquePatientMap.values()).slice(0, 4);
+
+  const handleGenerateNextShifts = async () => {
+    if (!user?.id) return;
+    try {
+      setIsGeneratingShifts(true);
+      const res = await generateNextShifts(String(user.id), 30);
+      const createdCount = res?.createdCount ?? 0;
+      toast.success(`Generated ${createdCount} new shifts`);
+
+      const refreshed = await getBookableShifts(String(user.id));
+      setActiveShift(refreshed && refreshed.length > 0 ? refreshed[0] : null);
+    } catch (err) {
+      console.error('Failed to generate shifts:', err);
+      toast.error('Failed to generate shifts');
+    } finally {
+      setIsGeneratingShifts(false);
+    }
+  };
 
   return (
     <>
@@ -182,83 +311,150 @@ export default function DoctorDashboard() {
                   </Card>
                 ) : (
                   <>
-                  {/* Shift Management Component */}
-                  <Card className="mb-6 bg-blue-50 border-blue-200 shadow-sm">
-                    <CardHeader className="py-4">
-                       <CardTitle className="text-blue-900 flex justify-between items-center text-lg">
-                           <div className="flex items-center gap-2">
-                             <Clock className="w-5 h-5" />
-                             <span>Daily Shift Management</span>
-                           </div>
-                           <Badge variant="outline" className={activeShift?.status === 'active' ? "bg-green-100 text-green-800 border-green-300" : activeShift?.status === 'scheduled' ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>
-                               {activeShift ? activeShift.status.toUpperCase() : "NO SHIFT"}
-                           </Badge>
-                       </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {!activeShift ? (
-                           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                               <p className="text-sm text-gray-700">You don't have any shift scheduled for today. Create a shift so patients can book your slots and check in to the queue.</p>
-                               <Button onClick={async () => {
-                                   try {
-                                     const res = await createShift({
-                                        doctorId: String(user?.id),
-                                        date: new Date().toISOString(),
-                                        startTime: "09:00 AM",
-                                        endTime: "05:00 PM",
-                                        consultingFee: doctorProfile?.fee ? parseInt(doctorProfile.fee.replace(/[^0-9]/g, '')) : 100,
-                                        isBookable: true
-                                     });
-                                     setActiveShift(res);
-                                     toast.success("Shift created for today!");
-                                   } catch (e) {
-                                     toast.error("Failed to create shift")
-                                   }
-                               }}>Create Today's Shift</Button>
-                           </div>
-                        ) : activeShift.status === 'scheduled' ? (
-                           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                               <div>
-                                 <p className="text-sm text-gray-700 font-medium">You have a shift scheduled today from {activeShift.startTime} to {activeShift.endTime}.</p>
-                                 <p className="text-xs text-gray-500 mt-1">Start your shift to begin accepting patients in the live queue.</p>
-                               </div>
-                               <Button onClick={async () => {
-                                   try {
-                                     // 1. Start Shift
-                                     await startRestShift(String(activeShift._id || activeShift.id));
-                                     // 2. Start Queue for Shift
-                                     await startShiftQueue(String(activeShift._id || activeShift.id));
-                                     setActiveShift({...activeShift, status: 'active'});
-                                     toast.success("Shift started! The queue is now active.");
-                                   } catch (e) {
-                                     toast.error("Failed to start shift")
-                                   }
-                               }} className="bg-green-600 hover:bg-green-700">Start Shift</Button>
-                           </div>
-                        ) : activeShift.status === 'active' ? (
-                           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                               <div>
-                                 <p className="text-sm text-gray-700 font-medium whitespace-nowrap">Your shift is currently active.</p>
-                                 <p className="text-xs text-green-700 font-semibold mt-1">Live queue is tracking {activeShift.patientsInQueue || 0} patients.</p>
-                               </div>
-                               <Button onClick={async () => {
-                                   try {
-                                     await endShiftQueue(String(activeShift._id || activeShift.id));
-                                     await endRestShift(String(activeShift._id || activeShift.id));
-                                     setActiveShift({...activeShift, status: 'ended'});
-                                     toast.success("Shift ended successfully!");
-                                   } catch (e) {
-                                     toast.error("Failed to end shift")
-                                   }
-                               }} variant="destructive">End Shift</Button>
-                           </div>
-                        ) : (
-                           <div className="flex items-center justify-between">
-                               <p className="text-sm text-gray-700 font-medium">Your shift for today has been completed.</p>
-                           </div>
-                        )}
-                    </CardContent>
-                  </Card>
+                  {/* Shift Management Component - Only show if available */}
+                  {!isAvailableNow && unavailabilityReason && (
+                    <Alert variant="destructive" className="mb-6 bg-orange-50 border-orange-200 text-orange-900">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Not Currently Available</AlertTitle>
+                      <AlertDescription>
+                        {unavailabilityReason}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {isAvailableNow && (
+                    <Card className="mb-6 bg-blue-50 border-blue-200 shadow-sm">
+                      <CardHeader className="py-4">
+                         <CardTitle className="text-blue-900 flex justify-between items-center text-lg">
+                             <div className="flex items-center gap-2">
+                               <Clock className="w-5 h-5" />
+                               <span>Daily Shift Management</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={handleGenerateNextShifts}
+                                 disabled={isGeneratingShifts}
+                               >
+                                 {isGeneratingShifts ? (
+                                   <span className="flex items-center gap-2">
+                                     <Loader2 className="w-4 h-4 animate-spin" />
+                                     Generating
+                                   </span>
+                                 ) : (
+                                   'Generate Next 30 Days'
+                                 )}
+                               </Button>
+                               <Badge variant="outline" className={activeShift?.status === 'active' ? "bg-green-100 text-green-800 border-green-300" : activeShift?.status === 'scheduled' ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>
+                                   {activeShift ? activeShift.status.toUpperCase() : "NO SHIFT"}
+                               </Badge>
+                             </div>
+                         </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          {!activeShift ? (
+                             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                 <p className="text-sm text-gray-700">You don't have any shift scheduled for today. Create a shift so patients can book your slots and check in to the queue.</p>
+                                 <Button onClick={async () => {
+                                     try {
+                                       const res = await createShift({
+                                          doctorId: String(user?.id),
+                                          date: new Date().toISOString(),
+                                          startTime: "09:00 AM",
+                                          endTime: "05:00 PM",
+                                          consultingFee: doctorProfile?.fee ? parseInt(doctorProfile.fee.replace(/[^0-9]/g, '')) : 100,
+                                          isBookable: true
+                                       });
+                                       setActiveShift(res);
+                                       toast.success("Shift created for today!");
+                                     } catch (e) {
+                                       toast.error("Failed to create shift")
+                                     }
+                                 }}>Create Today's Shift</Button>
+                             </div>
+                          ) : activeShift.status === 'scheduled' ? (
+                             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                 <div>
+                                   <p className="text-sm text-gray-700 font-medium">You have a shift scheduled today from {activeShift.startTime} to {activeShift.endTime}.</p>
+                                   <p className="text-xs text-gray-500 mt-1">Start your shift to begin accepting patients in the live queue.</p>
+                                 </div>
+                                 <Button onClick={async () => {
+                                     try {
+                                       // 1. Start Shift
+                                       await startRestShift(String(activeShift._id || activeShift.id));
+                                       // 2. Start Queue for Shift
+                                       const shiftIdentifier = String(activeShift._id || activeShift.id);
+                                       const queueStart = await startShiftQueue(shiftIdentifier);
+
+                                       // Initialize the live queue on the frontend so the first patient becomes current immediately.
+                                       if (queueStart?.nextAppointment) {
+                                         const initialServing = await nextQueuePatient(shiftIdentifier);
+                                         const servingQueueNumber = initialServing?.currentServing ?? queueStart?.nextNumber ?? 0;
+                                         setQueueStates(prev => ({ ...prev, [shiftIdentifier]: servingQueueNumber }));
+
+                                         const servingPatient = doctorAppointments.find(
+                                           apt => apt.queueNumber === servingQueueNumber && apt.shiftId === shiftIdentifier
+                                         );
+                                         setCurrentServingPatient(servingPatient || null);
+                                       }
+
+                                       setActiveShift({...activeShift, status: 'active'});
+                                       toast.success("Shift started! The queue is now active.");
+                                     } catch (e) {
+                                       toast.error("Failed to start shift")
+                                     }
+                                 }} className="bg-green-600 hover:bg-green-700">Start Shift</Button>
+                             </div>
+                          ) : activeShift.status === 'active' ? (
+                             <>
+                              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+                                 <div>
+                                   <p className="text-sm text-gray-700 font-medium whitespace-nowrap">Your shift is currently active.</p>
+                                   <p className="text-xs text-green-700 font-semibold mt-1">Live queue is tracking {activeShift.patientsInQueue || 0} patients.</p>
+                                 </div>
+                                 <Button onClick={async () => {
+                                     try {
+                                       await endShiftQueue(String(activeShift._id || activeShift.id));
+                                       await endRestShift(String(activeShift._id || activeShift.id));
+                                       setActiveShift({...activeShift, status: 'ended'});
+                                       setCurrentServingPatient(null);
+                                       toast.success("Shift ended successfully!");
+                                     } catch (e) {
+                                       toast.error("Failed to end shift")
+                                     }
+                                 }} variant="destructive">End Shift</Button>
+                              </div>
+                              
+                              {/* Currently Serving Patient Card */}
+                              {currentServingPatient && (
+                                <Card className="mt-4 bg-green-50 border-green-200">
+                                  <CardContent className="pt-6">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-lg font-semibold text-green-800">
+                                        👤
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-sm font-semibold text-gray-700">Currently Serving:</span>
+                                          <Badge className="bg-green-600 text-white">Queue #{currentServingPatient.queueNumber}</Badge>
+                                        </div>
+                                        <p className="text-lg font-bold text-gray-900">{getAppointmentDisplayName(currentServingPatient)}</p>
+                                        <p className="text-xs text-gray-600 mt-1">{currentServingPatient.problem || 'General visit'}</p>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                             </>
+                          ) : (
+                             <div className="flex items-center justify-between">
+                                 <p className="text-sm text-gray-700 font-medium">Your shift for today has been completed.</p>
+                             </div>
+                          )}
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <Card>
@@ -412,6 +608,28 @@ export default function DoctorDashboard() {
                     </Card>
                   </div>
 
+                  {/* New Reviews & Notifications Section */}
+                  {newReviewNotifications.length > 0 && (
+                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Star className="w-5 h-5 text-purple-600" />
+                        <h3 className="font-semibold text-purple-900">New Review Notifications</h3>
+                        <Badge className="bg-purple-600 text-white ml-auto">{newReviewNotifications.length}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {newReviewNotifications.map((notif) => (
+                          <div key={notif.id} className="text-sm p-2 bg-white/60 rounded border border-purple-100">
+                            <p className="font-medium text-purple-900">{notif.title}</p>
+                            <p className="text-purple-700 text-xs mt-1">{notif.body}</p>
+                            <Link href="/doctor/reviews" className="text-purple-600 hover:text-purple-800 text-xs font-semibold mt-2 inline-block">
+                              View Review →
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
                       <Card>
@@ -445,66 +663,79 @@ export default function DoctorDashboard() {
 
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">Upcoming Appointment</CardTitle>
+                        <CardTitle className="text-lg">Queue Management</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        {nextAppointment ? (
-                          <div className="bg-blue-600 rounded-lg p-4 text-white mb-4">
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="w-10 h-10 bg-yellow-300 rounded-full flex items-center justify-center">
-                                <span>🧑</span>
+                        {activeShift && activeShift.status === 'active' ? (
+                          <div className="space-y-4">
+                            {/* Currently Serving Patient Info */}
+                            {currentServingPatient ? (
+                              <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-lg p-4 text-white">
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    <span>🟢</span>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm opacity-90">Currently Serving</p>
+                                    <p className="text-lg font-bold">{getAppointmentDisplayName(currentServingPatient)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between pt-3 border-t border-white/20">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className="bg-white/30 text-white border-0">Queue #{currentServingPatient.queueNumber}</Badge>
+                                    <span className="text-sm">Patient name shown</span>
+                                  </div>
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-white text-green-600 hover:bg-gray-100 font-bold"
+                                    onClick={async () => {
+                                      try {
+                                        if (activeShift._id || activeShift.id) {
+                                          const res = await nextQueuePatient(String(activeShift._id || activeShift.id));
+                                          toast.success(`Checked out patient. Now serving queue #${res.currentServing}`);
+                                        }
+                                      } catch (err) {
+                                        toast.error("Failed to advance queue");
+                                      }
+                                    }}
+                                  >
+                                    Check Out
+                                  </Button>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-semibold">#{nextAppointment.id?.substring(0, 8) || 'APT001'}</p>
-                                <p className="text-sm">{nextAppointment.bookingFor || 'Patient'}</p>
-                              </div>
-                            </div>
-                            <p className="text-sm mb-3">{nextAppointment.problem || 'General visit'}</p>
-                            <p className="text-sm mb-4">{nextAppointment.date}, {nextAppointment.time}</p>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="text-xs bg-white text-blue-600 hover:bg-gray-100">
-                                Video Appointment
-                              </Button>
-                              <Button size="sm" variant="outline" className="text-xs bg-white text-blue-600 hover:bg-gray-100">
-                                Chat Now
-                              </Button>
-                              <Button size="sm" variant="outline" className="text-xs bg-white text-blue-600 hover:bg-gray-100">
-                                Start Appointment
-                              </Button>
-                            </div>
-                            
-                            {/* Real-time Queue Status for Doctor */}
-                            <div className="mt-4 pt-4 border-t border-blue-500/30 flex items-center justify-between">
-                              <div className="text-xs">
-                                <span className="opacity-80">Currently Serving: </span>
-                                <span className="font-bold underline decoration-yellow-400 decoration-2">{nextAppointment?.shiftId ? queueStates[nextAppointment.shiftId] || 0 : 0}</span>
-                              </div>
-                              <Button 
-                                size="sm" 
-                                className="bg-yellow-400 text-blue-900 hover:bg-yellow-500 font-bold border-none"
-                                onClick={async () => {
-                                  try {
-                                    if (nextAppointment?.shiftId) {
-                                      const res = await nextQueuePatient(String(nextAppointment.shiftId));
-                                      toast.success(`Checking in next patient. Now serving: ${res.currentServing}`);
-                                    } else {
-                                      toast.error("No active shift found for this appointment");
+                            ) : nextAppointment ? (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-700 mb-3">No patient checked in yet</p>
+                                <Button 
+                                  size="sm" 
+                                  className="bg-blue-600 hover:bg-blue-700 w-full"
+                                  onClick={async () => {
+                                    try {
+                                      if (activeShift._id || activeShift.id) {
+                                        const res = await nextQueuePatient(String(activeShift._id || activeShift.id));
+                                        toast.success(`Checking in first patient. Now serving: ${res.currentServing}`);
+                                      }
+                                    } catch (err) {
+                                      console.error("Error:", err);
+                                      toast.error("Failed to check in patient");
                                     }
-                                  } catch (err) {
-                                    toast.error("Failed to advance queue");
-                                  }
-                                }}
-                              >
-                                Check-in Next
-                              </Button>
-                            </div>
+                                  }}
+                                >
+                                  Check In First Patient
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 text-gray-500">
+                                <p className="text-sm">No appointments booked for this shift</p>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="text-center py-8">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <span className="text-2xl">📅</span>
+                              <span className="text-2xl">📋</span>
                             </div>
-                            <p className="text-gray-600">No upcoming appointments</p>
+                            <p className="text-gray-600">No active shift. Start your shift to manage the queue.</p>
                           </div>
                         )}
                       </CardContent>
@@ -599,7 +830,7 @@ export default function DoctorDashboard() {
                             return (
                               <div key={apt.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
                                 <div>
-                                  <p className="font-medium text-sm">Invoice for {apt.bookingFor || 'Patient'}</p>
+                                  <p className="font-medium text-sm">Invoice for {getAppointmentDisplayName(apt)}</p>
                                   <p className="text-sm text-gray-600">{apt.date} • {apt.serviceType || 'Consultation'}</p>
                                 </div>
                                 <div className="text-right">
@@ -629,7 +860,7 @@ export default function DoctorDashboard() {
                           {recentCompletedAppointments.map((apt) => (
                             <div key={apt.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
                               <div>
-                                <p className="font-medium text-sm">{apt.bookingFor || 'Patient'}</p>
+                                <p className="font-medium text-sm">{getAppointmentDisplayName(apt)}</p>
                                 <p className="text-sm text-gray-600">{apt.date} at {apt.time}</p>
                                 <p className="text-xs text-gray-500">{apt.serviceType || 'General Consultation'}</p>
                               </div>
