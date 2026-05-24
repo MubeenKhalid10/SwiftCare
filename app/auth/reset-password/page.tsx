@@ -106,7 +106,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 items-center justify-center p-8">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-600 items-center justify-center p-8">
         <div className="text-center">
           <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Lock className="w-12 h-12 text-white" />
@@ -152,7 +152,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => handleChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     disabled={isLoading}
-                    className="w-12 h-14 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all disabled:opacity-50"
+                    className="w-12 h-14 text-center text-xl font-bold border-2 border-border rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
                   />
                 ))}
               </div>
@@ -171,7 +171,7 @@ export default function ResetPasswordPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   disabled={isLoading}
-                  className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 pr-10 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <button
                   type="button"
@@ -195,13 +195,13 @@ export default function ResetPasswordPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              className="w-full bg-primary hover:bg-primary-600 text-white font-semibold py-3 rounded-lg transition-colors"
               disabled={isLoading}
             >
               {isLoading ? (

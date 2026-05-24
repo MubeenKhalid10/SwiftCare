@@ -1,4 +1,4 @@
-import type { Doctor, Patient, Review, Appointment, LoginCredentials, RegisterData, User, DashboardStats, DoctorInsights, QueueState, Shift, Notification } from "./types"
+import type { Doctor, Patient, Review, Appointment, LoginCredentials, RegisterData, User, DashboardStats, DoctorInsights, QueueState, Shift, Notification, Facility } from "./types"
 import { getAccessToken, refreshAccessToken } from "./auth.service"
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "")
@@ -155,19 +155,40 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error(`[v0] API error ${response.status}:`, errorData)
-      throw new Error(errorData.message || errorData.error || `API Error: ${response.status} ${response.statusText}`)
+      const errorMessage = errorData.message || errorData.error || `API Error: ${response.status} ${response.statusText}`
+      
+      // Only log non-validation errors to console
+      if (!isExpectedValidationError(errorMessage)) {
+        console.error(`[v0] API error ${response.status}:`, errorData)
+      }
+      
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
     return data
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
-    if (errorMessage !== "Unauthorized") {
+    if (errorMessage !== "Unauthorized" && !isExpectedValidationError(errorMessage)) {
       console.error(`[v0] Error fetching ${endpoint}:`, errorMessage)
     }
     throw err
   }
+}
+
+// Check if an error message is an expected validation error that should not be logged to console
+function isExpectedValidationError(message: string): boolean {
+  if (!message) return false
+  const lowerMsg = message.toLowerCase()
+  
+  // Expected shift management validation errors
+  if (lowerMsg.includes("another shift is already active")) return true
+  if (lowerMsg.includes("shift is not active")) return true
+  if (lowerMsg.includes("already has an active shift")) return true
+  if (lowerMsg.includes("no shift is active")) return true
+  if (lowerMsg.includes("no active shift found")) return true
+  
+  return false
 }
 
 function normalizeAppointmentStatusValue(status: string): string {
@@ -200,10 +221,17 @@ export async function getDoctors(minRating?: number, sortBy?: string, includeUna
         transformed.id = (doc as any)._id
       }
       
+      // Override location with hospital affiliation if available
+      const affiliation = (doc as any).hospitalAffiliation;
+      const isRegisteredAffiliation = affiliation && (affiliation.type === 'registered' || affiliation.affiliationType === 'registered');
+      const affiliationLocation = isRegisteredAffiliation ? affiliation.hospitalLocation : null;
+      const affiliationName = isRegisteredAffiliation ? affiliation.hospitalName : null;
+
       const locationValue = (doc as any).location || (doc as any).clinicInfo?.location
-      transformed.location = ensureString(locationValue) || (doc as any).clinicInfo?.location
-      transformed.locationLabel = extractLocationLabel(locationValue) || transformed.location
+      transformed.location = affiliationLocation || ensureString(locationValue) || (doc as any).clinicInfo?.location
+      transformed.locationLabel = affiliationLocation || extractLocationLabel(locationValue) || transformed.location
       transformed.locationCoordinates = extractLocationCoordinates(locationValue) || extractLocationCoordinates((doc as any).location?.geo)
+      transformed.clinicName = affiliationName || (locationValue && typeof locationValue === 'object' ? locationValue.clinicName : undefined) || (doc as any).clinicName || transformed.clinicName
       
       // Calculate ratings for this doctor
       const docReviews = reviews.filter(r => String(r.doctorId) === String(transformed.id || doc.id || (doc as any)._id))
@@ -245,11 +273,18 @@ export async function getDoctorById(id: string): Promise<Doctor | null> {
       availableHours: (doc as any).availableHours || []
     }
     
+    // Override location with hospital affiliation if available
+    const affiliation = (doc as any).hospitalAffiliation;
+    const isRegisteredAffiliation = affiliation && (affiliation.type === 'registered' || affiliation.affiliationType === 'registered');
+    const affiliationLocation = isRegisteredAffiliation ? affiliation.hospitalLocation : null;
+    const affiliationName = isRegisteredAffiliation ? affiliation.hospitalName : null;
+
     return {
       ...doc,
-      location: ensureString(doc.location) || (doc as any).clinicInfo?.location,
-      locationLabel: extractLocationLabel((doc as any).location) || ensureString(doc.location) || (doc as any).clinicInfo?.location,
+      location: affiliationLocation || ensureString(doc.location) || (doc as any).clinicInfo?.location,
+      locationLabel: affiliationLocation || extractLocationLabel((doc as any).location) || ensureString(doc.location) || (doc as any).clinicInfo?.location,
       locationCoordinates: extractLocationCoordinates((doc as any).location) || extractLocationCoordinates((doc as any).location?.geo),
+      clinicName: affiliationName || (doc.location && typeof doc.location === 'object' ? (doc.location as any).clinicName : undefined) || (doc as any).clinicName || doc.clinicName,
       schedule: schedule,  // Ensure schedule is included
       availableDays: schedule.availableDays,  // Also map to top-level for compatibility
       availableHours: schedule.availableHours,
@@ -572,12 +607,32 @@ export async function updateAppointmentStatus(id: string, status: string, consul
   return normalizeAppointmentRecord(transformMongoDocument(data as any))
 }
 
-export async function getAvailableSlots(doctorId: string, date: string, shiftId: string): Promise<string[]> {
+export type SlotAvailability = {
+  doctorId: string
+  date: string
+  shiftId: string
+  nextAvailableTime: string | null
+  patientsBefore: number
+}
+
+export async function getSlotAvailability(doctorId: string, date: string, shiftId: string): Promise<SlotAvailability> {
   try {
-    const res = await fetchAPI<any>(`/appointments/available-slots?doctorId=${doctorId}&date=${date}&shiftId=${shiftId}`)
-    return res.freeSlots || []
+    const res = await fetchAPI<SlotAvailability>(`/appointments/slot?doctorId=${doctorId}&date=${date}&shiftId=${shiftId}`)
+    return {
+      doctorId: String(res.doctorId || doctorId),
+      date: String(res.date || date),
+      shiftId: String(res.shiftId || shiftId),
+      nextAvailableTime: res.nextAvailableTime ?? null,
+      patientsBefore: Number.isFinite(Number(res.patientsBefore)) ? Number(res.patientsBefore) : 0,
+    }
   } catch (err) {
-    return []
+    return {
+      doctorId: String(doctorId),
+      date: String(date),
+      shiftId: String(shiftId),
+      nextAvailableTime: null,
+      patientsBefore: 0,
+    }
   }
 }
 
@@ -805,10 +860,39 @@ export const getQueueState = async (shiftId: string): Promise<QueueState> => {
       method: 'POST',
       body: JSON.stringify({ shiftId })
     })
+
+    const patients = Array.isArray(res?.patients) ? res.patients : []
+    const sortedPatients = [...patients].sort((a: any, b: any) => {
+      const aQueue = Number.isFinite(Number(a?.queueNumber)) ? Number(a.queueNumber) : Number.MAX_SAFE_INTEGER
+      const bQueue = Number.isFinite(Number(b?.queueNumber)) ? Number(b.queueNumber) : Number.MAX_SAFE_INTEGER
+      if (aQueue !== bQueue) return aQueue - bQueue
+
+      const aTime = new Date(`${a?.date || ''} ${a?.time || ''}`).getTime()
+      const bTime = new Date(`${b?.date || ''} ${b?.time || ''}`).getTime()
+      if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) return aTime - bTime
+
+      return String(a?._id || a?.id || '').localeCompare(String(b?._id || b?.id || ''))
+    })
+
+    const rawCurrentServing = Number.isFinite(Number(res?.currentServing)) ? Number(res.currentServing) : 0
+    // Convert sparse slot-based queue progress into dense progress based on booked appointments only.
+    const denseCurrentServing = sortedPatients.reduce((count: number, patient: any) => {
+      const queueNum = Number.isFinite(Number(patient?.queueNumber)) ? Number(patient.queueNumber) : Number.MAX_SAFE_INTEGER
+      return queueNum <= rawCurrentServing ? count + 1 : count
+    }, 0)
+
+    // If backend queue counter is stale, infer current serving from explicit in-progress appointment.
+    const inProgressPosition = sortedPatients.findIndex((patient: any) => {
+      const status = String(patient?.status || '').trim().toLowerCase()
+      return status === 'in_progress' || status === 'in progress' || status === 'in-progress' || status === 'inprogress'
+    }) + 1
+
+    const effectiveCurrentServing = inProgressPosition > 0 ? inProgressPosition : denseCurrentServing
+
     return { 
       shiftId, 
-      currentServing: res.currentServing || 0, 
-      lastQueueNumber: (res.patients || []).length 
+      currentServing: effectiveCurrentServing,
+      lastQueueNumber: sortedPatients.length
     }
   } catch (err) {
     console.error("Error fetching queue state:", err)
@@ -821,8 +905,8 @@ export const trackQueue = async (shiftId: string, phoneLast4: string): Promise<Q
   return getQueueState(shiftId)
 }
 
-export const nextQueuePatient = async (shiftId: string): Promise<{ message: string; currentServing: number }> => {
-  return fetchAPI<{ message: string; currentServing: number }>('/queue/next', {
+export const nextQueuePatient = async (shiftId: string): Promise<{ message: string; currentServing: number; currentAppointment?: any }> => {
+  return fetchAPI<{ message: string; currentServing: number; currentAppointment?: any }>('/queue/next', {
     method: 'POST',
     body: JSON.stringify({ shiftId })
   })
@@ -919,6 +1003,21 @@ export const markNotificationAsRead = async (id: string): Promise<any> => {
 
 export const markAllNotificationsAsRead = async (): Promise<any> => {
   return fetchAPI<any>(`/notifications/read-all`, { method: 'PATCH' })
+}
+
+export type ContactMessagePayload = {
+  name: string
+  contactNumber: string
+  email: string
+  subject: string
+  message: string
+}
+
+export async function sendContactMessage(payload: ContactMessagePayload): Promise<{ message: string }> {
+  return fetchAPI<{ message: string }>(`/api/user/contact`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
 }
 
 
@@ -1046,5 +1145,69 @@ export async function getDoctorInsights(doctorId: string): Promise<DoctorInsight
       },
       weeklyOverview: []
     }
+  }
+}
+
+// ============ FACILITIES API ============
+export async function getFacilities(page = 1, limit = 20): Promise<{ items: Facility[], page: number, limit: number, totalCount: number }> {
+  try {
+    const data = await fetchAPI<any>(`/facilities?page=${page}&limit=${limit}`)
+    return {
+      items: transformMongoArray(data.items || []),
+      page: data.page || 1,
+      limit: data.limit || 20,
+      totalCount: data.totalCount || 0
+    }
+  } catch (err) {
+    console.error("[v0] Error fetching facilities:", err instanceof Error ? err.message : err)
+    return { items: [], page: 1, limit: 20, totalCount: 0 }
+  }
+}
+
+export async function getFacilityById(id: string): Promise<Facility | null> {
+  try {
+    const data = await fetchAPI<any>(`/facilities/${id}`)
+    const facility = transformMongoDocument(data)
+    return facility as Facility
+  } catch (err) {
+    console.error("[v0] Error fetching facility:", err instanceof Error ? err.message : err)
+    return null
+  }
+}
+
+export async function createFacility(facility: Omit<Facility, "id" | "_id">): Promise<Facility> {
+  try {
+    const response = await fetchAPI<any>('/facilities', {
+      method: 'POST',
+      body: JSON.stringify(facility)
+    })
+    return transformMongoDocument(response.facility) as Facility
+  } catch (err) {
+    console.error("[v0] Error creating facility:", err instanceof Error ? err.message : err)
+    throw err
+  }
+}
+
+export async function updateFacility(id: string, facility: Partial<Facility>): Promise<Facility> {
+  try {
+    const response = await fetchAPI<any>(`/facilities/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(facility)
+    })
+    return transformMongoDocument(response.facility) as Facility
+  } catch (err) {
+    console.error("[v0] Error updating facility:", err instanceof Error ? err.message : err)
+    throw err
+  }
+}
+
+export async function deleteFacility(id: string): Promise<void> {
+  try {
+    await fetchAPI<any>(`/facilities/${id}`, {
+      method: 'DELETE'
+    })
+  } catch (err) {
+    console.error("[v0] Error deleting facility:", err instanceof Error ? err.message : err)
+    throw err
   }
 }

@@ -1,7 +1,4 @@
-const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
-  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
-  "";
+import { API_BASE_URL } from './api-config';
 
 export interface ResolvedLocation {
   label: string;
@@ -9,43 +6,14 @@ export interface ResolvedLocation {
   source: "browser" | "ip" | "address" | "manual";
 }
 
-export function getMapboxToken() {
-  return MAPBOX_TOKEN;
-}
-
-async function geocodeAddressWithNominatim(address: string): Promise<ResolvedLocation | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`;
-    const response = await fetch(url);
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const first = Array.isArray(data) ? data[0] : null;
-    const lat = Number(first?.lat);
-    const lng = Number(first?.lon);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-    return {
-      label: first?.display_name || address,
-      coordinates: [lng, lat],
-      source: "address",
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function reverseGeocodeWithMapbox(lat: number, lng: number): Promise<string | null> {
-  if (!MAPBOX_TOKEN) return null;
-
   try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?limit=1&access_token=${MAPBOX_TOKEN}`;
+    const url = `${API_BASE_URL}/api/mapbox/reverse-geocode?lat=${lat}&lng=${lng}`;
     const response = await fetch(url);
     if (!response.ok) return null;
 
     const data = await response.json();
-    return data?.features?.[0]?.place_name || null;
+    return data?.label || null;
   } catch {
     return null;
   }
@@ -55,32 +23,15 @@ export async function geocodeAddressWithMapbox(address: string): Promise<Resolve
   const trimmedAddress = address.trim();
   if (!trimmedAddress) return null;
 
-  if (!MAPBOX_TOKEN) {
-    return geocodeAddressWithNominatim(trimmedAddress);
-  }
-
   try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmedAddress)}.json?limit=1&types=address,place,locality,neighborhood&access_token=${MAPBOX_TOKEN}`;
+    const url = `${API_BASE_URL}/api/mapbox/geocode?address=${encodeURIComponent(trimmedAddress)}`;
     const response = await fetch(url);
-    if (!response.ok) {
-      return geocodeAddressWithNominatim(trimmedAddress);
-    }
+    if (!response.ok) return null;
 
     const data = await response.json();
-    const feature = data?.features?.[0];
-    const coordinates = feature?.center;
-
-    if (!Array.isArray(coordinates) || coordinates.length < 2) {
-      return geocodeAddressWithNominatim(trimmedAddress);
-    }
-
-    return {
-      label: feature?.place_name || trimmedAddress,
-      coordinates: [Number(coordinates[0]), Number(coordinates[1])],
-      source: "address",
-    };
+    return data || null;
   } catch {
-    return geocodeAddressWithNominatim(trimmedAddress);
+    return null;
   }
 }
 
@@ -98,7 +49,7 @@ export function getBrowserCoordinates(): Promise<{ lat: number; lng: number } | 
 
 export async function getIpCoordinates(): Promise<{ lat: number; lng: number } | null> {
   try {
-    const response = await fetch("/api/location", {
+    const response = await fetch(`${API_BASE_URL}/api/location`, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -144,7 +95,7 @@ export function buildMapboxStaticMapUrl(
   const [lng, lat] = coordinates;
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
 
-  return `/api/mapbox/static?lng=${encodeURIComponent(String(lng))}&lat=${encodeURIComponent(String(lat))}&zoom=${encodeURIComponent(String(zoom))}`;
+  return `${API_BASE_URL}/api/mapbox/static?lng=${encodeURIComponent(String(lng))}&lat=${encodeURIComponent(String(lat))}&zoom=${encodeURIComponent(String(zoom))}`;
 }
 
 export function buildClinicMapEmbedUrl(
@@ -165,7 +116,7 @@ export function buildClinicMapEmbedUrl(
     params.set('label', label.trim());
   }
 
-  return `/api/mapbox/embed?${params.toString()}`;
+  return `${API_BASE_URL}/api/mapbox/embed?${params.toString()}`;
 }
 
 export function buildExternalMapsUrl(

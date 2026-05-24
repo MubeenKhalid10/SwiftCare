@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getDoctorById } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/api-config';
 import { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function DoctorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
   const [verificationStatus, setVerificationStatus] = useState<string>('pending');
+  const [doctorImage, setDoctorImage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch doctor profile to get verification status
@@ -21,6 +24,7 @@ export function DoctorSidebar() {
         try {
           const profile: any = await getDoctorById(String(user.id));
           setVerificationStatus(profile?.accountStatus?.verificationStatus || 'pending');
+          setDoctorImage(profile?.image || '');
         } catch (err) {
           console.error('Error fetching doctor profile:', err);
         } finally {
@@ -40,8 +44,8 @@ export function DoctorSidebar() {
       disabled
         ? 'text-gray-400 cursor-not-allowed opacity-50'
         : pathname.startsWith(href)
-        ? 'bg-blue-100 text-blue-600 font-medium'
-        : 'text-gray-700 hover:bg-gray-100 cursor-pointer'
+        ? 'bg-primary/20 text-primary font-medium border-l-3 border-primary'
+        : 'text-foreground/70 hover:bg-primary/10 hover:border-l-3 hover:border-primary/30 cursor-pointer'
     }`;
   };
 
@@ -62,14 +66,19 @@ export function DoctorSidebar() {
     .toUpperCase()
     .slice(0, 2) || 'DR';
 
+  const resolvedDoctorImage = doctorImage
+    ? (doctorImage.startsWith('http') ? doctorImage : `${API_BASE_URL}${doctorImage.startsWith('/') ? '' : '/'}${doctorImage}`)
+    : '';
+
   return (
-    <div className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
+    <div className="w-64 bg-gradient-to-b from-primary-50 to-icon-bg border-r-2 border-primary/20 min-h-screen p-4 flex flex-col">
       <div className="mb-8">
-        <div className="w-40 h-40 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg mb-3 flex items-end justify-center overflow-hidden">
-          <div className="w-24 h-32 bg-gradient-to-t from-blue-400 to-transparent rounded-full flex items-center justify-center">
-            <span className="text-3xl font-bold text-white">{initials}</span>
-          </div>
-        </div>
+        <Avatar className="w-40 h-40 rounded-lg mb-3 ring-4 ring-primary/20 shadow-sm">
+          <AvatarImage src={resolvedDoctorImage || undefined} alt={user?.name || 'Doctor'} className="object-cover" />
+          <AvatarFallback className="rounded-lg bg-gradient-to-br from-primary to-primary-600 text-white text-3xl font-bold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
         <h3 className="font-bold text-lg">Dr {user?.name || 'Doctor'}</h3>
         <p className="text-sm text-gray-600">
           Medical Professional

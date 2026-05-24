@@ -25,17 +25,17 @@ export default function Services() {
   const [active, setActive] = useState<number | null>(null)
 
   return (
-    <section className="py-16 bg-white">
+    <section className="border-section-top border-section-bottom py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="flex justify-center mb-4">
-          <div className="inline-block bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
+          <div className="inline-block bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-semibold">
             Why Choose Us
           </div>
         </div>
 
         <h2 className="text-4xl font-bold text-center mb-16">
-          Compelling <span className="text-blue-600">Reasons</span> to Choose
+          Compelling <span className="text-primary">Reasons</span> to Choose
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -50,17 +50,17 @@ export default function Services() {
                 onMouseLeave={() => setActive(null)}
                 className={`p-8 border rounded-xl cursor-pointer transition-all duration-300
                   ${isActive 
-                    ? "bg-blue-600 text-white shadow-2xl scale-105 border-blue-600" 
+                    ? "bg-primary text-white shadow-2xl scale-105 border-primary" 
                     : "bg-white border-gray-100 hover:shadow-lg hover:-translate-y-2"
                   }`}
               >
                 <div
                   className={`w-12 h-12 rounded-lg flex items-center justify-center mb-6 transition
-                  ${isActive ? "bg-white/20" : "bg-blue-100"}`}
+                  ${isActive ? "bg-white/20" : "bg-primary/10"}`}
                 >
                   <Icon
                     className={`w-6 h-6 transition
-                    ${isActive ? "text-white" : "text-blue-600"}`}
+                    ${isActive ? "text-white" : "text-primary"}`}
                   />
                 </div>
 
@@ -68,7 +68,7 @@ export default function Services() {
 
                 <p
                   className={`leading-relaxed transition
-                  ${isActive ? "text-blue-100" : "text-gray-600"}`}
+                  ${isActive ? "text-primary/20" : "text-foreground/60"}`}
                 >
                   {service.description}
                 </p>

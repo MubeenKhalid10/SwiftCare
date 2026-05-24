@@ -31,6 +31,8 @@ export interface Doctor {
     availableHours: string[];
   }
   phone?: string
+  age?: number | string
+  gender?: string
   about?: string
   education?: string[]
   services?: string[]
@@ -208,6 +210,49 @@ export interface Shift {
   isBookable?: boolean;
   consultingFee?: number;
   patientsInQueue?: number;
+}
+
+export interface Hospital {
+  _id?: string
+  id?: string
+  name: string
+  address: string
+  image?: string
+  description?: string
+  contactNumber?: string
+  email?: string
+  website?: string
+  type?: 'government' | 'private' | 'charity' | 'other'
+  specialties?: string[]
+  status?: 'active' | 'inactive'
+  affiliatedDoctorsCount?: number
+  location?: {
+    geo?: {
+      type: string
+      coordinates: [number, number]
+    }
+  }
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface Facility {
+  id?: string
+  _id?: string
+  name: string
+  about?: string
+  image?: string
+  location?: {
+    label?: string
+    geo?: {
+      type?: string
+      coordinates?: [number, number]
+    }
+    coordinates?: [number, number]
+  }
+  doctorList?: string[] | Doctor[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface Notification {

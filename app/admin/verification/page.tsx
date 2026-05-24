@@ -1,9 +1,9 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { getDoctors, approveDoctorVerification, rejectDoctorVerification } from "@/lib/api"
+import { getDoctors, approveDoctorVerification, rejectDoctorVerification, createFacility, updateFacility, getFacilityById, updateDoctor } from "@/lib/api"
 import type { Doctor } from "@/lib/types"
-import { Loader2, Search, ShieldCheck, Eye, Clock, XCircle, AlertCircle } from "lucide-react"
+import { Loader2, Search, ShieldCheck, Eye, XCircle, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { DoctorVerificationModal } from "@/components/admin/doctor-verification-modal"
 import AdminLayout from "@/components/admin/admin-layout"
@@ -42,6 +42,27 @@ function AdminVerificationPageContent() {
     const handleApprove = async (id: string) => {
         try {
             setActionLoading(id)
+            
+            // Auto-affiliate if a registered hospital was selected
+            const doc = doctors.find(d => String((d as any)._id || d.id) === id)
+            const affiliation = (doc as any)?.hospitalAffiliation
+            
+            if (affiliation && (affiliation.type === 'registered' || affiliation.affiliationType === 'registered') && affiliation.hospitalId) {
+                const facility = await getFacilityById(String(affiliation.hospitalId))
+                
+                if (facility) {
+                    const currentList = Array.isArray(facility.doctorList) 
+                        ? facility.doctorList.map((d: any) => typeof d === 'string' ? d : String(d._id || d.id))
+                        : []
+                    
+                    if (!currentList.includes(id)) {
+                        await updateFacility(String(facility.id || (facility as any)._id), {
+                            doctorList: [...currentList, id]
+                        } as any)
+                    }
+                }
+            }
+
             await approveDoctorVerification(id)
             toast.success("Doctor approved successfully!")
             setSelectedDoctor(null)
@@ -70,11 +91,15 @@ function AdminVerificationPageContent() {
     // Filter doctors based on active tab and search
     const getFilteredDoctors = () => {
         let filtered = doctors
-        
+
         // Apply status filter based on active tab
-        switch(activeTab) {
+        switch (activeTab) {
             case 'action-required':
-                filtered = doctors.filter(doc => doc.accountStatus?.verificationStatus === 'pending')
+                // Backend sets 'submitted' on form submit; 'pending' is the intended label
+                filtered = doctors.filter(doc =>
+                    doc.accountStatus?.verificationStatus === 'pending' ||
+                    doc.accountStatus?.verificationStatus === 'submitted'
+                )
                 break
             case 'approved':
                 filtered = doctors.filter(doc => doc.accountStatus?.verificationStatus === 'approved')
@@ -88,8 +113,8 @@ function AdminVerificationPageContent() {
         }
 
         // Apply search filter
-        return filtered.filter(doc => 
-            doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        return filtered.filter(doc =>
+            doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             doc.credentials?.email?.toLowerCase().includes(searchTerm.toLowerCase())
         )
     }
@@ -98,7 +123,10 @@ function AdminVerificationPageContent() {
 
     // Get tab counts
     const getCounts = () => ({
-        actionRequired: doctors.filter(d => d.accountStatus?.verificationStatus === 'pending').length,
+        actionRequired: doctors.filter(d =>
+            d.accountStatus?.verificationStatus === 'pending' ||
+            d.accountStatus?.verificationStatus === 'submitted'
+        ).length,
         approved: doctors.filter(d => d.accountStatus?.verificationStatus === 'approved').length,
         rejected: doctors.filter(d => d.accountStatus?.verificationStatus === 'rejected').length,
         all: doctors.length
@@ -107,15 +135,65 @@ function AdminVerificationPageContent() {
     const counts = getCounts()
 
     // Helper badge color
+    const handleAddAndAffiliateHospital = async (doctorId: string, hospitalName: string, hospitalLocation: string) => {
+        try {
+            setActionLoading(doctorId)
+            // Create the facility
+            const newFacility = await createFacility({
+                name: hospitalName,
+                about: '',
+                image: '',
+                location: {
+                    label: hospitalLocation,
+                    geo: { type: 'Point', coordinates: [0, 0] }
+                },
+                doctorList: [doctorId]
+            } as any)
+            // Auto-affiliate: add doctor to facility doctorList
+            const facilityId = String((newFacility as any).id || (newFacility as any)._id || '')
+            if (facilityId) {
+                const currentList: string[] = Array.isArray((newFacility as any).doctorList)
+                    ? (newFacility as any).doctorList.map((d: any) => typeof d === 'string' ? d : (d._id || d.id))
+                    : []
+                if (!currentList.includes(doctorId)) {
+                    await updateFacility(facilityId, { doctorList: [...currentList, doctorId] } as any)
+                }
+
+                // Update doctor to link to this new facility and update location
+                await updateDoctor(doctorId, {
+                    hospitalAffiliation: {
+                        affiliationType: 'registered',
+                        type: 'registered',
+                        hospitalId: facilityId,
+                        hospitalName: hospitalName,
+                        hospitalLocation: hospitalLocation
+                    } as any,
+                    location: {
+                        label: hospitalLocation,
+                        geo: { type: 'Point', coordinates: [0, 0] }
+                    } as any
+                })
+            }
+            toast.success(`Hospital "${hospitalName}" added & doctor affiliated successfully!`)
+            setSelectedDoctor(null)
+            fetchDoctors()
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to add hospital')
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
     const getStatusBadge = (status?: string) => {
         switch (status) {
-            case 'approved': 
+            case 'approved':
                 return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold flex items-center gap-1 w-fit"><ShieldCheck className="w-3 h-3" /> Approved</span>
-            case 'rejected': 
+            case 'rejected':
                 return <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1 w-fit"><XCircle className="w-3 h-3" /> Rejected</span>
-            case 'pending': 
+            case 'pending':
+            case 'submitted':
                 return <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold flex items-center gap-1 w-fit animate-pulse"><AlertCircle className="w-3 h-3" /> Action Required</span>
-            default: 
+            default:
                 return <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold w-fit">Unknown</span>
         }
     }
@@ -132,11 +210,10 @@ function AdminVerificationPageContent() {
                 <div className="flex border-b border-gray-200">
                     <button
                         onClick={() => setActiveTab('action-required')}
-                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${
-                            activeTab === 'action-required'
+                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'action-required'
                                 ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
                                 : 'text-gray-600 border-b-transparent hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         <div className="flex items-center justify-center gap-2">
                             <AlertCircle className="w-4 h-4" />
@@ -150,11 +227,10 @@ function AdminVerificationPageContent() {
                     </button>
                     <button
                         onClick={() => setActiveTab('approved')}
-                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${
-                            activeTab === 'approved'
+                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'approved'
                                 ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
                                 : 'text-gray-600 border-b-transparent hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         <div className="flex items-center justify-center gap-2">
                             <ShieldCheck className="w-4 h-4" />
@@ -168,11 +244,10 @@ function AdminVerificationPageContent() {
                     </button>
                     <button
                         onClick={() => setActiveTab('rejected')}
-                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${
-                            activeTab === 'rejected'
+                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'rejected'
                                 ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
                                 : 'text-gray-600 border-b-transparent hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         <div className="flex items-center justify-center gap-2">
                             <XCircle className="w-4 h-4" />
@@ -186,17 +261,16 @@ function AdminVerificationPageContent() {
                     </button>
                     <button
                         onClick={() => setActiveTab('all')}
-                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${
-                            activeTab === 'all'
+                        className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'all'
                                 ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
                                 : 'text-gray-600 border-b-transparent hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         <div className="flex items-center justify-center gap-2">
                             <ShieldCheck className="w-4 h-4" />
                             <span>All Doctors</span>
                             {counts.all > 0 && (
-                                <span className="ml-2 px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full">
+                                <span className="ml-2 px-2 py-0.5 bg-primary text-white text-xs font-bold rounded-full">
                                     {counts.all}
                                 </span>
                             )}
@@ -213,7 +287,7 @@ function AdminVerificationPageContent() {
                             placeholder="Search by doctor name or email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                     </div>
                 </div>
@@ -223,7 +297,7 @@ function AdminVerificationPageContent() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
                     </div>
                 ) : filteredDoctors.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -260,10 +334,10 @@ function AdminVerificationPageContent() {
                                             {getStatusBadge(doc.accountStatus?.verificationStatus)}
                                         </td>
                                         <td className="px-6 py-4">
-                                            {doc.accountStatus?.verificationStatus === 'pending' ? (
+                                            {(doc.accountStatus?.verificationStatus === 'pending' || doc.accountStatus?.verificationStatus === 'submitted') ? (
                                                 <button
                                                     onClick={() => setSelectedDoctor(doc)}
-                                                    className="flex items-center gap-1 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-semibold transition-colors"
+                                                    className="flex items-center gap-1 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-semibold transition-colors"
                                                 >
                                                     <Eye className="w-4 h-4" /> Review
                                                 </button>
@@ -291,6 +365,8 @@ function AdminVerificationPageContent() {
                     onClose={() => setSelectedDoctor(null)}
                     onApprove={handleApprove}
                     onReject={handleReject}
+                    onAddAndAffiliateHospital={handleAddAndAffiliateHospital}
+                    actionLoading={actionLoading}
                 />
             )}
         </div>

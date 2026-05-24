@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import type { Appointment } from "@/lib/types"
 import { Loader2, Calendar, Search, CheckCircle, XCircle, Clock, Zap } from "lucide-react"
 import { toast } from "sonner"
 import { socket, connectSocket } from "@/lib/socket"
-import { getAppointmentDisplayName } from "@/lib/utils"
+import { getAppointmentDisplayName, applyAppointmentStatusSync, upsertAppointmentStatusSync } from "@/lib/utils"
 
 export default function DoctorAppointments() {
   const { user } = useAuth()
@@ -32,8 +32,18 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
   // Helper to normalize backend status values
   const normalizeStatus = (s?: string) => {
     const raw = String(s || '').trim().toLowerCase()
-    if (raw === 'in progress' || raw === 'in-progress' || raw === 'inprogress') return 'in_progress'
+    if (raw === 'in progress' || raw === 'in-progress' || raw === 'inprogress' || raw === 'in_progress') return 'in_progress'
     return raw
+  }
+
+  const getAppointmentTimeValue = (apt: Appointment): number => {
+    const fromDateTime = new Date(`${apt.date || ''} ${apt.time || ''}`).getTime()
+    if (!Number.isNaN(fromDateTime)) return fromDateTime
+    if (apt.fullDateIso) {
+      const fromIso = new Date(apt.fullDateIso).getTime()
+      if (!Number.isNaN(fromIso)) return fromIso
+    }
+    return Number.MAX_SAFE_INTEGER
   }
 
   // Set up socket listener for real-time queue updates
@@ -75,7 +85,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
           "Unknown Patient",
       }))
 
-      setAppointments(enriched)
+      setAppointments(applyAppointmentStatusSync(enriched))
     } catch (err) {
       toast.error("Failed to load appointments")
     } finally {
@@ -90,6 +100,32 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
       setActionLoading(id)
       const normalizedNewStatus = normalizeStatus(newStatus)
 
+      if (normalizedNewStatus === 'in_progress') {
+        setAppointments(prev => prev.map(apt =>
+          getAppointmentKey(apt) === String(id)
+            ? { ...apt, status: 'In Progress' as Appointment['status'] }
+            : apt
+        ))
+
+        const checkedInAppointment = appointments.find(apt => getAppointmentKey(apt) === String(id))
+        if (checkedInAppointment?.shiftId && typeof checkedInAppointment.queueNumber === 'number') {
+          setQueueStates(prev => ({
+            ...prev,
+            [String(checkedInAppointment.shiftId)]: checkedInAppointment.queueNumber as number,
+          }))
+        }
+
+        upsertAppointmentStatusSync(String(id), {
+          status: 'In Progress',
+          shiftId: checkedInAppointment?.shiftId ? String(checkedInAppointment.shiftId) : undefined,
+          queueNumber: typeof checkedInAppointment?.queueNumber === 'number' ? checkedInAppointment.queueNumber : undefined,
+        })
+
+        setFilter("active")
+        toast.success("Appointment checked in")
+        return
+      }
+
       const notes = normalizedNewStatus === "completed" ? (consultationNotes[id] || "") : undefined
       const updated = await updateAppointmentStatus(id, normalizedNewStatus, notes)
       const updatedId = String((updated as any)._id || updated.id || id)
@@ -98,6 +134,12 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
           ? { ...apt, ...updated, status: (updated as any).status || normalizedNewStatus, consultationNotes: notes }
           : apt
       ))
+
+      upsertAppointmentStatusSync(updatedId, {
+        status: ((updated as any).status || normalizedNewStatus) as string,
+        shiftId: updated.shiftId ? String(updated.shiftId) : undefined,
+        queueNumber: typeof updated.queueNumber === 'number' ? updated.queueNumber : undefined,
+      })
 
       if (normalizedNewStatus === 'in_progress' && updated.shiftId && typeof updated.queueNumber === 'number') {
         setQueueStates(prev => ({
@@ -130,8 +172,13 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
             try {
               await nextQueuePatient(String(appointment.shiftId))
               // Queue state will be updated via socket event queueUpdated
-            } catch (err) {
-              console.error("Failed to advance queue:", err)
+            } catch (err: any) {
+              const errMsg = err?.message || String(err)
+              // Only log "Shift is not active" error silently - it's expected if shift ended
+              if (!errMsg.includes("Shift is not active")) {
+                console.error("Failed to advance queue:", err)
+              }
+              // Don't show error to user for expected cases
             }
           }
         }
@@ -146,36 +193,77 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
   const filteredAppointments = appointments.filter(apt => {
     const patientName = getAppointmentDisplayName(apt)
     const matchesSearch = patientName.toLowerCase().includes(searchTerm.toLowerCase())
-
     if (!matchesSearch) return false
 
     const s = normalizeStatus(apt.status)
+
     if (filter === "upcoming") {
-      return s === "pending"      // Hasn't started yet
-    } else if (filter === "active") {
-      return s === 'in_progress'  // Currently happening
-    } else if (filter === "completed") {
-      return s === "completed"    // Finished
-    } else if (filter === "cancelled") {
-      return s === "cancelled"    // Cancelled
+      return s === "pending"
     }
+
+    if (filter === "active") {
+      return s === "in_progress"
+    }
+
+    if (filter === "completed") {
+      return s === "completed"
+    }
+
+    if (filter === "cancelled") {
+      return s === "cancelled"
+    }
+
+    // "all" (or any fallback) shows all statuses.
     return true
   })
 
-  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
-    const aQueue = typeof a.queueNumber === 'number' ? a.queueNumber : Number.MAX_SAFE_INTEGER
-    const bQueue = typeof b.queueNumber === 'number' ? b.queueNumber : Number.MAX_SAFE_INTEGER
+  const currentServingPositionByShift = useMemo(() => {
+    const serving: Record<string, number> = {}
+
+    appointments.forEach((apt) => {
+      if (!apt.shiftId) return
+      const status = normalizeStatus(apt.status)
+      if (status !== 'in_progress') return
+
+      const queueNum = typeof apt.queueNumber === 'number' ? apt.queueNumber : 0
+      if (queueNum > 0) {
+        serving[String(apt.shiftId)] = queueNum
+      }
+    })
+
+    return serving
+  }, [appointments])
+
+    // Group filtered appointments by date
+    const appointmentsByDate = filteredAppointments.reduce((groups, apt) => {
+      const dateKey = apt.date || 'No Date'
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(apt)
+      return groups
+    }, {} as Record<string, Appointment[]>)
+
+    // Sort dates and appointments within each date
+    const sortedDateKeys = Object.keys(appointmentsByDate).sort((a, b) => {
+      if (a === 'No Date') return 1
+      if (b === 'No Date') return -1
+      return new Date(a).getTime() - new Date(b).getTime()
+    })
+
+    const sortedAppointments = sortedDateKeys.flatMap(dateKey => {
+      const aptsForDate = appointmentsByDate[dateKey]
+      return aptsForDate.sort((a, b) => {
+      const aQueue = typeof a.queueNumber === 'number' ? a.queueNumber : Number.MAX_SAFE_INTEGER
+      const bQueue = typeof b.queueNumber === 'number' ? b.queueNumber : Number.MAX_SAFE_INTEGER
 
     if (aQueue !== bQueue) return aQueue - bQueue
 
-    const aTime = new Date(`${a.date || ''} ${a.time || ''}`).getTime()
-    const bTime = new Date(`${b.date || ''} ${b.time || ''}`).getTime()
-    if (aTime !== bTime) return aTime - bTime
-
     return getAppointmentDisplayName(a).localeCompare(getAppointmentDisplayName(b))
-  })
+      })
+    })
 
-  // Count metrics for badges
+  // Count metrics for all appointments
   const upcomingCount = appointments.filter(a => normalizeStatus(a.status) === "pending").length
   const activeCount = appointments.filter(a => {
     const s = normalizeStatus(a.status)
@@ -183,14 +271,16 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
   }).length
   const completedCount = appointments.filter(a => normalizeStatus(a.status) === "completed").length
   const cancelledCount = appointments.filter(a => normalizeStatus(a.status) === "cancelled").length
+  const totalCount = appointments.length
 
   // Check if an appointment is currently being served
   const isCurrentlyServing = (apt: Appointment): boolean => {
     if (!apt.shiftId) return false
-    const servingQueueNum = queueStates[String(apt.shiftId)]
+    const servingQueueNum = queueStates[String(apt.shiftId)] ?? currentServingPositionByShift[String(apt.shiftId)] ?? 0
+    const aptQueueNum = typeof apt.queueNumber === 'number' ? apt.queueNumber : 0
     const s = normalizeStatus(apt.status)
     const isInProgress = s === 'in_progress'
-    return servingQueueNum === apt.queueNumber && isInProgress
+    return servingQueueNum === aptQueueNum && isInProgress && aptQueueNum > 0
   }
 
   return (
@@ -228,6 +318,9 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 mb-6">
+                    <Button variant="default" onClick={() => setFilter("all")} className="flex items-center gap-2">
+                      All <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
+                    </Button>
                     <Button variant={filter === "upcoming" ? "default" : "outline"} onClick={() => setFilter("upcoming")} className="flex items-center gap-2">
                       Upcoming <Badge variant={filter === "upcoming" ? "secondary" : "default"} className="ml-1">{upcomingCount}</Badge>
                     </Button>
@@ -249,12 +342,24 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                   ) : sortedAppointments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                       <Calendar className="w-12 h-12 text-gray-300 mb-3" />
-                      <p className="text-lg font-medium">No {filter} appointments found.</p>
+                      <p className="text-lg font-medium">No appointments found.</p>
                       <p className="text-sm">When patients book, they will appear here.</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {sortedAppointments.map((apt) => {
+                    <div className="space-y-6">
+                      {sortedDateKeys.map((dateKey) => {
+                        const aptsForDate = appointmentsByDate[dateKey]
+                        const dateLabel = dateKey === 'No Date' ? 'No Date' : new Date(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+                        
+                        return (
+                          <div key={dateKey}>
+                            <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-200">
+                              <Calendar className="w-5 h-5 text-blue-600" />
+                              <h3 className="text-lg font-bold text-gray-900">{dateLabel}</h3>
+                              <Badge variant="outline" className="ml-auto">{aptsForDate.length} appointment{aptsForDate.length !== 1 ? 's' : ''}</Badge>
+                            </div>
+                            <div className="space-y-4 ml-8">
+                              {aptsForDate.map((apt) => {
                         const appointmentKey = getAppointmentKey(apt)
                         const patientName = apt.patientName || "Unknown Patient"
                         const isActionLoading = actionLoading === appointmentKey
@@ -282,16 +387,19 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                       Currently Serving
                                     </Badge>
                                   )}
-                                  {apt.queueNumber && (
+                                  {(typeof apt.queueNumber === 'number' && apt.queueNumber > 0) && (
                                     <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
                                       Queue #{apt.queueNumber}
                                     </Badge>
                                   )}
+                                          <Badge className={normalizeStatus(apt.status) === 'pending' ? 'bg-yellow-100 text-yellow-800' : normalizeStatus(apt.status) === 'in_progress' ? 'bg-green-100 text-green-800' : normalizeStatus(apt.status) === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}>
+                                            {normalizeStatus(apt.status) === 'pending' ? 'Pending' : normalizeStatus(apt.status) === 'in_progress' ? 'In Progress' : normalizeStatus(apt.status) === 'completed' ? 'Completed' : 'Cancelled'}
+                                          </Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                                   <div className="flex items-center gap-1 font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
                                     <Calendar className="w-3.5 h-3.5" />
-                                    <span>{apt.date} • {apt.time}</span>
+                                            <span>{apt.time}</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
@@ -362,6 +470,21 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                   <XCircle className="w-3 h-3 mr-1" /> Cancelled
                                 </Badge>
                               )}
+                                      {normalizeStatus(apt.status) === "completed" && (
+                                        <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-200 pointer-events-none px-3 py-1">
+                                          <CheckCircle className="w-3 h-3 mr-1" /> Completed
+                                        </Badge>
+                                      )}
+
+                                      {normalizeStatus(apt.status) === "cancelled" && (
+                                        <Badge className="bg-red-50 text-red-600 hover:bg-red-100 border-red-100 pointer-events-none px-3 py-1">
+                                          <XCircle className="w-3 h-3 mr-1" /> Cancelled
+                                        </Badge>
+                                      )}
+                            </div>
+                          </div>
+                              )
+                            })}
                             </div>
                           </div>
                         )

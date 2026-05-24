@@ -9,6 +9,7 @@ import { Loader2, MapPin, Phone, Mail, Calendar, Award, BookOpen } from 'lucide-
 import { DoctorSidebar } from '@/components/doctor/doctor-sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { getDoctorById } from '@/lib/api'
+import { API_BASE_URL } from '@/lib/api-config'
 import { toast } from 'sonner'
 import type { Doctor } from '@/lib/types'
 
@@ -19,6 +20,12 @@ export default function DoctorProfileSettings() {
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
 
+  const resolveDoctorImage = (image?: string | null) => {
+    if (!image) return null
+    if (image.startsWith('http')) return image
+    return `${API_BASE_URL}${image.startsWith('/') ? '' : '/'}${image}`
+  }
+
   useEffect(() => {
     async function fetchDoctor() {
       if (!user?.id) return
@@ -27,7 +34,7 @@ export default function DoctorProfileSettings() {
         if (data) {
           setDoctor(data)
           if (data.image) {
-            setProfileImage(data.image)
+            setProfileImage(resolveDoctorImage(data.image))
           }
         }
       } catch (err) {
@@ -54,8 +61,9 @@ export default function DoctorProfileSettings() {
     try {
       const { uploadProfileImage } = await import('@/lib/auth.service')
       const result = await uploadProfileImage(user.id.toString(), 'doctor', file)
-      setProfileImage(result.imageUrl)
-      setDoctor(prev => prev ? { ...prev, image: result.imageUrl } : null)
+      const resolvedImage = resolveDoctorImage(result.imageUrl)
+      setProfileImage(resolvedImage)
+      setDoctor(prev => prev ? { ...prev, image: resolvedImage || result.imageUrl } : null)
       toast.success('Profile image updated!')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Image upload failed'
@@ -194,6 +202,26 @@ export default function DoctorProfileSettings() {
                       />
                       <p className="text-xs text-gray-500 mt-1">From verification form (read-only)</p>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                      <Input
+                        type="text"
+                        value={doctor?.age != null ? String(doctor.age) : ''}
+                        readOnly
+                        className="bg-gray-50"
+                        placeholder="Your age"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                      <Input
+                        type="text"
+                        value={doctor?.gender || ''}
+                        readOnly
+                        className="bg-gray-50"
+                        placeholder="Your gender"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -229,7 +257,7 @@ export default function DoctorProfileSettings() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
                       <Input
                         type="text"
-                        value={doctor?.experience || ''}
+                        value={doctor?.experience || (doctor as any)?.yearsOfExperience || doctor?.professionalInfo?.yearsOfExperience || doctor?.professionalInfo?.experience || ''}
                         readOnly
                         className="bg-gray-50"
                         placeholder="Years of experience"

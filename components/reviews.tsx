@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Star, Loader2 } from "lucide-react"
-import { getReviews, getPatients, getDoctors } from "@/lib/api"
+import { getReviews, getDoctors } from "@/lib/api"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/avatar-utils"
 import type { Review } from "@/lib/types"
@@ -10,20 +10,14 @@ import type { Review } from "@/lib/types"
 export default function Reviews() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [totalPatients, setTotalPatients] = useState(0)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [reviewsData, patientsData, doctorsData] = await Promise.all([
+        const [reviewsData, doctorsData] = await Promise.all([
           getReviews(),
-          getPatients(),
           getDoctors(),
         ])
-
-        const patientMap = new Map(
-          patientsData.map((patient: any) => [String(patient.id || patient._id), patient])
-        )
 
         const doctorMap = new Map(
           doctorsData.map((doctor: any) => [String(doctor.id || doctor._id), doctor])
@@ -32,13 +26,12 @@ export default function Reviews() {
         // Get top 3 reviews by rating
         const topReviews = reviewsData
           .map((review: any) => {
-            const patient = patientMap.get(String(review.patientId))
             const doctor = doctorMap.get(String(review.doctorId))
 
             return {
               ...review,
-              patientName: review.patientName || patient?.name || "Anonymous Patient",
-              avatar: review.avatar || patient?.avatar || patient?.image || "/placeholder.svg",
+              patientName: "Anonymous Patient",
+              avatar: "/placeholder.svg",
               doctorName: review.doctorName || doctor?.name || "Unknown Doctor",
               comment: review.comment || review.text || review.notes || "",
               createdAt: review.createdAt || review.date || new Date().toISOString(),
@@ -48,7 +41,6 @@ export default function Reviews() {
           .slice(0, 3)
 
         setReviews(topReviews)
-        setTotalPatients(patientsData.length)
       } catch (err) {
         console.error("Failed to load reviews:", err)
       } finally {
@@ -70,16 +62,16 @@ export default function Reviews() {
   }
 
   return (
-    <section className="py-16 bg-white">
+    <section className="border-section-top border-section-bottom py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center mb-4">
           <div className="inline-block bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
-            Trust & Safety
+            Testimonials
           </div>
         </div>
 
         <h2 className="text-4xl font-bold text-center mb-4">
-          {totalPatients > 0 ? `${totalPatients.toLocaleString()}+` : '11k'} Users <span className="text-blue-600">Trust SwiftCare</span> Worldwide
+          What patients say about our doctors' treatment
         </h2>
 
         <p className="text-center text-gray-600 mb-16 max-w-2xl mx-auto">
@@ -113,7 +105,7 @@ export default function Reviews() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-500">
-                    Review for <span className="font-medium text-blue-600">{review.doctorName}</span>
+                    Review for <span className="font-medium text-blue-600">Dr. {(review as any).doctorName}</span>
                   </p>
                 </div>
               </div>

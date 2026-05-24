@@ -13,7 +13,7 @@ export default function TrackQueue() {
   const { isAuthenticated } = useAuth()
   const [shiftId, setShiftId] = useState("")
   const [phoneLast4, setPhoneLast4] = useState("")
-  const [trackingData, setTrackingData] = useState<{ shiftId: string; currentServing: number } | null>(null)
+  const [trackingData, setTrackingData] = useState<{ shiftId: string; currentServing: number; lastQueueNumber: number } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,7 +27,7 @@ export default function TrackQueue() {
 
     const onQueueUpdated = (data: { shiftId: string; currentServing: number }) => {
       if (trackingData && data.shiftId === trackingData.shiftId) {
-        setTrackingData(data)
+        setTrackingData(prev => prev ? { ...prev, currentServing: data.currentServing } : null)
       }
     }
 
@@ -55,7 +55,7 @@ export default function TrackQueue() {
       setError(null)
       
       const state = await trackQueue(shiftId, isAuthenticated ? "" : phoneLast4)
-      setTrackingData({ shiftId, currentServing: state.currentServing })
+      setTrackingData(state)
       
       socket.emit("joinQueueRoom", shiftId)
     } catch (err: any) {
@@ -73,7 +73,7 @@ export default function TrackQueue() {
           <div>
             <h2 className="text-4xl font-bold text-gray-900 mb-6 font-primary">
               Track Your Position <br />
-              <span className="text-blue-600">In Real-Time</span>
+              <span className="text-primary">In Real-Time</span>
             </h2>
             <p className="text-gray-600 text-lg mb-8 leading-relaxed">
               No need to wait in long lines. Enter your appointment details to see your current place in the queue and know exactly when it's your turn.
@@ -133,7 +133,7 @@ export default function TrackQueue() {
                         <Input
                           placeholder="e.g. 1234"
                           maxLength={4}
-                          className="pl-10 h-11 border-gray-200 focus:border-blue-500"
+                          className="pl-10 h-11 border-border focus:border-primary"
                           value={phoneLast4}
                           onChange={(e) => setPhoneLast4(e.target.value.replace(/\D/g, ''))}
                         />
@@ -141,7 +141,7 @@ export default function TrackQueue() {
                     </div>
                   )}
 
-                  <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-white shadow-lg shadow-blue-500/30" disabled={isLoading}>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary-600 h-11 text-white shadow-lg shadow-primary/30" disabled={isLoading}>
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
                     Track Appointment
                   </Button>
@@ -151,12 +151,12 @@ export default function TrackQueue() {
 
                 {trackingData && (
                   <div className="pt-6 border-t border-gray-100 mt-6 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="bg-blue-50/50 rounded-2xl p-6 text-center border border-blue-100">
+                    <div className="bg-primary/5 rounded-2xl p-6 text-center border border-border">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                        <Users className="w-8 h-8 text-blue-600" />
+                        <Users className="w-8 h-8 text-primary" />
                       </div>
                       <p className="text-sm text-gray-500 uppercase tracking-widest font-bold mb-1">Currently Serving</p>
-                      <p className="text-5xl font-black text-blue-600 mb-2">{trackingData.currentServing}</p>
+                      <p className="text-5xl font-black text-primary mb-2">{trackingData.currentServing}</p>
                       <div className="flex items-center justify-center gap-2 text-xs text-green-600 font-bold">
                         <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>

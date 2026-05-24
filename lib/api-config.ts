@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
   PATIENTS: "/patients",
   APPOINTMENTS: "/appointments",
   REVIEWS: "/reviews",
+  FACILITIES: "/facilities",
 } as const;
 
 // Token expiration times

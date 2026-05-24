@@ -167,8 +167,8 @@ export default function SettingsPage() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-2 mb-8 text-sm text-gray-600">
-          <span className="text-blue-600">●</span>
+        <div className="flex items-center gap-2 mb-8 text-sm text-foreground/70">
+          <span className="text-primary">●</span>
           <span>Patient</span>
           <span>/</span>
           <span>Settings</span>
@@ -191,8 +191,8 @@ export default function SettingsPage() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`px-4 py-3 text-left font-medium rounded-lg transition ${activeTab === tab.id
-                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? 'bg-primary/10 text-primary border-l-4 border-primary'
+                      : 'text-foreground/70 hover:bg-muted'
                       }`}
                   >
                     {tab.label}

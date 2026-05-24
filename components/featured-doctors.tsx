@@ -43,7 +43,7 @@ export default function FeaturedDoctors() {
 
   if (isLoading) {
     return (
-      <section className="py-16 bg-gray-50">
+      <section className="border-section-top border-section-bottom py-16 bg-gradient-to-b from-primary-50 to-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
@@ -53,7 +53,7 @@ export default function FeaturedDoctors() {
 
   if (error) {
     return (
-      <section className="py-16 bg-gray-50">
+      <section className="border-section-top border-section-bottom py-16 bg-gradient-to-b from-primary-50 to-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-red-600">{error}</p>
         </div>
@@ -62,7 +62,7 @@ export default function FeaturedDoctors() {
   }
 
   return (
-    <section className="py-16 bg-gray-50">
+    <section className="border-section-top border-section-bottom py-16 bg-gradient-to-b from-primary-50 to-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center mb-4">
           <div className="inline-block bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
@@ -79,44 +79,43 @@ export default function FeaturedDoctors() {
             <Link
               key={doctor.id}
               href={`/doctor-profile?id=${doctor.id}`}
-              className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition block"
+              className="doctor-card"
             >
-              <div className="h-48 flex items-center justify-center overflow-hidden">
+              <div className="doctor-card-image">
                 <img
                   src={doctor.image || DOCTOR_FALLBACK_IMAGE}
                   alt={doctor.name}
-                  className="w-full h-full object-cover"
                   onError={(event) => {
                     event.currentTarget.src = DOCTOR_FALLBACK_IMAGE
                   }}
                 />
               </div>
 
-              <div className="p-6">
-                <h3 className="font-bold text-lg mb-2">{doctor.name}</h3>
-                <p className="text-gray-600 text-sm mb-2">{doctor.specialty || 'General Practitioner'}</p>
-                <p className="text-gray-500 text-xs mb-4">
-                  {typeof doctor.location === 'string' ? doctor.location : "Location not specified"}
+              <div className="doctor-card-content">
+                <h3 className="doctor-card-name">{doctor.name}</h3>
+                <p className="doctor-card-specialty">{doctor.specialty || 'General Practitioner'}</p>
+                <p className="doctor-card-location">
+                  📍 {typeof doctor.location === 'string' ? doctor.location : "Location not specified"}
                 </p>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1 text-yellow-400">
-                    <span className="text-gray-900 font-bold mr-1">{doctor.rating}</span>
+                <div className="doctor-card-footer">
+                  <div className="doctor-card-rating">
+                    <span className="text-foreground">{doctor.rating}</span>
                     {[...Array(5)].map((_, i) => (
                       <Star
-                        key={`${doctor.id}-star-${i}`} // ✅ unique key per doctor & star
+                        key={`${doctor.id}-star-${i}`}
                         className={`w-4 h-4 ${i < Math.floor(doctor.rating || 0)
-                            ? "fill-current"
-                            : "fill-none"
+                            ? "fill-current text-yellow-400"
+                            : "fill-none text-border"
                           }`}
                       />
                     ))}
-                    <span className="text-gray-500 text-xs ml-1">
+                    <span className="text-muted-foreground text-xs ml-1">
                       ({doctor.reviewCount || 0})
                     </span>
                   </div>
 
-                  <span className="text-blue-600 font-semibold text-sm">
+                  <span className="doctor-card-fee">
                     {doctor.fee}
                   </span>
                 </div>
@@ -128,7 +127,7 @@ export default function FeaturedDoctors() {
         <div className="flex justify-center mt-12">
           <Link
             href="/doctors"
-            className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-blue-700 transition"
+            className="bg-primary text-white px-8 py-3 rounded-full font-semibold hover:bg-primary-600 transition"
           >
             View All Doctors
           </Link>

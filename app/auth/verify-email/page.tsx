@@ -127,7 +127,7 @@ export default function VerifyEmailPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Gradient Background */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 items-center justify-center p-8">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-600 items-center justify-center p-8">
         <div className="text-center">
           <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShieldCheck className="w-12 h-12 text-white" />
@@ -141,14 +141,14 @@ export default function VerifyEmailPage() {
       <div className="w-full lg:w-1/2 bg-white flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="w-8 h-8 text-blue-600" />
+            <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-8 h-8 text-primary" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Check Your Email</h1>
             <p className="text-gray-600">
               We&apos;ve sent a 6-digit verification code to
             </p>
-            <p className="text-blue-600 font-semibold mt-1">{email}</p>
+            <p className="text-primary font-semibold mt-1">{email}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
@@ -165,14 +165,14 @@ export default function VerifyEmailPage() {
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   disabled={isLoading}
-                  className="w-12 h-14 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all disabled:opacity-50"
+                  className="w-12 h-14 text-center text-xl font-bold border-2 border-border rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
                 />
               ))}
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              className="w-full bg-primary hover:bg-primary-600 text-white font-semibold py-3 rounded-lg transition-colors"
               disabled={isLoading || otp.join('').length !== 6}
             >
               {isLoading ? (

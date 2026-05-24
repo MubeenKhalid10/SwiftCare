@@ -2,19 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { Search } from 'lucide-react';
 
 export function PatientSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user } = useAuth();
 
   const navItemClass = (href: string) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg transition ${pathname.startsWith(href)
-      ? 'bg-blue-100 text-blue-600 font-medium'
-      : 'text-gray-700 hover:bg-gray-100'
+      ? 'bg-primary/20 text-primary font-medium border-l-3 border-primary'
+      : 'text-foreground/70 hover:bg-primary/10 hover:border-l-3 hover:border-primary/30'
     }`;
 
   // Get initials from user name
@@ -26,10 +24,10 @@ export function PatientSidebar() {
     .slice(0, 2) || 'PT';
 
   return (
-    <div className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
+    <div className="w-64 bg-gradient-to-b from-primary-50 to-icon-bg border-r-2 border-primary/20 min-h-screen p-4 flex flex-col">
       {/* Profile */}
       <div className="mb-8">
-        <div className="w-32 h-32 rounded-lg mb-3 flex items-center justify-center overflow-hidden mx-auto border-2 border-blue-100 shadow-sm bg-white">
+        <div className="w-32 h-32 rounded-lg mb-3 flex items-center justify-center overflow-hidden mx-auto border-2 border-primary/30 shadow-md bg-white">
           {user?.avatar ? (
             <img 
               src={user.avatar} 
@@ -40,7 +38,7 @@ export function PatientSidebar() {
               }}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-br from-primary/40 to-primary flex items-center justify-center">
               <span className="text-4xl font-bold text-white">{initials}</span>
             </div>
           )}
@@ -57,7 +55,7 @@ export function PatientSidebar() {
       <div className="mb-4">
         <Link
           href="/doctors"
-          className="w-full bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md font-medium text-sm transition-colors"
+          className="w-full bg-primary text-white hover:bg-primary-600 flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md font-medium text-sm transition-colors"
         >
           <Search className="w-4 h-4" />
           Find Doctor
@@ -71,6 +69,11 @@ export function PatientSidebar() {
           <span>My Appointments</span>
         </Link>
 
+
+        <Link href="/hospitals" className={navItemClass('/hospitals')}>
+          <span>🏥</span>
+          <span>Hospitals</span>
+        </Link>
 
         <Link href="/patient/favourites" className={navItemClass('/patient/favourites')}>
           <span>⭐</span>

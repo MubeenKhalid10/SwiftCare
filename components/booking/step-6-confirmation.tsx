@@ -14,7 +14,7 @@ const ReceiptModal = ({ isOpen, onClose, data }: { isOpen: boolean, onClose: () 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-        <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
+        <div className="bg-primary p-6 text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
             <FileText className="w-6 h-6" />
             <h3 className="text-xl font-bold font-heading">Appointment Receipt</h3>
@@ -33,7 +33,7 @@ const ReceiptModal = ({ isOpen, onClose, data }: { isOpen: boolean, onClose: () 
           <div className="grid grid-cols-2 gap-y-4 text-sm">
             <div>
               <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Booking Number</p>
-              <p className="font-mono font-bold text-blue-600 text-base">{data.bookingNumber}</p>
+              <p className="font-mono font-bold text-primary text-base">{data.bookingNumber}</p>
             </div>
             <div className="text-right">
               <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Status</p>
@@ -45,7 +45,7 @@ const ReceiptModal = ({ isOpen, onClose, data }: { isOpen: boolean, onClose: () 
             <div className="col-span-2 pt-2 border-t border-gray-100">
               <p className="text-gray-500 uppercase text-[10px] font-bold tracking-wider mb-1">Doctor</p>
               <p className="font-bold text-gray-900 text-lg uppercase">{data.doctor.name}</p>
-              <p className="text-blue-600 text-xs font-medium">{data.doctor.specialty} Specialist</p>
+              <p className="text-primary text-xs font-medium">{data.doctor.specialty} Specialist</p>
             </div>
 
             <div>
@@ -68,7 +68,7 @@ const ReceiptModal = ({ isOpen, onClose, data }: { isOpen: boolean, onClose: () 
               </div>
               <div className="flex justify-between items-center pt-4 border-t-2 border-gray-900">
                 <span className="text-lg font-black uppercase text-gray-900">Total Amount</span>
-                <span className="text-2xl font-black text-blue-600">{data.doctor.fee}</span>
+                <span className="text-2xl font-black text-primary">{data.doctor.fee}</span>
               </div>
             </div>
           </div>
@@ -122,14 +122,14 @@ export default function BookingStep6({ data, onBack }: { data: any, onBack: () =
             <div className="space-y-6 relative z-10">
               <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600" />
+                  <User className="w-5 h-5 text-primary" />
                   Appointment Details
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
                   <div>
                     <p className="text-gray-500 mb-1">Doctor Name</p>
                     <p className="font-bold text-gray-900 text-lg">{data.doctor.name}</p>
-                    <p className="text-blue-600 italic">{data.doctor.specialty} Specialist</p>
+                    <p className="text-primary italic">{data.doctor.specialty} Specialist</p>
                   </div>
                   <div>
                     <p className="text-gray-500 mb-1">Appointment Time</p>
@@ -175,15 +175,15 @@ export default function BookingStep6({ data, onBack }: { data: any, onBack: () =
             <h4 className="font-bold text-gray-900 mb-3">Next Steps</h4>
             <ul className="space-y-4">
               <li className="flex gap-3 text-xs text-gray-600">
-                <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 font-bold">1</div>
+                <div className="w-5 h-5 bg-primary/10 text-primary rounded-full flex items-center justify-center flex-shrink-0 font-bold">1</div>
                 <p>Arrive at the clinic 15 mins before your scheduled time.</p>
               </li>
               <li className="flex gap-3 text-xs text-gray-600">
-                <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 font-bold">2</div>
+                <div className="w-5 h-5 bg-primary/10 text-primary rounded-full flex items-center justify-center flex-shrink-0 font-bold">2</div>
                 <p>Present your booking number at the check-in desk.</p>
               </li>
               <li className="flex gap-3 text-xs text-gray-600">
-                <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 font-bold">3</div>
+                <div className="w-5 h-5 bg-primary/10 text-primary rounded-full flex items-center justify-center flex-shrink-0 font-bold">3</div>
                 <p>Consult with {data.doctor.name} at {data.dateTime?.time}.</p>
               </li>
             </ul>

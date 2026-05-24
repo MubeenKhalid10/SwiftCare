@@ -35,15 +35,14 @@ export default function RegisterPage() {
     confirmPassword: '',
   })
   const [location, setLocation] = useState({
+    clinicName: '',
     label: '',
     longitude: '',
     latitude: '',
   })
-  const [selectedDays, setSelectedDays] = useState<string[]>([])
-  const [consultationHours, setConsultationHours] = useState({
-    startTime: '',
-    endTime: '',
-  })
+  const [selectedDay, setSelectedDay] = useState('')
+  const [availabilityRanges, setAvailabilityRanges] = useState<{ day: string; startTime: string; endTime: string }[]>([])
+  const [rangeDraft, setRangeDraft] = useState({ startTime: '', endTime: '' })
   const [isResolvingLocation, setIsResolvingLocation] = useState(false)
   const [isFetchingCoordinates, setIsFetchingCoordinates] = useState(false)
   const [role, setRole] = useState<'patient' | 'doctor'>('patient')
@@ -57,12 +56,40 @@ export default function RegisterPage() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const toggleDay = (day: string) => {
-    setSelectedDays((prev) =>
-      prev.includes(day)
-        ? prev.filter((item) => item !== day)
-        : [...prev, day]
-    )
+  const selectDay = (day: string) => {
+    setSelectedDay(day)
+  }
+
+  const addAvailabilityRange = () => {
+    if (!selectedDay || !rangeDraft.startTime || !rangeDraft.endTime) {
+      toast.error('Select a day and both times to add availability')
+      return
+    }
+
+    if (rangeDraft.startTime >= rangeDraft.endTime) {
+      toast.error('End time must be after start time')
+      return
+    }
+
+    if (availabilityRanges.some((range) => range.day === selectedDay)) {
+      toast.error('A timing for this day already exists. Remove it to add a new one.')
+      return
+    }
+
+    setAvailabilityRanges((prev) => [
+      ...prev,
+      {
+        day: selectedDay,
+        startTime: rangeDraft.startTime,
+        endTime: rangeDraft.endTime,
+      },
+    ])
+    setRangeDraft({ startTime: '', endTime: '' })
+    setSelectedDay('')
+  }
+
+  const removeAvailabilityRange = (index: number) => {
+    setAvailabilityRanges((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleUseCurrentLocation = async () => {
@@ -74,11 +101,12 @@ export default function RegisterPage() {
         return
       }
 
-      setLocation({
+      setLocation((prev) => ({
+        ...prev,
         label: resolved.label,
         longitude: String(resolved.coordinates[0]),
         latitude: String(resolved.coordinates[1]),
-      })
+      }))
       toast.success('Current location detected')
     } finally {
       setIsResolvingLocation(false)
@@ -96,7 +124,7 @@ export default function RegisterPage() {
     try {
       const resolved = await geocodeAddressWithMapbox(label)
       if (!resolved) {
-        toast.error('Unable to fetch coordinates automatically. You can continue with clinic address only.')
+        toast.error('Unable to fetch coordinates.')
         return
       }
 
@@ -136,18 +164,8 @@ export default function RegisterPage() {
         return
       }
 
-      if (selectedDays.length === 0) {
-        toast.error('Please select at least one availability day')
-        return
-      }
-
-      if (!consultationHours.startTime || !consultationHours.endTime) {
-        toast.error('Please set consultation hours for doctor schedule')
-        return
-      }
-
-      if (consultationHours.startTime >= consultationHours.endTime) {
-        toast.error('End time must be after start time')
+      if (availabilityRanges.length === 0) {
+        toast.error('Please add availability for at least one day')
         return
       }
     }
@@ -161,10 +179,8 @@ export default function RegisterPage() {
 
       const schedule = role === 'doctor'
         ? {
-          availableDays: selectedDays,
-          availableHours: selectedDays.map(
-            () => `${to12Hour(consultationHours.startTime)} - ${to12Hour(consultationHours.endTime)}`
-          ),
+          availableDays: availabilityRanges.map((range) => range.day),
+          availableHours: availabilityRanges.map((range) => `${to12Hour(range.startTime)} - ${to12Hour(range.endTime)}`),
         }
         : undefined
 
@@ -175,6 +191,7 @@ export default function RegisterPage() {
         role,
         location: role === 'doctor' ? {
           label: location.label.trim(),
+          clinicName: location.clinicName.trim() || undefined,
           ...(hasValidCoordinates
             ? { coordinates: [parsedLongitude, parsedLatitude] as [number, number] }
             : {})
@@ -225,8 +242,8 @@ export default function RegisterPage() {
               type="button"
               onClick={() => setRole('patient')}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${role === 'patient'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primary text-white'
+                : 'bg-muted text-foreground hover:bg-muted/80'
                 }`}
             >
               Patient
@@ -235,8 +252,8 @@ export default function RegisterPage() {
               type="button"
               onClick={() => setRole('doctor')}
               className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${role === 'doctor'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primary text-white'
+                : 'bg-muted text-foreground hover:bg-muted/80'
                 }`}
             >
               Doctor
@@ -255,7 +272,7 @@ export default function RegisterPage() {
                 placeholder="Enter your full name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={isLoading}
               />
             </div>
@@ -332,37 +349,52 @@ export default function RegisterPage() {
                     </>
                   )}
                 </Button>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Clinic Location
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="e.g., City Central Clinic, 5th Ave"
-                    value={location.label}
-                    onChange={(e) => setLocation(prev => ({ ...prev, label: e.target.value }))}
-                    className="w-full"
-                    disabled={isLoading}
-                  />
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleFetchCoordinatesFromAddress}
-                      disabled={isLoading || isFetchingCoordinates || !location.label.trim()}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Clinic Name
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., SwiftCare Medical Center"
+                      value={location.clinicName}
+                      onChange={(e) => setLocation(prev => ({ ...prev, clinicName: e.target.value }))}
                       className="w-full"
-                    >
-                      {isFetchingCoordinates ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Fetching coordinates...
-                        </>
-                      ) : (
-                        'Fetch Coordinates'
-                      )}
-                    </Button>
+                      disabled={isLoading}
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Enter clinic address and click Fetch Coordinates, or use current location.</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Clinic Location
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., City Central Clinic, 5th Ave"
+                      value={location.label}
+                      onChange={(e) => setLocation(prev => ({ ...prev, label: e.target.value }))}
+                      className="w-full"
+                      disabled={isLoading}
+                    />
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleFetchCoordinatesFromAddress}
+                        disabled={isLoading || isFetchingCoordinates || !location.label.trim()}
+                        className="w-full"
+                      >
+                        {isFetchingCoordinates ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Fetching coordinates...
+                          </>
+                        ) : (
+                          'Fetch Coordinates'
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Enter clinic address and click Fetch Coordinates, or use current location.</p>
+                  </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="flex-1">
@@ -401,31 +433,37 @@ export default function RegisterPage() {
                   <h3 className="font-bold text-gray-900">Availability</h3>
                   <div className="flex flex-wrap gap-2">
                     {WEEK_DAYS.map((day) => {
-                      const active = selectedDays.includes(day)
+                      const active = selectedDay === day
+                      const alreadyAdded = availabilityRanges.some((range) => range.day === day)
                       return (
                         <button
                           key={day}
                           type="button"
-                          onClick={() => toggleDay(day)}
-                          className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${active
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
+                          onClick={() => !alreadyAdded && selectDay(day)}
+                          disabled={alreadyAdded}
+                          className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                            alreadyAdded
+                              ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                              : active
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                         >
                           {day}
                         </button>
                       )
                     })}
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <p className="text-xs text-gray-500">Selected day: {selectedDay || 'None'}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Start Time
                       </label>
                       <Input
                         type="time"
-                        value={consultationHours.startTime}
-                        onChange={(e) => setConsultationHours((prev) => ({ ...prev, startTime: e.target.value }))}
+                        value={rangeDraft.startTime}
+                        onChange={(e) => setRangeDraft((prev) => ({ ...prev, startTime: e.target.value }))}
                         disabled={isLoading}
                       />
                     </div>
@@ -435,15 +473,32 @@ export default function RegisterPage() {
                       </label>
                       <Input
                         type="time"
-                        value={consultationHours.endTime}
-                        onChange={(e) => setConsultationHours((prev) => ({ ...prev, endTime: e.target.value }))}
+                        value={rangeDraft.endTime}
+                        onChange={(e) => setRangeDraft((prev) => ({ ...prev, endTime: e.target.value }))}
                         disabled={isLoading}
                       />
                     </div>
+                    <div className="flex items-end">
+                      <Button type="button" onClick={addAvailabilityRange} className="bg-slate-900 text-white hover:bg-slate-800">
+                        Add Timing
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Selected days and hours are sent to backend as doctor schedule.
-                  </p>
+                  <div className="space-y-2">
+                    {availabilityRanges.length === 0 ? (
+                      <p className="text-sm text-gray-500">No availability added yet.</p>
+                    ) : availabilityRanges.map((range, index) => (
+                      <div key={`${range.day}-${index}`} className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                        <div>
+                          <p className="font-semibold text-gray-900">{range.day}</p>
+                          <p className="text-gray-600">{range.startTime} - {range.endTime}</p>
+                        </div>
+                        <button type="button" onClick={() => removeAvailabilityRange(index)} className="text-sm font-medium text-red-600 hover:text-red-700">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
 
@@ -471,16 +526,19 @@ export default function RegisterPage() {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-600">Or continue with</span>
-              </div>
+             
             </div>
           </div>
 
           {/* Google Sign Up */}
-          <div className="mt-6">
-            <GoogleSignInButton roleHint={role} text="signup_with" />
-          </div>
+          {role === 'patient' && (
+             <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-600">Or continue with</span>
+            <div className="mt-6">
+              <GoogleSignInButton roleHint={role} text="signup_with" />
+            </div>
+              </div>
+          )}
 
           <p className="text-center text-gray-600 mt-6 text-sm">
             Already have an account?{' '}

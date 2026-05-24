@@ -72,18 +72,6 @@ function FavouritesContent() {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2 text-sm">
-          <span className="text-blue-600">*</span>
-          <Link href="/patient/dashboard" className="text-gray-600 hover:text-gray-900">
-            Patient
-          </Link>
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-900 font-medium">Favourites</span>
-        </div>
-      </div>
-
       {/* Page Title */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
         <div className="max-w-7xl mx-auto px-4">

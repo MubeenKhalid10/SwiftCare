@@ -14,14 +14,6 @@ export default function CheckoutPage() {
       <Header />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-8 text-sm text-gray-600">
-          <span className="text-blue-600">●</span>
-          <span>Patient</span>
-          <span>›</span>
-          <span>Checkout</span>
-        </div>
-
         <h1 className="text-4xl font-bold mb-8">Checkout</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

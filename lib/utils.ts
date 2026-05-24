@@ -77,3 +77,73 @@ export function getAppointmentDisplayName(appointment: { patientName?: string; b
 
   return bookingFor
 }
+
+export interface AppointmentStatusSyncEntry {
+  status: string
+  updatedAt: number
+  shiftId?: string
+  queueNumber?: number
+}
+
+const APPOINTMENT_STATUS_SYNC_STORAGE_KEY = 'swiftcare_appointment_status_sync'
+const APPOINTMENT_STATUS_SYNC_EVENT_NAME = 'swiftcare:appointment-status-sync'
+
+export function readAppointmentStatusSync(): Record<string, AppointmentStatusSyncEntry> {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.localStorage.getItem(APPOINTMENT_STATUS_SYNC_STORAGE_KEY)
+    if (!raw) return {}
+
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+
+    return parsed as Record<string, AppointmentStatusSyncEntry>
+  } catch {
+    return {}
+  }
+}
+
+export function applyAppointmentStatusSync<T extends { id?: string | number; _id?: string | number; status?: string }>(appointments: T[]): T[] {
+  const snapshot = readAppointmentStatusSync()
+
+  return appointments.map((appointment) => {
+    const appointmentId = String(appointment.id || appointment._id || '')
+    const override = snapshot[appointmentId]
+
+    if (!override) return appointment
+
+    return {
+      ...appointment,
+      status: override.status,
+    }
+  })
+}
+
+export function upsertAppointmentStatusSync(appointmentId: string, entry: Omit<AppointmentStatusSyncEntry, 'updatedAt'> & { updatedAt?: number }): void {
+  if (typeof window === 'undefined' || !appointmentId) return
+
+  try {
+    const snapshot = readAppointmentStatusSync()
+    snapshot[appointmentId] = {
+      ...entry,
+      updatedAt: entry.updatedAt ?? Date.now(),
+    }
+
+    window.localStorage.setItem(APPOINTMENT_STATUS_SYNC_STORAGE_KEY, JSON.stringify(snapshot))
+    window.dispatchEvent(
+      new CustomEvent(APPOINTMENT_STATUS_SYNC_EVENT_NAME, {
+        detail: {
+          appointmentId,
+          ...snapshot[appointmentId],
+        },
+      })
+    )
+  } catch {
+    // Ignore storage failures so appointment actions can still continue.
+  }
+}
+
+export function getAppointmentStatusSyncEventName(): string {
+  return APPOINTMENT_STATUS_SYNC_EVENT_NAME
+}

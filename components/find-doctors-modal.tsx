@@ -85,24 +85,28 @@ export function FindDoctorsModal({ isOpen, onClose }: FindDoctorsModalProps) {
               {filteredDoctors.map((doctor) => (
                 <div
                   key={doctor.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition"
+                  className="flex items-center justify-between p-4 border border-border rounded-lg hover:border-primary/30 hover:bg-primary/5 transition-all group cursor-pointer"
+                  onClick={() => handleBookAppointment(String(doctor.id))}
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-12 h-12">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Avatar className="w-12 h-12 flex-shrink-0">
                       <AvatarImage src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"} alt={doctor.name} />
-                      <AvatarFallback className="bg-blue-600 text-white">
+                      <AvatarFallback className="bg-primary text-white">
                         {doctor.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR'}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-semibold text-gray-900">{doctor.name}</p>
-                      <p className="text-sm text-gray-600">{doctor.specialty}</p>
-                      <p className="text-sm text-gray-500">{doctor.location}</p>
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">{doctor.name}</p>
+                      <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
+                      <p className="text-xs text-muted-foreground">{doctor.location}</p>
                     </div>
                   </div>
                   <Button
-                    onClick={() => handleBookAppointment(String(doctor.id))}
-                    className="bg-blue-600 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleBookAppointment(String(doctor.id))
+                    }}
+                    className="bg-primary hover:bg-primary-600 text-white ml-4 flex-shrink-0"
                   >
                     Book Now
                   </Button>

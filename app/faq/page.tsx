@@ -9,42 +9,52 @@ const FAQs = [
   {
     id: 1,
     question: 'How do I book an appointment?',
+    answer: 'Select a doctor, choose an available date, and the system shows patients before you with the next available time.'
   },
   {
     id: 2,
-    question: 'Can I book appointments for family members through my account?',
+    question: 'How does the queue-based booking work?',
+    answer: 'Appointments are first-come, first-serve. Your time slot is assigned based on the number of patients already booked.'
   },
   {
     id: 3,
-    question: 'Can i make an Appointment Online with White Plains Hospital Kendl?',
+    question: 'Can I track my queue position?',
+    answer: 'Yes. Use Track Queue to see current serving, your position, and estimated wait time in real time.'
   },
   {
     id: 4,
-    question: 'Is my payment information secure?',
+    question: 'Can I book for a family member?',
+    answer: 'Yes. While booking, choose who the appointment is for and enter their details.'
   },
   {
     id: 5,
     question: 'Is my personal information secure?',
+    answer: 'We use secure data handling practices to protect your information.'
   },
   {
     id: 6,
-    question: 'Can I use Doccure on my mobile device?',
+    question: 'Do doctors manage the live queue?',
+    answer: 'Yes. Doctors start shifts, check in patients, and advance the queue from their dashboard.'
   },
   {
     id: 7,
-    question: 'Can I cancel or reschedule my appointment?',
+    question: 'What if a doctor has no active shift?',
+    answer: 'If no active shift is running, queue tracking and live serving will start once the doctor begins the shift.'
   },
   {
     id: 8,
-    question: 'How can I change my password or update my account information?',
+    question: 'How do I find a doctor or specialty?',
+    answer: 'Use the Doctors page to browse, filter, and open a doctor profile before booking.'
   },
   {
     id: 9,
-    question: 'How do I find a specific doctor or specialist?',
+    question: 'Will I receive appointment notifications?',
+    answer: 'Yes. You receive confirmations and status updates, and queue notifications as your turn approaches.'
   },
   {
     id: 10,
-    question: 'What happens if my chosen doctor is unavailable for the selected time?',
+    question: 'Can I cancel an appointment?',
+    answer: 'Yes. You can cancel from your appointments page before the appointment time.'
   },
 ]
 
@@ -60,10 +70,10 @@ export default function FAQPage() {
       <Header />
       <main className="min-h-screen bg-white">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-blue-50 to-white py-16 px-4">
+        <section className="bg-gradient-to-b from-icon-bg to-white py-16 px-4">
           <div className="max-w-7xl mx-auto text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+              <div className="w-3 h-3 bg-primary rounded-full"></div>
               <span className="text-gray-600 text-sm">FAQ</span>
             </div>
             <h1 className="text-5xl font-bold text-gray-900 mb-4">FAQ</h1>
@@ -98,7 +108,7 @@ export default function FAQPage() {
                   </button>
                   {expandedId === faq.id && (
                     <div className="px-6 pb-6 border-t border-gray-200 text-gray-600 text-sm">
-                      Answer content would go here
+                      {faq.answer}
                     </div>
                   )}
                 </div>

@@ -176,12 +176,12 @@ function BookingContent() {
     return (
       <>
         <Header />
-        <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <main className="min-h-screen bg-white flex items-center justify-center">
           <div className="text-center">
             <p className="text-red-600 mb-4">{error || "Doctor not found"}</p>
             <button
               onClick={() => router.push("/doctors")}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-600"
             >
               Browse Doctors
             </button>
@@ -196,7 +196,7 @@ function BookingContent() {
     return (
       <>
         <Header />
-        <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <main className="min-h-screen bg-white flex items-center justify-center px-4">
           <div className="max-w-2xl w-full bg-white border border-amber-200 rounded-2xl p-8 text-center shadow-sm">
             <p className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 mb-4">
               Not Registered
@@ -208,7 +208,7 @@ function BookingContent() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => router.push(`/doctor-profile?id=${doctor.id}`)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-600"
               >
                 View Profile
               </button>
@@ -244,7 +244,7 @@ function BookingContent() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gray-50">{renderStep()}</main>
+        <main className="min-h-screen bg-white">{renderStep()}</main>
       <Footer />
     </>
   )

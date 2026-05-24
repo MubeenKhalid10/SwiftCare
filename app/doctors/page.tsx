@@ -2,12 +2,13 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, MapPin, Heart, Grid3x3, List, Loader2, Star } from "lucide-react"
+import { Search, MapPin, Heart, Grid3x3, List, Loader2, Star, Map } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Slider } from "@/components/ui/slider"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
@@ -16,6 +17,8 @@ import { useAuth } from "@/lib/auth-context"
 import { getFavouriteDoctorIds, migrateGuestFavouritesToPatient, toggleFavouriteDoctor } from "@/lib/utils"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import type { Doctor } from "@/lib/types"
+import { resolveCurrentLocation } from "@/lib/location"
+import { API_BASE_URL } from "@/lib/api-config"
 
 function DoctorsContent() {
   const router = useRouter()
@@ -25,6 +28,8 @@ function DoctorsContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [favouriteDoctorIds, setFavouriteDoctorIds] = useState<string[]>([])
+  const [isMapOpen, setIsMapOpen] = useState(false)
+  const [currentLocation, setCurrentLocation] = useState<{ label: string; coordinates: [number, number] } | null>(null)
 
   // Live filter state (user input)
   const [searchTerm, setSearchTerm] = useState("")
@@ -32,7 +37,6 @@ function DoctorsContent() {
   const [priceRange, setPriceRange] = useState([0, 2000])
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("")
   const [selectedGender, setSelectedGender] = useState<string>("")
-  const [selectedAvailability, setSelectedAvailability] = useState<string>("")
   const [selectedExperience, setSelectedExperience] = useState<string>("")
   const [selectedRating, setSelectedRating] = useState<string>("")
 
@@ -42,7 +46,7 @@ function DoctorsContent() {
     location: "",
     priceRange: [0, 10000] as number[],
     selectedSpecialty: "",
-    selectedAvailability: "",
+    selectedGender: "",
     selectedExperience: "",
     selectedRating: "",
     sortBy: "Rating (High to Low)",
@@ -75,16 +79,45 @@ function DoctorsContent() {
     setFavouriteDoctorIds(getFavouriteDoctorIds(user?.id))
   }, [user?.id])
 
+  useEffect(() => {
+    let active = true
+
+    resolveCurrentLocation()
+      .then((location) => {
+        if (active) {
+          setCurrentLocation(location)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCurrentLocation(null)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   // Initialize filters from query parameters
   useEffect(() => {
     const specialization = searchParams.get('specialization')
+    const search = searchParams.get('search')
+    
+    const newFilters = { ...appliedFilters }
+    
     if (specialization) {
       setSelectedSpecialty(decodeURIComponent(specialization))
-      // Apply the filter immediately
-      setAppliedFilters((prev) => ({
-        ...prev,
-        selectedSpecialty: decodeURIComponent(specialization)
-      }))
+      newFilters.selectedSpecialty = decodeURIComponent(specialization)
+    }
+    
+    if (search) {
+      setSearchTerm(decodeURIComponent(search))
+      newFilters.searchTerm = decodeURIComponent(search)
+    }
+    
+    if (specialization || search) {
+      setAppliedFilters(newFilters)
     }
   }, [searchParams])
 
@@ -94,7 +127,7 @@ function DoctorsContent() {
       location,
       priceRange,
       selectedSpecialty,
-      selectedAvailability,
+      selectedGender,
       selectedExperience,
       selectedRating,
       sortBy: appliedFilters.sortBy // keep current sort or add state for it
@@ -128,11 +161,11 @@ function DoctorsContent() {
       appliedFilters.selectedSpecialty === "" ||
       (doc.specialty && doc.specialty === appliedFilters.selectedSpecialty)
 
-    const matchesGender = true;
-
-    const matchesAvailability =
-      appliedFilters.selectedAvailability === "" ||
-      (appliedFilters.selectedAvailability === "Available Today" ? doc.available !== false : true);
+    const normalizedGender = String(doc.gender || '').trim().toLowerCase()
+    const selectedGenderValue = appliedFilters.selectedGender
+    const matchesGender =
+      selectedGenderValue === "" ||
+      normalizedGender === selectedGenderValue.toLowerCase();
 
     const docExp = parseInt(doc.experience || "0");
     const matchesExperience =
@@ -150,7 +183,6 @@ function DoctorsContent() {
       matchesPrice &&
       matchesSpecialty &&
       matchesGender &&
-      matchesAvailability &&
       matchesExperience &&
       matchesRating
     )
@@ -164,7 +196,6 @@ function DoctorsContent() {
   }
 
   const genders = ["Male", "Female"]
-  const availability = ["Available Today", "Available Tomorrow"]
   const experiences = ["0 - 5 Years", "5+ Years"]
   const ratings = ["5 Star", "4 Star", "3 Star", "2 Star", "1 Star"]
 
@@ -176,7 +207,7 @@ function DoctorsContent() {
       <Header />
 
       {/* Page Title */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
+      <div className="bg-gradient-to-r from-icon-bg to-icon-bg/50 border-b border-border py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Find Doctors</h1>
 
@@ -213,8 +244,16 @@ function DoctorsContent() {
                   }
                 }}
               />
+              <Button
+                    variant="outline"
+                    className="border-primary/20 text-primary hover:bg-primary/5 gap-2"
+                    onClick={() => setIsMapOpen(true)}
+                  >
+                    <Map className="w-4 h-4" />
+                    Nearby Doctors' Map
+                  </Button>
             </div>
-            <Button onClick={applyFilters} className="bg-blue-600 text-white hover:bg-blue-700 gap-2">
+            <Button onClick={applyFilters} className="bg-primary text-white hover:bg-primary-600 gap-2">
               <Search className="w-4 h-4" />
               Search
             </Button>
@@ -237,7 +276,7 @@ function DoctorsContent() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-gray-900 text-base">Filters</h3>
-                  <span className="bg-blue-100 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Refine results</span>
+                  <span className="bg-primary/10 text-primary text-[10px] font-semibold px-2 py-0.5 rounded-full">Refine results</span>
                 </div>
                 <div className="flex gap-3">
                   <Button
@@ -246,7 +285,6 @@ function DoctorsContent() {
                     onClick={() => {
                       setSelectedSpecialty("")
                       setSelectedGender("")
-                      setSelectedAvailability("")
                       setSelectedExperience("")
                       setSelectedRating("")
                       setPriceRange([0, 10000])
@@ -257,7 +295,7 @@ function DoctorsContent() {
                         location: "",
                         priceRange: [0, 10000],
                         selectedSpecialty: "",
-                        selectedAvailability: "",
+                        selectedGender: "",
                         selectedExperience: "",
                         selectedRating: "",
                         sortBy: "Rating (High to Low)",
@@ -266,7 +304,7 @@ function DoctorsContent() {
                   >
                     Clear All
                   </Button>
-                  <Button onClick={applyFilters} className="bg-blue-600 text-white hover:bg-blue-700 px-5 h-9 text-sm font-semibold shadow-sm">
+                  <Button onClick={applyFilters} className="bg-primary text-white hover:bg-primary-600 px-5 h-9 text-sm font-semibold shadow-sm">
                     Apply Filters
                   </Button>
                 </div>
@@ -314,22 +352,6 @@ function DoctorsContent() {
                   </div>
                 </div>
 
-                {/* Availability */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2 text-sm">Availability</h4>
-                  <div className="space-y-1.5 max-h-[120px] overflow-y-auto custom-scrollbar">
-                    {availability.map((item) => (
-                      <label key={item} className="flex items-center gap-2 cursor-pointer group">
-                        <Checkbox
-                          checked={selectedAvailability === item}
-                          onCheckedChange={() => setSelectedAvailability(selectedAvailability === item ? "" : item)}
-                          className="w-4 h-4 rounded-full"
-                        />
-                        <span className="text-xs text-gray-600 group-hover:text-blue-600 transition-colors">{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Pricing */}
                 <div className="pr-4">
@@ -395,15 +417,6 @@ function DoctorsContent() {
                   Showing <span className="font-semibold text-gray-900">{filteredDoctors.length}</span> Doctors
                 </div>
                 <div className="flex items-center gap-4">
-                  <select 
-                    className="text-sm border border-gray-300 rounded px-3 py-2 cursor-pointer outline-none"
-                    value={appliedFilters.sortBy}
-                    onChange={(e) => setAppliedFilters(prev => ({ ...prev, sortBy: e.target.value }))}
-                  >
-                    <option>Sort By: Rating (High to Low)</option>
-                    <option>Sort By: Price (Low to High)</option>
-                    <option>Sort By: Price (High to Low)</option>
-                  </select>
                   <button
                     onClick={() => setViewMode("grid")}
                     className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
@@ -441,19 +454,18 @@ function DoctorsContent() {
 
               {/* Doctors Grid */}
               {!isLoading && !error && (
-                <div className={`grid gap-4 mb-8 ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
+                <div className={`grid gap-6 mb-8 ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
                   {filteredDoctors.map((doctor) => (
                     <Card
                       key={doctor.id}
-                      className="overflow-hidden hover:shadow-lg transition cursor-pointer"
+                      className="doctor-card cursor-pointer"
                       onClick={() => router.push(`/doctor-profile?id=${doctor.id}`)}
                     >
                       <div className={`relative ${viewMode === "list" ? "flex" : ""}`}>
-                        <div className={`relative ${viewMode === "list" ? "w-48 h-48" : "h-48"} bg-gray-200`}>
+                        <div className={`doctor-card-image ${viewMode === "list" ? "w-48" : ""}`}>
                           <img
                             src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
                             alt={doctor.name}
-                            className="w-full h-full object-cover"
                             onError={(event) => {
                               event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
                             }}
@@ -469,34 +481,35 @@ function DoctorsContent() {
                             </div>
                           </div>
                           <button
-                            className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-md hover:shadow-lg"
+                            className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-md hover:shadow-lg transition-shadow"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleToggleFavourite(doctor.id)
                             }}
                           >
                             <Heart
-                              className={`w-5 h-5 ${favouriteDoctorIds.includes(String(doctor.id))
+                              className={`w-5 h-5 transition-colors ${favouriteDoctorIds.includes(String(doctor.id))
                                 ? "text-red-500 fill-red-500"
                                 : "text-gray-400"
                                 }`}
                             />
                           </button>
                         </div>
-                        <CardContent className={`p-4 ${viewMode === "list" ? "flex-1" : ""}`}>
-                          <h3 className="font-bold text-gray-900">{doctor.name}</h3>
-                          <p className="text-sm text-blue-600 mb-2">{doctor.specialty}</p>
-                          <p className="text-sm text-gray-600 mb-3 flex items-center gap-1">
-                            <MapPin className="w-4 h-4" /> {typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || doctor.location?.clinicName || 'Location not provided'} • {doctor.experience}
+                        <CardContent className={`doctor-card-content ${viewMode === "list" ? "flex-1" : ""}`}>
+                          <h3 className="doctor-card-name">{doctor.name}</h3>
+                          <p className="doctor-card-specialty">{doctor.specialty}</p>
+                          <p className="doctor-card-location">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>{typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || doctor.location?.clinicName || 'Location not provided'} • {doctor.experience}</span>
                           </p>
                           
                           {/* Schedule / Business Hours */}
                           {doctor.schedule?.availableDays && doctor.schedule.availableDays.length > 0 && (
                             <div className="mb-4">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Availability</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Availability</p>
                               <div className="flex flex-wrap gap-1">
                                 {doctor.schedule.availableDays.map(day => (
-                                  <span key={day} className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-medium">
+                                  <span key={day} className="text-[10px] bg-primary/5 text-primary px-1.5 py-0.5 rounded border border-border font-medium">
                                     {day.substring(0, 3)}
                                   </span>
                                 ))}
@@ -504,13 +517,13 @@ function DoctorsContent() {
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between mb-4 border-t border-gray-100 pt-3 mt-auto">
+                          <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-auto">
                             <div>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Consultation</p>
                               <p className="text-lg font-bold text-gray-900">{doctor.fee || 'Contact'}</p>
                             </div>
                             <Link href={`/doctor-profile?id=${doctor.id}`}>
-                              <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 h-9">
+                              <Button size="sm" className="bg-primary text-white hover:bg-primary-600 h-9">
                                 {isDoctorRegistered(doctor) ? 'Details' : 'Information Only'}
                               </Button>
                             </Link>
@@ -533,6 +546,28 @@ function DoctorsContent() {
         </div>
         <Footer />
       </div>
+
+      <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
+        <DialogContent className="max-w-[95vw] w-[1200px] p-0 overflow-hidden sm:max-w-[95vw]">
+          <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-200">
+            <DialogTitle className="text-xl">Doctors on Map</DialogTitle>
+            <DialogDescription>
+              Browse all doctors and highlight the ones near your current location when it is available.
+            </DialogDescription>
+          </DialogHeader>
+          <iframe
+            src={
+              currentLocation
+                ? `${API_BASE_URL}/api/mapbox/doctors-map?lat=${encodeURIComponent(String(currentLocation.coordinates[1]))}&lng=${encodeURIComponent(String(currentLocation.coordinates[0]))}&label=${encodeURIComponent(currentLocation.label)}`
+                : `${API_BASE_URL}/api/mapbox/doctors-map`
+            }
+            title="Doctors map"
+            className="h-[78vh] w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

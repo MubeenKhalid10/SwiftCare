@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { DoctorSidebar } from '@/components/doctor/doctor-sidebar';
 import { VerificationStatusAlert } from '@/components/doctor/verification-status-alert';
 import { useAuth } from '@/lib/auth-context';
-import { getAppointmentsByDoctorId, getPatients, getReviewsByDoctorId, getDoctorById, getDoctorInsights, getBookableShifts, createShift, startRestShift, endRestShift, startShiftQueue, endShiftQueue, nextQueuePatient, getQueueState, generateNextShifts } from '@/lib/api';
+import { getAppointmentsByDoctorId, getPatients, getReviewsByDoctorId, getDoctorById, getDoctorInsights, getBookableShifts, createShift, startRestShift, endRestShift, startShiftQueue, endShiftQueue, nextQueuePatient, getQueueState, generateNextShifts, getActiveShift } from '@/lib/api';
 import type { Appointment, Patient, Review, Doctor, DoctorInsights, Shift } from '@/lib/types';
 import { Loader2, AlertCircle, Clock, AlertTriangle, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -163,31 +163,31 @@ export default function DoctorDashboard() {
 
           // Only fetch full stats if approved, to save load or just fetch anyway
           // We'll fetch anyway for now, but hide it in UI if pending
-          const [aptsData, patientsData, reviewsData, insightsData, shiftsData] = await Promise.all([
+          const [aptsData, patientsData, reviewsData, insightsData, shiftsData, activeShiftData] = await Promise.all([
             getAppointmentsByDoctorId(String(user?.id)),
             getPatients(),
             getReviewsByDoctorId(String(user?.id)),
             getDoctorInsights(String(user?.id)),
-            getBookableShifts(String(user?.id))
+            getBookableShifts(String(user?.id)),
+            getActiveShift(String(user?.id))
           ]);
           setDoctorAppointments(aptsData);
           setPatients(patientsData);
           setReviews(reviewsData);
           setInsights(insightsData);
-          setActiveShift(shiftsData && shiftsData.length > 0 ? shiftsData[0] : null);
+          
+          const currentShiftToDisplay = activeShiftData || (shiftsData && shiftsData.length > 0 ? shiftsData[0] : null);
+          setActiveShift(currentShiftToDisplay);
 
           // Update current serving patient if there's an active shift
-          if (shiftsData && shiftsData.length > 0) {
-            const active = shiftsData[0];
-            if (active.status === 'active' && active._id) {
-              const queueState = await getQueueState(String(active._id));
-              setQueueStates(prev => ({ ...prev, [String(active._id)]: queueState.currentServing }));
-              
-              const servingPatient = aptsData.find(
-                apt => apt.queueNumber === queueState.currentServing && apt.shiftId === String(active._id)
-              );
-              setCurrentServingPatient(servingPatient || null);
-            }
+          if (currentShiftToDisplay && currentShiftToDisplay.status === 'active' && currentShiftToDisplay._id) {
+            const queueState = await getQueueState(String(currentShiftToDisplay._id));
+            setQueueStates(prev => ({ ...prev, [String(currentShiftToDisplay._id)]: queueState.currentServing }));
+            
+            const servingPatient = aptsData.find(
+              apt => apt.queueNumber === queueState.currentServing && apt.shiftId === String(currentShiftToDisplay._id)
+            );
+            setCurrentServingPatient(servingPatient || null);
           }
         } catch (err) {
           console.error('Error fetching data:', err);
@@ -267,7 +267,8 @@ export default function DoctorDashboard() {
       toast.success(`Generated ${createdCount} new shifts`);
 
       const refreshed = await getBookableShifts(String(user.id));
-      setActiveShift(refreshed && refreshed.length > 0 ? refreshed[0] : null);
+      const activeShiftData = await getActiveShift(String(user.id));
+      setActiveShift(activeShiftData || (refreshed && refreshed.length > 0 ? refreshed[0] : null));
     } catch (err) {
       console.error('Failed to generate shifts:', err);
       toast.error('Failed to generate shifts');
@@ -368,8 +369,34 @@ export default function DoctorDashboard() {
                                        });
                                        setActiveShift(res);
                                        toast.success("Shift created for today!");
-                                     } catch (e) {
-                                       toast.error("Failed to create shift")
+                                     } catch (e: any) {
+                                       const errorMsg = e?.message || "Failed to create shift";
+                                       if (errorMsg.includes("Another shift is already active") || errorMsg.includes("already has an active")) {
+                                         try {
+                                           // Refresh the active shift data from backend
+                                           const activeShiftData = await getActiveShift(String(user?.id));
+                                           if (activeShiftData) {
+                                             setActiveShift(activeShiftData);
+                                             // Also fetch the queue state to update currentServing
+                                             if (activeShiftData.status === 'active' && activeShiftData._id) {
+                                               try {
+                                                 const queueState = await getQueueState(String(activeShiftData._id));
+                                                 setQueueStates(prev => ({ ...prev, [String(activeShiftData._id)]: queueState.currentServing }));
+                                               } catch (queueErr) {
+                                                 console.error("Failed to fetch queue state:", queueErr);
+                                               }
+                                             }
+                                             toast.error("A shift is already active. End the current shift before creating a new one.");
+                                           } else {
+                                             toast.error("Another shift is already active. Please refresh the page.");
+                                           }
+                                         } catch (refreshErr) {
+                                           console.error("Failed to refresh shift data:", refreshErr);
+                                           toast.error("Another shift is already active. Please refresh the page.");
+                                         }
+                                       } else {
+                                         toast.error(errorMsg)
+                                       }
                                      }
                                  }}>Create Today's Shift</Button>
                              </div>
@@ -389,20 +416,52 @@ export default function DoctorDashboard() {
 
                                        // Initialize the live queue on the frontend so the first patient becomes current immediately.
                                        if (queueStart?.nextAppointment) {
-                                         const initialServing = await nextQueuePatient(shiftIdentifier);
-                                         const servingQueueNumber = initialServing?.currentServing ?? queueStart?.nextNumber ?? 0;
-                                         setQueueStates(prev => ({ ...prev, [shiftIdentifier]: servingQueueNumber }));
+                                         try {
+                                           const initialServing = await nextQueuePatient(shiftIdentifier);
+                                           const servingQueueNumber = initialServing?.currentServing ?? queueStart?.nextNumber ?? 0;
+                                           setQueueStates(prev => ({ ...prev, [shiftIdentifier]: servingQueueNumber }));
 
-                                         const servingPatient = doctorAppointments.find(
-                                           apt => apt.queueNumber === servingQueueNumber && apt.shiftId === shiftIdentifier
-                                         );
-                                         setCurrentServingPatient(servingPatient || null);
+                                           const servingPatient = doctorAppointments.find(
+                                             apt => apt.queueNumber === servingQueueNumber && apt.shiftId === shiftIdentifier
+                                           );
+                                           setCurrentServingPatient(servingPatient || null);
+                                         } catch (queueErr: any) {
+                                           // Log but don't fail if queue advance fails
+                                           console.error("Failed to initialize queue:", queueErr);
+                                         }
                                        }
 
                                        setActiveShift({...activeShift, status: 'active'});
                                        toast.success("Shift started! The queue is now active.");
-                                     } catch (e) {
-                                       toast.error("Failed to start shift")
+                                     } catch (e: any) {
+                                       const errorMsg = e?.message || "Failed to start shift"
+                                       // Check if another shift is already active
+                                       if (errorMsg.includes("Another shift is already active")) {
+                                         try {
+                                           // Refresh the active shift data from backend
+                                           const activeShiftData = await getActiveShift(String(user?.id));
+                                           if (activeShiftData) {
+                                             setActiveShift(activeShiftData);
+                                             // Also fetch the queue state to update currentServing
+                                             if (activeShiftData.status === 'active' && activeShiftData._id) {
+                                               try {
+                                                 const queueState = await getQueueState(String(activeShiftData._id));
+                                                 setQueueStates(prev => ({ ...prev, [String(activeShiftData._id)]: queueState.currentServing }));
+                                               } catch (queueErr) {
+                                                 console.error("Failed to fetch queue state:", queueErr);
+                                               }
+                                             }
+                                             toast.error("This shift is already active. View it below.");
+                                           } else {
+                                             toast.error("Another shift is already active. Please end it before starting a new one.");
+                                           }
+                                         } catch (refreshErr) {
+                                           console.error("Failed to refresh shift data:", refreshErr);
+                                           toast.error("Another shift is already active. Please refresh the page.");
+                                         }
+                                       } else {
+                                         toast.error(errorMsg)
+                                       }
                                      }
                                  }} className="bg-green-600 hover:bg-green-700">Start Shift</Button>
                              </div>
@@ -415,13 +474,19 @@ export default function DoctorDashboard() {
                                  </div>
                                  <Button onClick={async () => {
                                      try {
-                                       await endShiftQueue(String(activeShift._id || activeShift.id));
-                                       await endRestShift(String(activeShift._id || activeShift.id));
+                                       const shiftId = String(activeShift._id || activeShift.id);
+                                       if (!shiftId || shiftId === 'undefined') {
+                                         toast.error("Shift ID is not available. Please refresh and try again.");
+                                         return;
+                                       }
+                                       await endShiftQueue(shiftId);
+                                       await endRestShift(shiftId);
                                        setActiveShift({...activeShift, status: 'ended'});
                                        setCurrentServingPatient(null);
                                        toast.success("Shift ended successfully!");
-                                     } catch (e) {
-                                       toast.error("Failed to end shift")
+                                     } catch (e: any) {
+                                       const errorMsg = e?.message || "Failed to end shift"
+                                       toast.error(errorMsg)
                                      }
                                  }} variant="destructive">End Shift</Button>
                               </div>
@@ -690,12 +755,27 @@ export default function DoctorDashboard() {
                                     className="bg-white text-green-600 hover:bg-gray-100 font-bold"
                                     onClick={async () => {
                                       try {
-                                        if (activeShift._id || activeShift.id) {
-                                          const res = await nextQueuePatient(String(activeShift._id || activeShift.id));
-                                          toast.success(`Checked out patient. Now serving queue #${res.currentServing}`);
+                                        if (!activeShift._id && !activeShift.id) {
+                                          toast.error("Shift ID is missing. Please refresh the page.");
+                                          return;
                                         }
-                                      } catch (err) {
-                                        toast.error("Failed to advance queue");
+                                        const res = await nextQueuePatient(String(activeShift._id || activeShift.id));
+                                        setQueueStates(prev => ({ ...prev, [String(activeShift._id || activeShift.id)]: res.currentServing }));
+                                        const nextApt = res.currentAppointment || doctorAppointments.find(
+                                          apt => apt.queueNumber === res.currentServing && apt.shiftId === String(activeShift._id || activeShift.id)
+                                        );
+                                        setCurrentServingPatient(nextApt || null);
+                                        toast.success(`Checked out patient. Now serving queue #${res.currentServing}`);
+                                      } catch (err: any) {
+                                        const errMsg = err?.message || String(err)
+                                        if (errMsg.includes("Shift is not active")) {
+                                          toast.error("Shift is no longer active. The queue has ended.");
+                                        } else if (errMsg.includes("No more patients")) {
+                                          toast.info("No more patients in queue.");
+                                          setCurrentServingPatient(null);
+                                        } else {
+                                          toast.error("Failed to advance queue: " + errMsg);
+                                        }
                                       }
                                     }}
                                   >
@@ -711,13 +791,28 @@ export default function DoctorDashboard() {
                                   className="bg-blue-600 hover:bg-blue-700 w-full"
                                   onClick={async () => {
                                     try {
-                                      if (activeShift._id || activeShift.id) {
-                                        const res = await nextQueuePatient(String(activeShift._id || activeShift.id));
-                                        toast.success(`Checking in first patient. Now serving: ${res.currentServing}`);
+                                      if (!activeShift._id && !activeShift.id) {
+                                        toast.error("Shift ID is missing. Please refresh the page.");
+                                        return;
                                       }
-                                    } catch (err) {
-                                      console.error("Error:", err);
-                                      toast.error("Failed to check in patient");
+                                      const res = await nextQueuePatient(String(activeShift._id || activeShift.id));
+                                      setQueueStates(prev => ({ ...prev, [String(activeShift._id || activeShift.id)]: res.currentServing }));
+                                      const nextApt = res.currentAppointment || doctorAppointments.find(
+                                        apt => apt.queueNumber === res.currentServing && apt.shiftId === String(activeShift._id || activeShift.id)
+                                      );
+                                      setCurrentServingPatient(nextApt || null);
+                                      toast.success(`Checking in first patient. Now serving: ${res.currentServing}`);
+                                    } catch (err: any) {
+                                      const errMsg = err?.message || String(err)
+                                      if (errMsg.includes("Shift is not active")) {
+                                        toast.error("Shift is no longer active. The queue has ended.");
+                                      } else if (errMsg.includes("No more patients")) {
+                                        toast.info("No more patients in queue.");
+                                        setCurrentServingPatient(null);
+                                      } else {
+                                        console.error("Error:", err);
+                                        toast.error("Failed to check in patient: " + errMsg);
+                                      }
                                     }
                                   }}
                                 >

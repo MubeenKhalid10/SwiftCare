@@ -130,7 +130,7 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
                 </div>
               )}
             </div>
-            <p className="text-blue-600 text-sm">{data.doctor.specialty || "Specialist"}</p>
+            <p className="text-primary text-sm">{data.doctor.specialty || "Specialist"}</p>
             <p className="text-gray-600 text-sm mt-1">📍 {data.doctor.address || "Location TBD"}</p>
           </div>
         </div>

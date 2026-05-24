@@ -3,52 +3,14 @@
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { getAvailableSlots, getDoctorShiftsForBooking } from "@/lib/api"
+import { getSlotAvailability, getDoctorShiftsForBooking } from "@/lib/api"
 import { Loader2 } from "lucide-react"
 import type { Shift } from "@/lib/types"
 
-function timeToMinutes(timeStr: string): number {
-  try {
-    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
-    if (!match) return 0
-    let hours = parseInt(match[1])
-    const minutes = parseInt(match[2])
-    const meridiem = match[3].toUpperCase()
-    if (hours === 12) hours = 0
-    if (meridiem === 'PM') hours += 12
-    return hours * 60 + minutes
-  } catch {
-    return 0
-  }
-}
-
-function minutesToTime(minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-  const period = hours >= 12 ? 'PM' : 'AM'
-  const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours)
-  return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`
-}
-
-function generateSlots(startTime: string, endTime: string, slotDuration: number = 10): string[] {
-  const startMins = timeToMinutes(startTime)
-  const endMins = timeToMinutes(endTime)
-  const slots: string[] = []
-  for (let mins = startMins; mins < endMins; mins += slotDuration) {
-    slots.push(minutesToTime(mins))
-  }
-  return slots
-}
-
-function isTimeInRange(time: string, start: string, end: string): boolean {
-  const value = timeToMinutes(time)
-  const startMins = timeToMinutes(start)
-  const endMins = timeToMinutes(end)
-  return value >= startMins && value < endMins
-}
-
-function normalizeTimeLabel(time: string): string {
-  return String(time || '').trim().toUpperCase()
+type ShiftAvailability = {
+  shiftId: string
+  nextAvailableTime: string | null
+  patientsBefore: number
 }
 
 interface AvailableDate {
@@ -74,7 +36,8 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
   
   const [selectedDate, setSelectedDate] = useState<AvailableDate | null>(null)
   const [selectedTime, setSelectedTime] = useState<string>("")
-  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  const [selectedShiftId, setSelectedShiftId] = useState<string>("")
+  const [shiftAvailability, setShiftAvailability] = useState<Record<string, ShiftAvailability>>({})
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(false)
@@ -120,43 +83,54 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
 
   useEffect(() => {
     setSelectedTime("")
+    setSelectedShiftId("")
   }, [selectedDate?.dateString])
 
   useEffect(() => {
     if (!selectedDate || !data.doctor.id || selectedDate.shifts.length === 0) {
-      setAvailableSlots([])
+      setShiftAvailability({})
       setSelectedTime("")
+      setSelectedShiftId("")
       return
     }
 
-    const fetchSlots = async () => {
+    const fetchAvailability = async () => {
       try {
         setLoadingSlots(true)
-        const slotResults = await Promise.all(
+        const entries = await Promise.all(
           selectedDate.shifts.map(async (shift) => {
-            const shiftId = shift._id || shift.id
+            const shiftId = String(shift._id || shift.id || '')
             if (!shiftId) {
-              return generateSlots(shift.startTime, shift.endTime, 10)
+              return [shiftId, { shiftId: '', nextAvailableTime: null, patientsBefore: 0 }] as const
             }
 
-            try {
-              return await getAvailableSlots(String(data.doctor.id), selectedDate.dateString, String(shiftId))
-            } catch {
-              return generateSlots(shift.startTime, shift.endTime, 10)
-            }
+            const res = await getSlotAvailability(String(data.doctor.id), selectedDate.dateString, shiftId)
+            return [shiftId, { shiftId, nextAvailableTime: res.nextAvailableTime, patientsBefore: res.patientsBefore }] as const
           })
         )
 
-        setAvailableSlots(Array.from(new Set(slotResults.flat())))
+        const nextAvailability: Record<string, ShiftAvailability> = {}
+        entries.forEach(([shiftId, availability]) => {
+          if (!shiftId) return
+          nextAvailability[shiftId] = availability
+        })
+
+        setShiftAvailability(nextAvailability)
+
+        const firstShift = selectedDate.shifts[0]
+        const firstShiftId = String(firstShift?._id || firstShift?.id || '')
+        const firstAvailability = firstShiftId ? nextAvailability[firstShiftId] : null
+        setSelectedShiftId(firstShiftId)
+        setSelectedTime(firstAvailability?.nextAvailableTime || "")
       } catch (err) {
-        console.error("Failed to build slots:", err)
-        setAvailableSlots([])
+        console.error("Failed to load queue availability:", err)
+        setShiftAvailability({})
       } finally {
         setLoadingSlots(false)
       }
     }
 
-    fetchSlots()
+    fetchAvailability()
   }, [selectedDate, data.doctor.id])
 
   useEffect(() => {
@@ -178,19 +152,8 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
     fetchShifts()
   }, [data.doctor.id])
 
-  const displaySlots = useMemo(() => {
-    if (availableSlots.length === 0) return []
-    const uniqueSlots = new Set<string>()
-    availableSlots.forEach((slot) => {
-      if (normalizeTimeLabel(slot)) {
-        uniqueSlots.add(slot)
-      }
-    })
-    return Array.from(uniqueSlots)
-  }, [availableSlots])
-
   const handleNext = () => {
-    if (!selectedDate || !selectedTime) return
+    if (!selectedDate || !selectedTime || !selectedShiftId) return
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const fullDate = `${months[selectedDate.date.getMonth()]} ${selectedDate.date.getDate()}, ${selectedDate.date.getFullYear()}`
     
@@ -202,7 +165,7 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
         fullDate: fullDate,
         dayName: selectedDate.dayName,
         dateString: selectedDate.dateString,
-        shiftId: selectedDate.shifts[0]?._id || selectedDate.shifts[0]?.id,
+        shiftId: selectedShiftId,
       },
     })
   }
@@ -366,39 +329,44 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
               </div>
             </div>
 
-            {/* Time Slots Section */}
+            {/* Queue Availability Section */}
             <div className="space-y-4">
-              <h4 className="font-semibold text-gray-900">Available Times</h4>
+              <h4 className="font-semibold text-gray-900">Queue Availability</h4>
               
               {!selectedDate ? (
                 <div className="flex items-center justify-center h-40 text-gray-500 italic border border-gray-200 rounded-lg">
-                  Select a date to see time slots
+                  Select a date to see queue status
                 </div>
               ) : loadingSlots ? (
                 <div className="flex items-center justify-center h-40">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div>
-              ) : displaySlots.length === 0 ? (
-                <div className="flex items-center justify-center h-40 text-gray-500 italic">
-                  No time slots available
-                </div>
               ) : (
                 <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    {displaySlots.map((slot, idx) => (
-                      <button
-                        key={`${slot}-${idx}`}
-                        onClick={() => setSelectedTime(slot)}
-                        className={`px-2 py-2 rounded-lg text-xs font-semibold transition ${
-                          selectedTime === slot
-                            ? "bg-green-600 text-white shadow-sm"
-                            : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                        }`}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
+                  {selectedDate.shifts.length === 0 ? (
+                    <div className="flex items-center justify-center h-32 text-gray-500 italic">
+                      No shifts available for this date
+                    </div>
+                  ) : (() => {
+                    const shift = selectedDate.shifts[0]
+                    const shiftId = String(shift?._id || shift?.id || '')
+                    const availability = shiftId ? shiftAvailability[shiftId] : null
+                    const nextTime = availability?.nextAvailableTime || null
+                    const patientsBefore = availability?.patientsBefore ?? 0
+
+                    return (
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Patients Before You</p>
+                          <p className="text-lg font-semibold text-gray-900">{patientsBefore}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Time Slot</p>
+                          <p className="text-lg font-semibold text-blue-700">{nextTime || "Fully booked"}</p>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
@@ -412,7 +380,7 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={!selectedDate || !selectedTime || loadingSlots}
+          disabled={!selectedDate || !selectedTime || !selectedShiftId || loadingSlots}
           className="bg-blue-600 hover:bg-blue-700 px-8 disabled:opacity-50"
         >
           Continue

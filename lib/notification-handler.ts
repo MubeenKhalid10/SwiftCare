@@ -5,6 +5,7 @@
 
 import { socket } from './socket'
 import type { Appointment, Notification } from './types'
+import { calculatePositionsAhead } from './dynamic-queue'
 
 interface QueueReminderTracker {
   appointmentId: string
@@ -40,7 +41,7 @@ class NotificationHandler {
     userQueueNumber: number
   ): number {
     const currentServing = queueStates[shiftId] || 0
-    return Math.max(0, userQueueNumber - currentServing - 1)
+    return calculatePositionsAhead(userQueueNumber, currentServing)
   }
 
   /**

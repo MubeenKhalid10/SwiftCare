@@ -59,8 +59,8 @@ export function VerificationStatusAlert({
 
   if (status === 'submitted') {
     return (
-      <Alert className="mb-6 border-blue-200 bg-blue-50 text-blue-800">
-        <Clock className="h-5 w-5 text-blue-600" />
+      <Alert className="mb-6 border-border bg-primary/5 text-primary">
+        <Clock className="h-5 w-5 text-primary" />
         <AlertTitle className="font-semibold text-lg ml-2 text-blue-900">Verification Pending</AlertTitle>
         <AlertDescription className="mt-2 ml-2 text-blue-800">
           Your verification request has been submitted successfully. Our admin team will review your documents and get back to you within 1-2 business days.

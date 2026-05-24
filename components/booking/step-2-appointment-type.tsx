@@ -83,7 +83,7 @@ export default function BookingStep2({ data, onNext, onBack }) {
                 </div>
               )}
             </div>
-            <p className="text-blue-600 text-sm">{data.doctor.specialty || "Specialist"}</p>
+            <p className="text-primary text-sm">{data.doctor.specialty || "Specialist"}</p>
             <p className="text-gray-600 text-sm mt-1">📍 {data.doctor.address || "Location TBD"}</p>
             {data.doctor.fee && <p className="text-green-600 text-sm font-semibold">Fee: {data.doctor.fee}</p>}
           </div>
@@ -99,7 +99,7 @@ export default function BookingStep2({ data, onNext, onBack }) {
               key={type.id}
               onClick={() => setSelectedType(type.id)}
               className={`p-4 rounded-lg border-2 text-center transition ${
-                selectedType === type.id ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                selectedType === type.id ? "border-primary bg-primary/5" : "border-border hover:border-border/80"
               }`}
             >
               <div className="text-2xl mb-2">{type.icon}</div>
@@ -142,7 +142,7 @@ export default function BookingStep2({ data, onNext, onBack }) {
         <Button variant="outline" onClick={onBack} className="px-8 bg-transparent">
           Back
         </Button>
-        <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 px-8">
+        <Button onClick={handleNext} className="bg-primary hover:bg-primary-600 px-8">
           Select Date & Time
         </Button>
       </div>

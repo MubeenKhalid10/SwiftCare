@@ -14,6 +14,8 @@ export interface DoctorFormData {
   name: string
   email: string
   phone: string
+  age: string
+  gender: string
   specialization: string
   experience: string
   about: string
@@ -29,6 +31,8 @@ const EMPTY_FORM: DoctorFormData = {
   name: '',
   email: '',
   phone: '',
+  age: '',
+  gender: '',
   specialization: '',
   experience: '',
   about: '',
@@ -56,6 +60,8 @@ function buildFormFromDoctor(doctor?: Doctor | null): DoctorFormData {
     name: doctor.name || '',
     email: doctor.email || anyDoctor.credentials?.email || '',
     phone: doctor.phone || anyDoctor.contactNo || '',
+    age: doctor.age != null ? String(doctor.age) : '',
+    gender: doctor.gender || '',
     specialization: doctor.specialty || doctor.specialization || anyDoctor.professionalInfo?.specialization || '',
     experience: doctor.experience || '',
     about: doctor.about || '',
@@ -154,6 +160,31 @@ export function DoctorFormModal({
               onChange={handleChange}
               placeholder="+92..."
             />
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="age">Age</Label>
+              <Input
+                id="age"
+                name="age"
+                type="number"
+                min="0"
+                value={formData.age || ''}
+                onChange={handleChange}
+                placeholder="35"
+              />
+            </div>
+            <div>
+              <Label htmlFor="gender">Gender</Label>
+              <Input
+                id="gender"
+                name="gender"
+                value={formData.gender || ''}
+                onChange={handleChange}
+                placeholder="Male / Female"
+              />
+            </div>
           </div>
 
           <div className="mt-3">

@@ -11,6 +11,7 @@ import {
   Video,
   Loader2,
   X,
+  Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -21,11 +22,12 @@ import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
-import { getAppointmentsByPatientId, getDoctors, getPatientById, getQueueState, updateAppointmentStatus, nextQueuePatient } from "@/lib/api"
+import { getAppointmentsByPatientId, getDoctors, getPatientById, getQueueState, updateAppointmentStatus, createReview } from "@/lib/api"
 import { toast } from 'sonner';
 import { Appointment, Patient, Doctor } from "@/lib/types"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import { socket } from "@/lib/socket"
+import { applyAppointmentStatusSync, getAppointmentStatusSyncEventName } from "@/lib/utils"
 
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -40,8 +42,18 @@ export default function AppointmentsPage() {
   const [queueStates, setQueueStates] = useState<Record<string, number>>({})
   const [trackedShifts, setTrackedShifts] = useState<Set<string>>(new Set())
   const [reviewPopup, setReviewPopup] = useState<{show: boolean, appointmentId: string | null}>({show: false, appointmentId: null})
+  const [newRating, setNewRating] = useState<number>(0)
+  const [newComment, setNewComment] = useState<string>("")
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
+
+  const getAppointmentKey = (apt: Appointment): string => String(apt.id || apt._id || '')
 
   const normalizeStatus = (status?: string) => String(status || '').trim().toLowerCase()
+  const isInProgressStatus = (status?: string) => {
+    const normalized = normalizeStatus(status)
+    return normalized === 'in progress' || normalized === 'in-progress' || normalized === 'inprogress' || normalized === 'in_progress'
+  }
   const isUpcomingStatus = (status?: string) => {
     const normalized = normalizeStatus(status)
     return normalized === 'pending' || normalized === 'confirmed' || normalized === 'in progress' || normalized === 'in-progress' || normalized === 'inprogress' || normalized === 'in_progress'
@@ -56,15 +68,44 @@ export default function AppointmentsPage() {
     return status || 'Pending'
   }
 
-  const getQueueMetrics = (shiftId?: string, queueNumber?: number) => {
-    if (!shiftId || typeof queueNumber !== 'number') {
-      return { positionsAhead: null as number | null, estimatedWaitMinutes: null as number | null }
+  const getAppointmentTimeValue = (apt: Appointment): number => {
+    const fromDateTime = new Date(`${apt.date || ''} ${apt.time || ''}`).getTime()
+    if (!Number.isNaN(fromDateTime)) return fromDateTime
+    if (apt.fullDateIso) {
+      const fromIso = new Date(apt.fullDateIso).getTime()
+      if (!Number.isNaN(fromIso)) return fromIso
+    }
+    return Number.MAX_SAFE_INTEGER
+  }
+
+  const getQueueMetrics = (apt: Appointment) => {
+    if (!apt.shiftId) {
+      return { yourPosition: null as number | null, positionsAhead: null as number | null, estimatedWaitMinutes: null as number | null }
     }
 
-    const currentServing = queueStates[shiftId] || 0
-    const positionsAhead = Math.max(0, queueNumber - currentServing - 1)
+    // Use the backend-assigned queueNumber directly.
+    // The backend sets this at booking time via getQueueNumberForTime() based on the
+    // time slot position within the shift. This is the authoritative position for ALL
+    // patients in the shift, not just the current patient's local appointments.
+    const ownPosition = typeof apt.queueNumber === 'number' && apt.queueNumber > 0 ? apt.queueNumber : null
+
+    if (!ownPosition) {
+      return { yourPosition: null as number | null, positionsAhead: null as number | null, estimatedWaitMinutes: null as number | null }
+    }
+
+    const shiftId = String(apt.shiftId)
+    // currentServing comes from queueStates (real-time socket updates) or the backend QueueState
+    const currentServing = queueStates[shiftId] ?? 0
+
+    // Positions ahead = how many people are still to be served before this patient
+    // If currentServing=0 (shift not started yet): ahead = ownPosition - 1
+    // If currentServing > 0: ahead = ownPosition - currentServing - 1 (min 0)
+    const positionsAhead = currentServing <= 0
+      ? ownPosition - 1
+      : Math.max(0, ownPosition - currentServing - 1)
 
     return {
+      yourPosition: ownPosition,
       positionsAhead,
       estimatedWaitMinutes: positionsAhead * 10,
     }
@@ -83,7 +124,7 @@ export default function AppointmentsPage() {
         getPatientById(String(user.id)),
       ])
 
-      setAppointments(patientAppointments)
+      setAppointments(applyAppointmentStatusSync(patientAppointments))
       setDoctors(doctorsData)
       if (patientData) setPatient(patientData)
     } catch (err) {
@@ -126,26 +167,73 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => {
+    const syncFromStorage = () => {
+      setAppointments(prev => applyAppointmentStatusSync(prev))
+    }
+
+    const onStatusSync = () => {
+      syncFromStorage()
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "swiftcare_appointment_status_sync") {
+        syncFromStorage()
+      }
+    }
+
+    window.addEventListener(getAppointmentStatusSyncEventName(), onStatusSync as EventListener)
+    window.addEventListener("storage", onStorage)
+
+    return () => {
+      window.removeEventListener(getAppointmentStatusSyncEventName(), onStatusSync as EventListener)
+      window.removeEventListener("storage", onStorage)
+    }
+  }, [])
+
+  useEffect(() => {
     const upcoming = appointments.filter(a => isUpcomingStatus(a.status));
-    upcoming.forEach(async (apt) => {
-      if (apt.shiftId) {
-        socket.emit('joinQueueRoom', apt.shiftId);
-        
-        if (queueStates[apt.shiftId] === undefined) {
-          try {
-            const shiftId = apt.shiftId as string;
-            const state = await getQueueState(shiftId);
-            setQueueStates(prev => ({
-              ...prev,
-              [shiftId]: state.currentServing
-            }));
-          } catch (err) {
-            console.error("Failed to fetch initial queue state:", err);
-          }
-        }
+    // Deduplicate by shiftId — multiple appointments on the same shift only need one join + fetch
+    const uniqueShiftIds = [...new Set(upcoming.map(a => a.shiftId).filter(Boolean) as string[])]
+
+    uniqueShiftIds.forEach(async (shiftId) => {
+      socket.emit('joinQueueRoom', shiftId);
+      try {
+        const state = await getQueueState(shiftId);
+        setQueueStates(prev => ({
+          ...prev,
+          [shiftId]: state.currentServing
+        }));
+      } catch (err) {
+        console.error("Failed to fetch initial queue state for shift:", shiftId, err);
+        setQueueStates(prev => ({
+          ...prev,
+          [shiftId]: 0
+        }));
       }
     });
-  }, [appointments.length]);
+  }, [appointments]);
+
+  // Poll queue state every 5 seconds so patients see live updates without relying solely on sockets
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      const upcoming = appointments.filter(a => isUpcomingStatus(a.status));
+      // Deduplicate by shiftId
+      const uniqueShiftIds = [...new Set(upcoming.map(a => a.shiftId).filter(Boolean) as string[])]
+      for (const shiftId of uniqueShiftIds) {
+        try {
+          const state = await getQueueState(shiftId);
+          setQueueStates(prev => ({
+            ...prev,
+            [shiftId]: state.currentServing
+          }));
+        } catch (err) {
+          // Silent fail for polling
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [appointments]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -177,6 +265,41 @@ export default function AppointmentsPage() {
     completed: appointments.filter((a) => normalizeStatus(a.status) === "completed").length,
   }
 
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      setReviewError('Please login to submit a review.');
+      return;
+    }
+    if (newRating === 0) {
+      setReviewError('Please select a rating.');
+      return;
+    }
+
+    const apt = appointments.find(a => String(a.id) === reviewPopup.appointmentId);
+    if (!apt) return;
+
+    try {
+      setIsSubmittingReview(true);
+      setReviewError(null);
+      await createReview({
+        doctorId: String(apt.doctorId),
+        patientId: user.id,
+        rating: newRating,
+        comment: newComment,
+      });
+
+      setNewRating(0);
+      setNewComment('');
+      setReviewPopup({show: false, appointmentId: null});
+      toast.success('Review submitted successfully!');
+    } catch (err: any) {
+      setReviewError(err.message || 'Failed to submit review.');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -188,18 +311,6 @@ export default function AppointmentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-
-      {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2 text-sm">
-          <span className="text-blue-600">●</span>
-          <Link href="/patient/dashboard" className="text-gray-600 hover:text-gray-900">
-            Patient
-          </Link>
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-900 font-medium">Appointments</span>
-        </div>
-      </div>
 
       {/* Page Title */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
@@ -346,43 +457,65 @@ export default function AppointmentsPage() {
                                 </Button>
                               ) : (
                                 (() => {
-                                  const queueMetrics = getQueueMetrics(apt.shiftId, apt.queueNumber)
+                                  const currentServing = queueStates[String(apt.shiftId)] ?? currentServingPositionByShift[String(apt.shiftId)] ?? 0
+                                  const queueMetrics = getQueueMetrics(apt)
+                                  
+                                  const isServingNow = queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing === queueMetrics.yourPosition;
+                                  const isTurnPassed = queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing > queueMetrics.yourPosition;
 
                                   return (
-                                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Currently Serving</span>
-                                    <span className="text-2xl font-black text-blue-700 leading-none">{queueStates[apt.shiftId] || 0}</span>
-                                  </div>
-                                  <div className="w-px h-8 bg-blue-200" />
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Ahead of You</span>
-                                    <span className="text-2xl font-black text-indigo-700 leading-none">
-                                      {queueMetrics.positionsAhead === null ? 'N/A' : queueMetrics.positionsAhead}
-                                    </span>
-                                  </div>
-                                  <div className="w-px h-8 bg-blue-200" />
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Est. Wait</span>
-                                    <span className="text-2xl font-black text-emerald-700 leading-none">
-                                      {queueMetrics.estimatedWaitMinutes === null ? 'N/A' : `${queueMetrics.estimatedWaitMinutes}m`}
-                                    </span>
-                                  </div>
-                                  <button 
-                                    className="ml-4 p-1.5 hover:bg-blue-100 rounded-full text-blue-400 hover:text-blue-600 transition-colors"
-                                    onClick={() => {
-                                      if (apt.shiftId) {
-                                        setTrackedShifts(prev => {
-                                          const next = new Set(prev);
-                                          next.delete(apt.shiftId as string);
-                                          return next;
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                </div>
+                                    <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
+                                      {isServingNow ? (
+                                        <div className="flex items-center gap-3 px-4">
+                                          <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">Status</span>
+                                            <span className="text-2xl font-black text-emerald-600 leading-none whitespace-nowrap">It's your turn!</span>
+                                          </div>
+                                        </div>
+                                      ) : isTurnPassed ? (
+                                        <div className="flex items-center gap-3 px-4">
+                                          <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Status</span>
+                                            <span className="text-xl font-black text-gray-600 leading-none whitespace-nowrap">Turn Passed</span>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Currently Serving</span>
+                                            <span className="text-2xl font-black text-blue-700 leading-none">{currentServing}</span>
+                                          </div>
+                                          <div className="w-px h-8 bg-blue-200" />
+                                          <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Your position</span>
+                                            <span className="text-2xl font-black text-indigo-700 leading-none">
+                                              {queueMetrics.yourPosition === null ? 'N/A' : queueMetrics.yourPosition}
+                                            </span>
+                                          </div>
+                                          <div className="w-px h-8 bg-blue-200" />
+                                          <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Est. Wait</span>
+                                            <span className="text-2xl font-black text-emerald-700 leading-none">
+                                              {queueMetrics.estimatedWaitMinutes === null ? 'N/A' : `${queueMetrics.estimatedWaitMinutes}m`}
+                                            </span>
+                                          </div>
+                                        </>
+                                      )}
+                                      <button 
+                                        className="ml-4 p-1.5 hover:bg-blue-100 rounded-full text-blue-400 hover:text-blue-600 transition-colors"
+                                        onClick={() => {
+                                          if (apt.shiftId) {
+                                            setTrackedShifts(prev => {
+                                              const next = new Set(prev);
+                                              next.delete(apt.shiftId as string);
+                                              return next;
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
                                   )
                                 })()
                               )}
@@ -415,16 +548,6 @@ export default function AppointmentsPage() {
                                         if (confirm("Are you sure you want to cancel this appointment?")) {
                                           try {
                                             await updateAppointmentStatus(String(apt._id || apt.id), 'Cancelled');
-                                            
-                                              // Auto-advance queue when appointment is cancelled
-                                              if (apt.shiftId) {
-                                                try {
-                                                  await nextQueuePatient(String(apt.shiftId));
-                                                } catch (err) {
-                                                  console.error("Failed to advance queue:", err);
-                                                }
-                                              }
-                                            
                                             toast.success("Appointment cancelled successfully");
                                             fetchData();
                                           } catch (e: any) {
@@ -465,51 +588,67 @@ export default function AppointmentsPage() {
       </div>}
 
       {/* Review Popup Modal */}
-      {reviewPopup.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
-            <div className="p-6 space-y-6">
+      {reviewPopup.show && (() => {
+        const apt = appointments.find(a => String(a.id) === reviewPopup.appointmentId);
+        return (
+        <div className="fixed inset-0 bg-black/5 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-xl border-0">
+            <form onSubmit={handleSubmitReview} className="p-6 space-y-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Share Your Experience</h3>
-                <p className="text-gray-600">Your appointment is complete! Would you like to leave a review for your doctor?</p>
+                <p className="text-gray-600">Your appointment is complete! How was your experience with <span className="font-semibold text-gray-900">{apt?.doctorName || 'the doctor'}</span>?</p>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Your feedback helps:</span>
-                  <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600">
-                    <li>Other patients make informed decisions</li>
-                    <li>Doctors improve their services</li>
-                    <li>Build a better healthcare community</li>
-                  </ul>
-                </p>
+              <div className="flex justify-center gap-2 my-6">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setNewRating(s)}
+                    className="focus:outline-none transition-transform hover:scale-110"
+                  >
+                    <Star className={`w-8 h-8 ${s <= newRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                  </button>
+                ))}
               </div>
 
-              <div className="flex gap-3">
+              <textarea
+                placeholder="Share your experience (optional)..."
+                className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm min-h-[100px]"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+              />
+
+              {reviewError && <p className="text-red-500 text-sm text-center">{reviewError}</p>}
+
+              <div className="flex gap-3 pt-2">
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setReviewPopup({show: false, appointmentId: null})}
+                  type="button"
+                  onClick={() => {
+                    setReviewPopup({show: false, appointmentId: null});
+                    setNewRating(0);
+                    setNewComment('');
+                    setReviewError(null);
+                  }}
                 >
                   Maybe Later
                 </Button>
                 <Button
+                  type="submit"
                   className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={() => {
-                    const apt = appointments.find(a => String(a.id) === reviewPopup.appointmentId);
-                    if (apt) {
-                      router.push(`/doctor-profile?id=${apt.doctorId}#reviews`);
-                      setReviewPopup({show: false, appointmentId: null});
-                    }
-                  }}
+                  disabled={isSubmittingReview}
                 >
-                  Leave a Review
+                  {isSubmittingReview ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Submit Review
                 </Button>
               </div>
-            </div>
+            </form>
           </Card>
         </div>
-      )}
+      )
+      })()}
 
       <Footer />
     </div>

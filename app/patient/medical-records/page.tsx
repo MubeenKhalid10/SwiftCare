@@ -138,23 +138,11 @@ function MedicalRecordsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2 text-sm">
-          <span className="text-blue-600">●</span>
-          <Link href="/patient/dashboard" className="text-gray-600 hover:text-gray-900">
-            Patient
-          </Link>
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-900 font-medium">Medical Records</span>
-        </div>
-      </div>
-
       {/* Page Title */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
+        <div className="bg-gradient-to-r from-icon-bg to-icon-bg/50 border-b border-border py-8">
         <div className="max-w-7xl mx-auto px-4">
           <h1 className="text-4xl font-bold text-gray-900">Medical Records</h1>
         </div>
@@ -207,7 +195,7 @@ function MedicalRecordsContent() {
                 {/* Loading State */}
                 {isLoading ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : (
                   <>

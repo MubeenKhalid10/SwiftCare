@@ -3,13 +3,12 @@
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Calendar, Clock, MapPin, User, FileText, Printer, Share2, X } from "lucide-react"
+import { Calendar, Clock, MapPin,  FileText, Printer, Share2, X } from "lucide-react"
 
 interface RecordDetailModalProps {
   isOpen: boolean
@@ -62,7 +61,7 @@ export function RecordDetailModal({ isOpen, onClose, record }: RecordDetailModal
             </div>
             <div className="space-y-1">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Status</p>
-              <Badge className="bg-blue-100 text-blue-700 border-none font-bold">
+              <Badge className="bg-primary/10 text-primary border-none font-bold">
                 {record.status || "Completed"}
               </Badge>
             </div>

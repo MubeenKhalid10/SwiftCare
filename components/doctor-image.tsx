@@ -32,7 +32,7 @@ export function DoctorImage({
   if (!src || error) {
     return (
       <Avatar className={`${sizeClasses[size]} ${className}`}>
-        <AvatarFallback className="bg-blue-600 text-white text-lg font-semibold">
+        <AvatarFallback className="bg-primary text-white text-lg font-semibold">
           {getInitials(name)}
         </AvatarFallback>
       </Avatar>

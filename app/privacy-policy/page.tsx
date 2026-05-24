@@ -92,10 +92,10 @@ export default function PrivacyPolicyPage() {
       <Header />
       <main className="min-h-screen bg-white">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-blue-50 to-white py-16 px-4">
+        <section className="bg-gradient-to-b from-icon-bg to-white py-16 px-4">
           <div className="max-w-7xl mx-auto text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+              <div className="w-3 h-3 bg-primary rounded-full"></div>
               <span className="text-gray-600 text-sm">Privacy Policy</span>
             </div>
             <h1 className="text-5xl font-bold text-gray-900">Privacy Policy</h1>
@@ -123,7 +123,7 @@ export default function PrivacyPolicyPage() {
                       <ul className="space-y-3">
                         {section.subsections.map((subsection, subIndex) => (
                           <li key={subIndex} className="flex items-start gap-3">
-                            <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                            <span className="inline-block w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></span>
                             <span className="text-gray-700">{subsection}</span>
                           </li>
                         ))}

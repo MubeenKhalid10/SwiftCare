@@ -64,7 +64,7 @@ export default function BookingStep1({ data, onNext }) {
                 </div>
               )}
             </div>
-            <p className="text-blue-600 text-sm">{data.doctor.specialty || "Specialty"}</p>
+            <p className="text-primary text-sm">{data.doctor.specialty || "Specialty"}</p>
             <p className="text-gray-600 text-sm mt-2 flex items-center gap-2">
               <span>📍</span> {data.doctor.address || "Location not specified"}
             </p>
@@ -81,7 +81,7 @@ export default function BookingStep1({ data, onNext }) {
         <select
           value={selectedSpecialty}
           onChange={(e) => setSelectedSpecialty(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
         >
           <option value="">Select Specialty</option>
           <option value="Cardiology">Cardiology</option>
@@ -100,7 +100,7 @@ export default function BookingStep1({ data, onNext }) {
               onClick={() => toggleService(service.id)}
               className={`p-4 border-2 rounded-lg cursor-pointer transition ${
                 selectedServices.includes(service.id)
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-primary bg-primary/5"
                   : "border-gray-200 hover:border-gray-300"
               }`}
             >
@@ -110,7 +110,7 @@ export default function BookingStep1({ data, onNext }) {
                   <p className="text-red-600 text-sm">{service.price}</p>
                 </div>
                 {selectedServices.includes(service.id) && (
-                  <div className="w-5 h-5 bg-blue-500 rounded flex items-center justify-center">
+                  <div className="w-5 h-5 bg-primary rounded flex items-center justify-center">
                     <span className="text-white text-xs">✓</span>
                   </div>
                 )}

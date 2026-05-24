@@ -40,7 +40,7 @@ export function ClinicLocationMap({ label, coordinates }: ClinicLocationMapProps
           loading="lazy"
         />
       ) : (
-        <div className="h-72 w-full flex items-center justify-center bg-gradient-to-br from-blue-50 via-slate-50 to-cyan-50 text-center px-6">
+        <div className="h-72 w-full flex items-center justify-center bg-gradient-to-br from-icon-bg via-background to-icon-bg/50 text-center px-6">
           <div className="max-w-sm space-y-2">
             <p className="text-sm font-semibold text-slate-900">Map preview unavailable</p>
             <p className="text-sm text-slate-600">

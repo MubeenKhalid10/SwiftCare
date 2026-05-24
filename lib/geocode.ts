@@ -1,7 +1,8 @@
+import { API_BASE_URL } from '@/lib/api-config';
+
 /**
  * Frontend Geocoding Utility
- * Converts addresses to latitude/longitude coordinates using Google Maps Geocoding API
- * Mirrors the backend geocode.js functionality for frontend usage
+ * Converts addresses to latitude/longitude coordinates using backend geocoding APIs
  */
 
 export interface GeoCoordinates {
@@ -15,35 +16,28 @@ export interface LocationData {
 }
 
 /**
- * Geocode an address to coordinates using Google Maps API
- * Note: Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY env variable
+ * Geocode an address to coordinates using backend geocoding API
  * 
  * @param address - The address string to geocode
  * @returns Promise with {lat, lng} or null if geocoding fails
  */
 export async function geocodeAddress(address: string): Promise<GeoCoordinates | null> {
   try {
-    // If no API key available, return null
-    // The backend will handle geocoding if needed
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn("Google Maps API key not configured. Address will be stored as label only.");
-      return null;
-    }
-
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const url = `${API_BASE_URL}/api/mapbox/geocode?address=${encodeURIComponent(address)}`;
     
     const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Geocoding failed for address "${address}": status ${response.status}`);
+      return null;
+    }
     const data = await response.json();
 
-    if (data.status === "OK" && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
+    if (data && Array.isArray(data.coordinates) && data.coordinates.length >= 2) {
       return {
-        lat: location.lat,
-        lng: location.lng,
+        lat: data.coordinates[1],
+        lng: data.coordinates[0],
       };
     } else {
-      console.warn(`Geocoding failed for address "${address}":`, data.status);
       return null;
     }
   } catch (error) {
@@ -61,23 +55,16 @@ export async function geocodeAddress(address: string): Promise<GeoCoordinates | 
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   try {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn("Google Maps API key not configured.");
-      return null;
-    }
-
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
+    const url = `${API_BASE_URL}/api/mapbox/reverse-geocode?lat=${lat}&lng=${lng}`;
     
     const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status === "OK" && data.results.length > 0) {
-      return data.results[0].formatted_address;
-    } else {
-      console.warn(`Reverse geocoding failed for coordinates ${lat}, ${lng}:`, data.status);
+    if (!response.ok) {
+      console.warn(`Reverse geocoding failed for coordinates ${lat}, ${lng}: status ${response.status}`);
       return null;
     }
+    const data = await response.json();
+
+    return data?.label || null;
   } catch (error) {
     console.error("Reverse geocoding error:", error);
     return null;

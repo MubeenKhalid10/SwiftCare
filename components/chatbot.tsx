@@ -164,7 +164,7 @@ export function Chatbot() {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105 z-50 animate-bounce"
+                    className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-primary to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 transition-all hover:scale-110 z-50 animate-pulse-gentle"
                     aria-label="Open chat assistant"
                 >
                     <MessageCircle className="w-6 h-6" />
@@ -173,16 +173,16 @@ export function Chatbot() {
 
             {/* Chat Window */}
             {isOpen && (
-                <div className="fixed bottom-6 right-6 w-full max-w-[350px] sm:max-w-[400px] h-[500px] max-h-[80vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden z-50 border border-gray-200 animate-in slide-in-from-bottom-5">
+                <div className="fixed bottom-6 right-6 w-full max-w-[350px] sm:max-w-[400px] h-[500px] max-h-[80vh] flex flex-col bg-white rounded-2xl shadow-xl shadow-primary/20 overflow-hidden z-50 border border-border animate-in slide-in-from-bottom-5">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-4 text-white flex justify-between items-center shadow-md">
+                    <div className="bg-gradient-to-r from-primary to-primary-600 p-4 text-white flex justify-between items-center shadow-md">
                         <div className="flex items-center gap-2">
                             <div className="bg-white/20 p-1.5 rounded-full">
                                 <Bot className="w-5 h-5" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-sm">SwiftCare Assistant</h3>
-                                <p className="text-xs text-blue-100 flex items-center gap-1">
+                                <p className="text-xs text-white/90 flex items-center gap-1">
                                     <span className="w-2 h-2 rounded-full bg-green-400 inline-block animate-pulse"></span>
                                     Online
                                 </p>
@@ -198,7 +198,7 @@ export function Chatbot() {
                     </div>
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-4">
+                    <div className="flex-1 overflow-y-auto p-4 bg-white/50 flex flex-col gap-4">
                         {messages.map((message) => (
                             <div
                                 key={message.id}
@@ -207,12 +207,12 @@ export function Chatbot() {
                             >
                                 <div
                                     className={`max-w-[85%] rounded-2xl p-3 text-sm shadow-sm ${message.role === "user"
-                                            ? "bg-blue-600 text-white rounded-br-sm"
-                                            : "bg-white text-gray-800 border border-gray-100 rounded-bl-sm"
+                                            ? "bg-gradient-to-r from-primary to-primary-600 text-white rounded-br-sm"
+                                            : "bg-white text-foreground border border-border rounded-bl-sm"
                                         }`}
                                 >
                                     {message.role === "bot" ? (
-                                        <div className="prose prose-sm prose-blue leading-relaxed">
+                                        <div className="prose prose-sm prose-primary leading-relaxed">
                                             {formatMessage(message.content)}
                                         </div>
                                     ) : (
@@ -223,8 +223,8 @@ export function Chatbot() {
                         ))}
                         {isLoading && (
                             <div className="flex w-full justify-start">
-                                <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-sm p-3 shadow-sm flex items-center gap-2 text-gray-500">
-                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                <div className="bg-white border border-border rounded-2xl rounded-bl-sm p-3 shadow-sm flex items-center gap-2 text-foreground/70">
+                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
                                     <span className="text-xs font-medium">Assistant is typing...</span>
                                 </div>
                             </div>
@@ -233,10 +233,10 @@ export function Chatbot() {
                     </div>
 
                     {/* Input Area */}
-                    <div className="p-3 bg-white border-t border-gray-100">
+                    <div className="p-3 bg-white border-t border-border">
                         <form
                             onSubmit={handleSend}
-                            className="flex items-end gap-2 bg-gray-50 p-1 rounded-xl border border-gray-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-400 transition-all"
+                            className="flex items-end gap-2 bg-white p-1 rounded-xl border border-border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all"
                         >
                             <Input
                                 value={input}
@@ -251,8 +251,8 @@ export function Chatbot() {
                                 size="icon"
                                 disabled={!input.trim() || isLoading}
                                 className={`h-9 w-9 rounded-lg shrink-0 ${input.trim() && !isLoading
-                                        ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                                        : "bg-gray-200 text-gray-400"
+                                        ? "bg-gradient-to-r from-primary to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md"
+                                        : "bg-muted text-muted-foreground"
                                     } transition-all`}
                             >
                                 <Send className="w-4 h-4" />

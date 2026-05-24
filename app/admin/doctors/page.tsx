@@ -25,6 +25,8 @@ function normalizeDoctor(raw: any, totalAppointments?: number, computedRating?: 
     id: raw?.id || raw?._id,
     name: raw?.name || 'Unnamed Doctor',
     email: String(raw?.email || raw?.credentials?.email || raw?.professionalInfo?.email || '').trim(),
+    age: raw?.age,
+    gender: raw?.gender || '',
     specialty: specialization,
     specialization,
     phone: String(raw?.phone || raw?.contactNo || raw?.clinicPhone || raw?.clinicInfo?.phone || '').trim(),
@@ -160,6 +162,8 @@ export default function DoctorsPage() {
           about: data.about.trim(),
           image: data.image.trim() || undefined,
           contactNo: data.phone.trim() || undefined,
+          age: data.age ? Number(data.age) : undefined,
+          gender: data.gender.trim() || undefined,
           consultationFee: Number.isFinite(feeValue) ? feeValue : undefined,
           credentials: {
             ...(selectedDoctorAny.credentials || {}),
@@ -227,38 +231,43 @@ export default function DoctorsPage() {
           {doctors.map((doctor) => (
             <div
               key={doctor.id}
-              className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow"
+              className="doctor-card"
             >
-              <div className="flex flex-col items-center text-center mb-4">
-                <div className="w-20 h-20 rounded-full mb-3 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
-                  {doctor.image ? (
-                    <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                      {(doctor.name || 'Doctor').split(' ').map(n => n[0]).join('')}
-                    </div>
-                  )}
-                </div>
-                <h3 className="font-bold text-lg">{doctor.name}</h3>
-                <p className="text-blue-600 text-sm">{doctor.specialty || 'Unspecified'}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm font-medium">{Number(doctor.rating || 0).toFixed(1)}</span>
-                </div>
+              <div className="h-32 flex items-center justify-center bg-gradient-to-br from-icon-bg to-primary/5">
+                {doctor.image ? (
+                  <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary-600 text-white text-2xl font-bold">
+                    {(doctor.name || 'Doctor').split(' ').map(n => n[0]).join('')}
+                  </div>
+                )}
               </div>
               
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Phone className="w-4 h-4" />
-                  <span>{doctor.phone || 'N/A'}</span>
+              <div className="doctor-card-content text-center">
+                <h3 className="doctor-card-name justify-center">{doctor.name}</h3>
+                <p className="doctor-card-specialty justify-center">{doctor.specialty || 'Unspecified'}</p>
+                <div className="flex items-center justify-center gap-1 my-2">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-semibold text-foreground">{Number(doctor.rating || 0).toFixed(1)}</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Mail className="w-4 h-4" />
-                  <span className="truncate">{doctor.email || 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar className="w-4 h-4" />
-                  <span>{doctor.totalAppointments ?? 0} appointments</span>
+                
+                <div className="space-y-2 text-sm divide-y divide-border/50 py-3 border-y border-border/50">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground pb-2">
+                    <Phone className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs">{doctor.phone || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground pt-2 pb-2">
+                    <Mail className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs truncate">{doctor.email || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground pt-2 pb-2">
+                    <span className="text-xs font-medium">Age/Gender:</span>
+                    <span className="text-xs">{doctor.age ?? 'N/A'} / {doctor.gender || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground pt-2">
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs">{doctor.totalAppointments ?? 0} appointments</span>
+                  </div>
                 </div>
               </div>
 

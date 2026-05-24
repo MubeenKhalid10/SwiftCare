@@ -17,6 +17,8 @@ interface PersonalInfo {
     name: string;
     email: string;
     phone: string;
+    age: string;
+    gender: string;
     address: string;
 }
 interface Identification {
@@ -41,9 +43,15 @@ interface ClinicInfo {
     hours: string[];
     fees: string;
     location: string;
-    speciality: string;
+    bio: string;
     diseases: string[];
-    contactNumber?: string;
+}
+
+interface HospitalAffiliation {
+    hospitalId?: string;
+    hospitalName: string;
+    hospitalLocation: string;
+    type: 'registered' | 'na' | 'other';
 }
 
 const STORAGE_KEY = 'swiftcare_doctor_verification';
@@ -118,7 +126,7 @@ export default function DoctorVerification() {
 
     // Form State
     const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
-        profilePic: null, name: '', email: '', phone: '', address: ''
+        profilePic: null, name: '', email: '', phone: '', age: '', gender: '', address: ''
     });
     const [identInfo, setIdentInfo] = useState<Identification>({
         idNumber: '', cnicFront: null, cnicBack: null
@@ -130,8 +138,35 @@ export default function DoctorVerification() {
         degreeCert: null, regCert: null, otherCerts: []
     });
     const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({
-        clinicName: '', days: [], hours: [], fees: '', location: '', speciality: '', diseases: [], contactNumber: ''
+        clinicName: '', days: [], hours: [], fees: '', location: '', bio: '', diseases: []
     });
+
+    // Hospital Affiliation State
+    const [facilities, setFacilities] = useState<any[]>([]);
+    const [facilitiesLoading, setFacilitiesLoading] = useState(true);
+    const [hospitalAffiliation, setHospitalAffiliation] = useState<HospitalAffiliation>({
+        hospitalName: '',
+        hospitalLocation: '',
+        type: 'na'
+    });
+
+    // Fetch facilities/hospitals on mount
+    useEffect(() => {
+        const fetchFacilities = async () => {
+            try {
+                setFacilitiesLoading(true);
+                const { getFacilities } = await import('@/lib/api');
+                const data = await getFacilities(1, 100);
+                setFacilities(data.items || []);
+            } catch (err) {
+                console.error('Failed to fetch facilities:', err);
+                setFacilities([]);
+            } finally {
+                setFacilitiesLoading(false);
+            }
+        };
+        fetchFacilities();
+    }, []);
 
     // Load from local storage on mount
     useEffect(() => {
@@ -144,6 +179,7 @@ export default function DoctorVerification() {
                 if (parsed.profInfo) setProfInfo(parsed.profInfo);
                 if (parsed.docsInfo) setDocsInfo(parsed.docsInfo);
                 if (parsed.clinicInfo) setClinicInfo(parsed.clinicInfo);
+                if (parsed.hospitalAffiliation) setHospitalAffiliation(parsed.hospitalAffiliation);
                 if (typeof parsed.currentStep === 'number') setCurrentStep(parsed.currentStep);
             } catch (err) {
                 console.error('Error parsing local storage data', err);
@@ -154,9 +190,9 @@ export default function DoctorVerification() {
     // Save to local storage on change
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            currentStep, personalInfo, identInfo, profInfo, docsInfo, clinicInfo
+            currentStep, personalInfo, identInfo, profInfo, docsInfo, clinicInfo, hospitalAffiliation
         }));
-    }, [currentStep, personalInfo, identInfo, profInfo, docsInfo, clinicInfo]);
+    }, [currentStep, personalInfo, identInfo, profInfo, docsInfo, clinicInfo, hospitalAffiliation]);
 
     // Prefill email and name from authenticated user and make email readonly
     useEffect(() => {
@@ -193,6 +229,8 @@ export default function DoctorVerification() {
                     name: doctorData.name || prev.name || user.name || '',
                     email: doctorData.credentials?.email || user.email || prev.email,
                     phone: doctorData.contactNo || prev.phone,
+                    age: doctorData.age != null ? String(doctorData.age) : prev.age,
+                    gender: doctorData.gender || prev.gender,
                 }));
 
                 setIdentInfo(prev => ({
@@ -205,7 +243,7 @@ export default function DoctorVerification() {
                     degree: doctorData.professionalInfo?.degree || prev.degree,
                     specialization: normalizeSpecialization(doctorData.specialty || doctorData.specialization || prev.specialization),
                     registrationNumber: doctorData.professionalInfo?.registrationNumber || prev.registrationNumber,
-                    yearsOfExperience: doctorData.experience || prev.yearsOfExperience,
+                    yearsOfExperience: doctorData.experience || doctorData.yearsOfExperience || doctorData.professionalInfo?.yearsOfExperience || doctorData.professionalInfo?.experience || prev.yearsOfExperience,
                 }));
 
                 setClinicInfo(prev => ({
@@ -215,7 +253,7 @@ export default function DoctorVerification() {
                     days: doctorData.schedule?.availableDays || prev.days,
                     hours: doctorData.schedule?.availableHours || prev.hours,
                     fees: doctorData.consultationFee ? String(doctorData.consultationFee) : prev.fees,
-                    contactNumber: doctorData.contactNo || prev.contactNumber,
+                    bio: doctorData.about || prev.bio,
                 }));
             } catch (err) {
                 console.error('Failed to load doctor profile for verification form', err);
@@ -235,8 +273,8 @@ export default function DoctorVerification() {
 
     if (authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -250,7 +288,7 @@ export default function DoctorVerification() {
         // All fields must be filled (basic validation) for the given step
         if (stepIndex === 0) {
             // Address is optional; do not block progress on it
-            return !!personalInfo.name && !!personalInfo.email && !!personalInfo.phone && !!identInfo.idNumber;
+            return !!personalInfo.name && !!personalInfo.email && !!personalInfo.phone && !!personalInfo.age && !!personalInfo.gender && !!identInfo.idNumber;
         }
         if (stepIndex === 1) {
             return !!profInfo.degree && (!!profInfo.specialization || !!customSpecialization) && !!profInfo.registrationNumber;
@@ -261,7 +299,14 @@ export default function DoctorVerification() {
         }
         if (stepIndex === 3) {
             if (isProfileLoading) return false;
-            return !!clinicInfo.clinicName && clinicInfo.days.length > 0 && clinicInfo.hours.length > 0 && !!clinicInfo.fees && !!clinicInfo.location && !!clinicInfo.contactNumber;
+            // Hospital affiliation validation
+            if (hospitalAffiliation.type === 'other' && (!hospitalAffiliation.hospitalName || !hospitalAffiliation.hospitalLocation)) {
+                return false;
+            }
+            if (hospitalAffiliation.type === 'registered' && !hospitalAffiliation.hospitalId) {
+                return false;
+            }
+            return !!clinicInfo.clinicName && clinicInfo.days.length > 0 && clinicInfo.hours.length > 0 && !!clinicInfo.fees && !!clinicInfo.location && !!clinicInfo.bio;
         }
         return false;
     }
@@ -272,6 +317,8 @@ export default function DoctorVerification() {
             if (!personalInfo.name) missing.push('Full name');
             if (!personalInfo.email) missing.push('Email');
             if (!personalInfo.phone) missing.push('Phone');
+            if (!personalInfo.age) missing.push('Age');
+            if (!personalInfo.gender) missing.push('Gender');
             // Address is optional
             if (!identInfo.idNumber) missing.push('CNIC');
         }
@@ -287,13 +334,15 @@ export default function DoctorVerification() {
             if (!identInfo.cnicBack) missing.push('CNIC back');
         }
         if (stepIndex === 3) {
-            if (!clinicInfo.clinicName) missing.push('Clinic name');
             if (isProfileLoading) missing.push('Clinic schedule is still loading');
             if (clinicInfo.days.length === 0) missing.push('Availability days');
             if (clinicInfo.hours.length === 0) missing.push('Availability hours');
             if (!clinicInfo.fees) missing.push('Consultation fee');
             if (!clinicInfo.location) missing.push('Location');
-            if (!clinicInfo.contactNumber) missing.push('Clinic contact');
+            if (!clinicInfo.bio) missing.push('Bio');
+            if (hospitalAffiliation.type === 'other' && !hospitalAffiliation.hospitalName) missing.push('Hospital name (Others option)');
+            if (hospitalAffiliation.type === 'other' && !hospitalAffiliation.hospitalLocation) missing.push('Hospital location (Others option)');
+            if (hospitalAffiliation.type === 'registered' && !hospitalAffiliation.hospitalId) missing.push('Select a hospital from the dropdown');
         }
         return missing;
     };
@@ -327,16 +376,16 @@ export default function DoctorVerification() {
         const digits = value.replace(/[^0-9]/g, '');
         if (!digits) return '';
         if (digits.length <= 5) return digits;
-        if (digits.length <= 12) return `${digits.slice(0,5)}-${digits.slice(5)}`;
-        return `${digits.slice(0,5)}-${digits.slice(5,12)}-${digits.slice(12,13)}`;
+        if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+        return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`;
     };
 
     const formatPhone = (value: string) => {
         const digits = value.replace(/[^0-9]/g, '');
         if (!digits) return '';
         if (digits.length <= 4) return digits;
-        if (digits.length <= 11) return `${digits.slice(0,4)}-${digits.slice(4)}`;
-        return `${digits.slice(0,4)}-${digits.slice(4,11)}`;
+        if (digits.length <= 11) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+        return `${digits.slice(0, 4)}-${digits.slice(4, 11)}`;
     };
 
     const formatTime = (time24: string) => {
@@ -461,9 +510,21 @@ export default function DoctorVerification() {
                 const updatePayload: any = {};
                 if (personalInfo.name) updatePayload.name = personalInfo.name;
                 if (personalInfo.phone) updatePayload.contactNo = personalInfo.phone;
+                if (personalInfo.age) updatePayload.age = String(personalInfo.age);
+                if (personalInfo.gender) updatePayload.gender = personalInfo.gender;
+                if (profInfo.yearsOfExperience) updatePayload.experience = String(profInfo.yearsOfExperience).trim();
                 if (clinicInfo.fees) updatePayload.consultationFee = parseInt(String(clinicInfo.fees).replace(/[^0-9]/g, '')) || undefined;
+                if (clinicInfo.bio) updatePayload.about = clinicInfo.bio.trim();
                 const chosenSpec = profInfo.specialization === 'Other' ? customSpecialization : profInfo.specialization;
                 if (chosenSpec) updatePayload.specialization = chosenSpec;
+
+                // Persist hospital affiliation on doctor document so admin can read it
+                updatePayload.hospitalAffiliation = {
+                    affiliationType: hospitalAffiliation.type,
+                    hospitalId: hospitalAffiliation.hospitalId || null,
+                    hospitalName: hospitalAffiliation.hospitalName || null,
+                    hospitalLocation: hospitalAffiliation.hospitalLocation || null,
+                };
 
                 if (Object.keys(updatePayload).length) {
                     // Use API updateDoctor route
@@ -488,6 +549,7 @@ export default function DoctorVerification() {
 
             const professionalToSend = { ...profInfo, specialization: profInfo.specialization === 'Other' ? customSpecialization : profInfo.specialization };
             formData.append('professionalInfo', JSON.stringify(professionalToSend));
+            formData.append('clinicInfo', JSON.stringify({ bio: clinicInfo.bio }));
 
             // Build schedule payload expected by backend from the immutable profile values.
             const normalizedHours: string[] = [];
@@ -589,7 +651,7 @@ export default function DoctorVerification() {
                     {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded border border-red-100">{error}</div>}
 
                     <div className="min-h-[300px]">
-                        {/* Step 1: Personal Info (includes CNIC text) */}
+                        {/* Step 1: Personal Info */}
                         {currentStep === 0 && (
                             <div className="space-y-4">
                                 <div>
@@ -609,10 +671,31 @@ export default function DoctorVerification() {
                                         <p className="text-xs text-gray-500 mt-1">Email is taken from your account and cannot be changed here.</p>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Phone <span className="text-red-500">*</span></label>
                                         <Input type="tel" placeholder="03xx-xxxxxxx" value={personalInfo.phone} onChange={(e) => setPersonalInfo({ ...personalInfo, phone: formatPhone(e.target.value) })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Age <span className="text-red-500">*</span></label>
+                                        <Input type="number" min="0" placeholder="e.g. 35" value={personalInfo.age} onChange={(e) => setPersonalInfo({ ...personalInfo, age: e.target.value })} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Gender <span className="text-red-500">*</span></label>
+                                        <select
+                                            className="w-full border rounded px-3 py-2 bg-white"
+                                            value={personalInfo.gender}
+                                            onChange={(e) => setPersonalInfo({ ...personalInfo, gender: e.target.value })}
+                                        >
+                                            <option value="">Select gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                            <option value="Prefer not to say">Prefer not to say</option>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -660,7 +743,7 @@ export default function DoctorVerification() {
                             </div>
                         )}
 
-                        {/* Step 3: Documents (PDF only) */}
+                        {/* Step 3: Documents */}
                         {currentStep === 2 && (
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
@@ -676,7 +759,7 @@ export default function DoctorVerification() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Other Certificates (JPG/JPEG, Max 1MB each)</label>
+                                    <label className="block text-sm font-medium mb-1">Other Certificates (can add multiple files,JPG/JPEG, Max 1MB each)</label>
                                     <Input type="file" accept="image/jpeg,.jpg,.jpeg" multiple onChange={(e) => handleFileChange(e, 'otherCerts', setDocsInfo, 'docsInfo', true)} />
                                     {docsInfo.otherCerts.length > 0 && <p className="text-xs text-green-600 mt-1">{docsInfo.otherCerts.length} files selected</p>}
                                 </div>
@@ -695,36 +778,103 @@ export default function DoctorVerification() {
                             </div>
                         )}
 
-                        {/* Step 4: Clinic Info (locked schedule/location from profile) */}
+                        {/* Step 4: Clinic Info with Hospital Affiliation */}
                         {currentStep === 3 && (
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Clinic Name <span className="text-red-500">*</span></label>
-                                        <Input placeholder="Your clinic / practice name" value={clinicInfo.clinicName} onChange={(e) => setClinicInfo({ ...clinicInfo, clinicName: e.target.value })} />
-                                    </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Consultation Fee <span className="text-red-500">*</span></label>
                                         <Input placeholder="e.g. 1500" value={clinicInfo.fees} onChange={(e) => setClinicInfo({ ...clinicInfo, fees: e.target.value })} />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Clinic Contact Number <span className="text-red-500">*</span></label>
-                                        <Input placeholder="03xx-xxxxxxx" value={clinicInfo.contactNumber || ''} onChange={(e) => setClinicInfo({ ...clinicInfo, contactNumber: formatPhone(e.target.value) })} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Location (from signup) <span className="text-red-500">*</span></label>
-                                        <Input value={clinicInfo.location} readOnly className="bg-gray-100" />
-                                        <p className="text-xs text-gray-500 mt-1">This value is loaded from your doctor profile and cannot be changed here.</p>
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Bio <span className="text-red-500">*</span></label>
+                                    <Input placeholder="Short bio for your clinic / practice" value={clinicInfo.bio} onChange={(e) => setClinicInfo({ ...clinicInfo, bio: e.target.value })} />
                                 </div>
 
-                                {/* Speciality dropdown for clinic (optional additional) */}
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Clinic Speciality (optional)</label>
-                                    <Input placeholder="e.g. Cardiology" value={clinicInfo.speciality} onChange={(e) => setClinicInfo({ ...clinicInfo, speciality: e.target.value })} />
+                                    <label className="block text-sm font-medium mb-1">Location <span className="text-red-500">*</span></label>
+                                    <Input value={clinicInfo.location} readOnly className="bg-gray-100" />
+                                    <p className="text-xs text-gray-500 mt-1">This value is loaded from your doctor profile and cannot be changed here.</p>
                                 </div>
+
+                                {/* Hospital Affiliation Section */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Hospital Affiliation</label>
+                                    {facilitiesLoading ? (
+                                        <div className="w-full border rounded px-3 py-2 bg-gray-50 text-gray-400 text-sm">Loading hospitals...</div>
+                                    ) : (
+                                        <select
+                                            value={
+                                                hospitalAffiliation.type === 'na' ? 'na'
+                                                    : hospitalAffiliation.type === 'other' ? 'other'
+                                                        : hospitalAffiliation.hospitalId || ''
+                                            }
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === 'na') {
+                                                    setHospitalAffiliation({ type: 'na', hospitalName: '', hospitalLocation: '' });
+                                                } else if (val === 'other') {
+                                                    setHospitalAffiliation({ type: 'other', hospitalName: '', hospitalLocation: '' });
+                                                } else {
+                                                    // It's a hospital ID
+                                                    const selected = facilities.find(f => (f.id || f._id) === val);
+                                                    if (selected) {
+                                                        const loc = selected.location?.label || '';
+                                                        setHospitalAffiliation({
+                                                            type: 'registered',
+                                                            hospitalId: selected.id || selected._id,
+                                                            hospitalName: selected.name,
+                                                            hospitalLocation: loc
+                                                        });
+                                                        // Overwrite clinic location with hospital's location
+                                                        if (loc) setClinicInfo(prev => ({ ...prev, location: loc }));
+                                                    }
+                                                }
+                                            }}
+                                            className="w-full border rounded px-3 py-2 bg-white"
+                                        >
+                                            <option value="na">N/A (Personal Clinic)</option>
+                                            {facilities.map((facility) => (
+                                                <option key={facility.id || facility._id} value={facility.id || facility._id}>
+                                                    {facility.name}{facility.location?.label ? ` — ${facility.location.label}` : ''}
+                                                </option>
+                                            ))}
+                                            <option value="other">Others — Add Custom Hospital</option>
+                                        </select>
+                                    )}
+                                    <p className="text-xs text-gray-500 mt-1">Select a registered hospital (its location will be used), N/A for personal clinic, or Others to request a new hospital.</p>
+
+                                    {hospitalAffiliation.type === 'registered' && hospitalAffiliation.hospitalId && (
+                                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                                            <p className="font-medium text-blue-900">✓ Affiliated with: {hospitalAffiliation.hospitalName}</p>
+                                            <p className="text-blue-800 text-xs mt-1">Location auto-filled: {hospitalAffiliation.hospitalLocation}</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {hospitalAffiliation.type === 'other' && (
+                                    <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <p className="text-sm font-medium text-amber-800">⚠ New hospital request — Admin will review and add it. You will be automatically affiliated once approved.</p>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Hospital / Clinic Name <span className="text-red-500">*</span></label>
+                                            <Input
+                                                placeholder="e.g. ABC Medical Center"
+                                                value={hospitalAffiliation.hospitalName}
+                                                onChange={(e) => setHospitalAffiliation({ ...hospitalAffiliation, hospitalName: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Hospital / Clinic Location <span className="text-red-500">*</span></label>
+                                            <Input
+                                                placeholder="Full address e.g. 123 Main St, Lahore, Pakistan"
+                                                value={hospitalAffiliation.hospitalLocation}
+                                                onChange={(e) => setHospitalAffiliation({ ...hospitalAffiliation, hospitalLocation: e.target.value })}
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Provide the complete address for admin verification.</p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>

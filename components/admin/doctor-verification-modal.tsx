@@ -1,17 +1,48 @@
 "use client"
 
 import React from "react"
-import { Eye, FileText, X, Check, XCircle, MapPin, Clock, DollarSign, Users, Award, Phone } from "lucide-react"
+import { FileText, X, Check, XCircle, MapPin, Clock, DollarSign, Users, Award, Phone, Building2, Loader2, AlertTriangle } from "lucide-react"
 
 interface DoctorVerificationModalProps {
     doctor: any
     onClose: () => void
     onApprove: (id: string) => void
     onReject: (id: string) => void
+    onAddAndAffiliateHospital?: (doctorId: string, hospitalName: string, hospitalLocation: string) => Promise<void>
+    actionLoading?: string | null
 }
 
-export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }: DoctorVerificationModalProps) {
+export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject, onAddAndAffiliateHospital, actionLoading }: DoctorVerificationModalProps) {
     if (!doctor) return null
+
+    const doctorId = String(doctor._id || doctor.id)
+    const isLoading = actionLoading === doctorId
+
+    const experienceValue =
+        doctor.experience ||
+        doctor.yearsOfExperience ||
+        doctor.professionalInfo?.yearsOfExperience ||
+        doctor.professionalInfo?.experience ||
+        'N/A'
+
+    const bioValue = doctor.about || 'N/A'
+
+    // Hospital affiliation submitted by doctor (saved via updateDoctor pre-submit)
+    const affiliationRaw = doctor.hospitalAffiliation as {
+        affiliationType?: string
+        type?: string           // legacy fallback
+        hospitalId?: string
+        hospitalName?: string
+        hospitalLocation?: string
+    } | undefined
+
+    // Normalize: backend schema uses 'affiliationType' to avoid Mongoose 'type' conflict
+    const affiliation = affiliationRaw ? {
+        type: (affiliationRaw.affiliationType || affiliationRaw.type || 'na') as 'na' | 'registered' | 'other',
+        hospitalId: affiliationRaw.hospitalId,
+        hospitalName: affiliationRaw.hospitalName,
+        hospitalLocation: affiliationRaw.hospitalLocation,
+    } : undefined
 
     const renderDocumentLink = (title: string, path: string | undefined | null) => {
         if (!path) return <span className="text-gray-400 text-sm italic">Not provided</span>
@@ -20,23 +51,96 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                 href={`http://localhost:5000${path}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center text-sm text-blue-600 hover:underline mt-1"
+                className="flex items-center text-sm text-primary hover:underline mt-1"
             >
                 <FileText className="w-4 h-4 mr-1" /> View {title}
             </a>
         )
     }
 
+    const renderAffiliationBadge = () => {
+        if (!affiliation || affiliation.type === 'na' || !affiliation.type) {
+            return (
+                <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <Building2 className="w-5 h-5 text-gray-400" />
+                    <div>
+                        <p className="text-sm font-medium text-gray-700">No Hospital Affiliation</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Doctor operates from a personal clinic.</p>
+                    </div>
+                </div>
+            )
+        }
+
+        if (affiliation.type === 'registered') {
+            return (
+                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <Building2 className="w-5 h-5 text-green-600" />
+                    <div>
+                        <p className="text-sm font-medium text-green-800">Affiliated with Registered Hospital</p>
+                        <p className="text-sm font-bold text-green-900 mt-0.5">{affiliation.hospitalName || 'N/A'}</p>
+                        {affiliation.hospitalLocation && (
+                            <p className="text-xs text-green-700 mt-0.5 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" /> {affiliation.hospitalLocation}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+
+        if (affiliation.type === 'other') {
+            return (
+                <div className="space-y-3">
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-amber-800">New Hospital Request</p>
+                            <p className="text-sm font-bold text-amber-900 mt-1">{affiliation.hospitalName || 'N/A'}</p>
+                            {affiliation.hospitalLocation && (
+                                <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" /> {affiliation.hospitalLocation}
+                                </p>
+                            )}
+                            <p className="text-xs text-amber-600 mt-2">
+                                This hospital is not yet registered. Add it to the system and the doctor will be automatically affiliated.
+                            </p>
+                        </div>
+                    </div>
+
+                    {onAddAndAffiliateHospital && affiliation.hospitalName && (
+                        <button
+                            onClick={() => onAddAndAffiliateHospital(
+                                doctorId,
+                                affiliation.hospitalName!,
+                                affiliation.hospitalLocation || ''
+                            )}
+                            disabled={isLoading}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white rounded-lg font-semibold text-sm transition-colors"
+                        >
+                            {isLoading ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Adding Hospital...</>
+                            ) : (
+                                <><Building2 className="w-4 h-4" /> Add Hospital &amp; Affiliate Doctor</>
+                            )}
+                        </button>
+                    )}
+                </div>
+            )
+        }
+
+        return null
+    }
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-50 to-cyan-50">
+                <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-icon-bg to-icon-bg/50">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900">
                             Verification Review: Dr. {doctor.name}
                         </h2>
-                        <p className="text-sm text-gray-600 mt-1">{doctor.specialization} • Status: <span className="font-semibold">{doctor.accountStatus?.verificationStatus || 'pending'}</span></p>
+                        <p className="text-sm text-gray-600 mt-1">{doctor.specialization} • Status: <span className="font-semibold capitalize">{doctor.accountStatus?.verificationStatus || 'pending'}</span></p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
                         <X className="w-6 h-6" />
@@ -47,9 +151,9 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                 <div className="p-6 overflow-y-auto flex-1 space-y-6">
 
                     {/* Basic Profile Info */}
-                    <section className="bg-blue-50 border border-blue-200 p-5 rounded-lg">
+                    <section className="bg-primary/5 border border-border p-5 rounded-lg">
                         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
-                            <Award className="w-5 h-5 text-blue-600" />
+                            <Award className="w-5 h-5 text-primary" />
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -63,11 +167,19 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                             </div>
                             <div>
                                 <p className="text-xs text-gray-600 uppercase tracking-wide">Experience</p>
-                                <p className="font-medium text-gray-900 mt-1">{doctor.experience || 'N/A'}</p>
+                                <p className="font-medium text-gray-900 mt-1">{experienceValue}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-gray-600 uppercase tracking-wide">Email</p>
                                 <p className="font-medium text-gray-900 mt-1 text-sm">{doctor.credentials?.email || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-600 uppercase tracking-wide">Age</p>
+                                <p className="font-medium text-gray-900 mt-1">{doctor.age ?? 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-600 uppercase tracking-wide">Gender</p>
+                                <p className="font-medium text-gray-900 mt-1">{doctor.gender || 'N/A'}</p>
                             </div>
                         </div>
                     </section>
@@ -76,7 +188,7 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                     <section className="bg-green-50 border border-green-200 p-5 rounded-lg">
                         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
                             <Phone className="w-5 h-5 text-green-600" />
-                            Contact & Services
+                            Contact &amp; Services
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div>
@@ -96,16 +208,21 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                                 <div className="flex items-center gap-2">
                                     <Users className="w-4 h-4 text-green-600" />
                                     <div>
-                                        <p className="text-xs text-gray-600 uppercase tracking-wide">Patients</p>
-                                        <p className="font-medium text-gray-900 mt-1">{doctor.patients || 'N/A'}</p>
+                                        <p className="text-xs text-gray-600 uppercase tracking-wide">Bio</p>
+                                        <p className="font-medium text-gray-900 mt-1 text-sm">{bioValue === 'N/A' ? 'N/A' : bioValue.slice(0, 30) + (bioValue.length > 30 ? '...' : '')}</p>
                                     </div>
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">About</p>
-                                <p className="font-medium text-gray-900 mt-1 text-sm">{doctor.about ? doctor.about.slice(0, 30) + '...' : 'N/A'}</p>
-                            </div>
                         </div>
+                    </section>
+
+                    {/* Hospital Affiliation */}
+                    <section className="bg-blue-50 border border-blue-200 p-5 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <Building2 className="w-5 h-5 text-blue-600" />
+                            Hospital Affiliation
+                        </h3>
+                        {renderAffiliationBadge()}
                     </section>
 
                     {/* Identification Section */}
@@ -227,7 +344,7 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                     {/* Qualification/Education */}
                     {doctor.qualification?.education && doctor.qualification.education.length > 0 && (
                         <section className="bg-teal-50 border border-teal-200 p-5 rounded-lg">
-                            <h3 className="text-lg font-semibold text-gray-900 border-b pb-3 mb-4">Qualification & Education</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 border-b pb-3 mb-4">Qualification &amp; Education</h3>
                             <div className="space-y-3">
                                 {doctor.qualification.education.map((edu: string, idx: number) => (
                                     <div key={idx} className="flex items-start gap-2">
@@ -244,16 +361,19 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject }
                 {/* Footer Actions */}
                 <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
                     <button
-                        onClick={() => onReject(doctor._id || doctor.id)}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg border-2 border-red-500 text-red-600 hover:bg-red-50 font-semibold transition-colors"
+                        onClick={() => onReject(doctorId)}
+                        disabled={isLoading}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg border-2 border-red-500 text-red-600 hover:bg-red-50 disabled:opacity-50 font-semibold transition-colors"
                     >
                         <XCircle className="w-5 h-5" /> Reject Application
                     </button>
                     <button
-                        onClick={() => onApprove(doctor._id || doctor.id)}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors"
+                        onClick={() => onApprove(doctorId)}
+                        disabled={isLoading}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold transition-colors"
                     >
-                        <Check className="w-5 h-5" /> Approve Doctor
+                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                        Approve Doctor
                     </button>
                 </div>
             </div>

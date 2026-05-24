@@ -35,23 +35,23 @@ export default function CareSupport() {
   ]
 
   return (
-    <section className="py-16 bg-white">
+    <section className="border-section-top border-section-bottom py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center mb-12">
-          <div className="inline-block bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
+          <div className="inline-block bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-semibold">
             Our Services
           </div>
         </div>
 
         <h2 className="text-4xl font-bold text-center mb-16">
-          Highlighting the <span className="text-blue-600">Care & Support</span>
+          Highlighting the <span className="text-primary">Care & Support</span>
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
           {highlights.map((item, index) => (
             <div
               key={index}
-              className="rounded-xl overflow-hidden shadow-md hover:shadow-xl transition"
+              className="rounded-xl overflow-hidden shadow-md hover:shadow-xl transition border border-gray-200"
             >
               <img
                 src={`${item.img}?auto=format&fit=crop&w=600&q=80`}

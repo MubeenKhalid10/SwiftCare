@@ -149,11 +149,11 @@ function DoctorProfileContent() {
       
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-8 text-sm text-gray-600">
-          <span className="text-blue-600">●</span>
-          <Link href="/" className="hover:text-blue-600">Home</Link>
+        <div className="flex items-center gap-2 mb-8 text-sm text-foreground/70">
+          <span className="text-primary">●</span>
+          <Link href="/" className="hover:text-primary">Home</Link>
           <span>›</span>
-          <Link href="/doctors" className="hover:text-blue-600">Doctors</Link>
+          <Link href="/doctors" className="hover:text-primary">Doctors</Link>
           <span>›</span>
           <span>{doctor.name}</span>
         </div>
@@ -165,7 +165,7 @@ function DoctorProfileContent() {
           <div className="flex flex-col md:flex-row gap-8">
             {/* Doctor Image */}
             <div className="flex-shrink-0">
-              <div className="w-40 h-40 bg-gradient-to-br from-blue-300 to-blue-200 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+              <div className="w-40 h-40 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
                 <img 
                   src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"} 
                   alt={doctor.name}
@@ -191,7 +191,10 @@ function DoctorProfileContent() {
                     </span>
                   </div>
                   <p className="text-gray-600 mb-2">{doctor.experience} Experience</p>
-                  <p className="text-blue-600 mb-4">⊙ {doctor.specialty}</p>
+                  <p className="text-primary font-bold mb-3">{doctor.specialty}</p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {doctor.age ? `${doctor.age} years` : 'Age not specified'} • {doctor.gender || 'Gender not specified'}
+                  </p>
                   <div className="flex items-center gap-4 mb-4 flex-wrap">
                     <div className="flex items-center gap-1">
                       <span className="text-sm font-bold text-gray-900">{doctor.rating}</span>
@@ -222,7 +225,7 @@ function DoctorProfileContent() {
                   <div className="text-lg font-semibold mb-4 text-blue-600">{doctor.fee || 'Contact'} per session</div>
                   {isRegisteredDoctor ? (
                     <Link href={`/booking?doctorId=${doctor.id}`}>
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8">
+                      <Button className="bg-primary hover:bg-primary-600 text-white rounded-full px-8">
                         Book Appointment
                       </Button>
                     </Link>
@@ -246,8 +249,8 @@ function DoctorProfileContent() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`pb-4 font-semibold whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'border-b-2 border-primary text-primary'
+                    : 'text-foreground/70 hover:text-foreground'
                 }`}
               >
                 {tab.label}

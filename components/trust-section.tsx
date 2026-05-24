@@ -12,23 +12,23 @@ const features = [
 export default function TrustSection() {
   return (
     <section className="py-20 bg-gray-900 text-white relative overflow-hidden">
-      <div className="absolute top-20 right-10 w-40 h-40 bg-blue-600 rounded-full opacity-20 blur-3xl"></div>
+      <div className="absolute top-20 right-10 w-40 h-40 bg-primary rounded-full opacity-20 blur-3xl"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 text-white sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           {/* Left content */}
           <div>
-            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mb-6">
+            <div className="w-20 h-20 bg-primary rounded-2xl text-white flex items-center justify-center mb-6">
               <Shield className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-4xl lg:text-5xl font-bold mb-6 leading-tight">
+            <h2 className="text-4xl lg:text-5xl font-bold mb-6 leading-tight !text-white">
               We are committed to understanding your unique needs and delivering care
             </h2>
-            <p className="text-gray-300 mb-8 leading-relaxed">
+            <p className="text-white mb-8 leading-relaxed">
               Our platform ensures you receive the best healthcare experience with professionals who truly care about
               your well-being.
             </p>
-            <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-medium hover:bg-blue-700 transition">
+            <button className="bg-primary text-white px-8 py-3 rounded-full font-medium hover:bg-primary-600 transition">
               Our Mission
             </button>
           </div>
@@ -64,11 +64,11 @@ export default function TrustSection() {
             return (
               <div
                 key={idx}
-                className="bg-white/10 backdrop-blur-sm p-8 rounded-xl border border-white/10 hover:border-blue-600 transition"
+                className="bg-white/10 backdrop-blur-sm p-8 rounded-xl border border-white/10 hover:border-primary transition"
               >
-                <Icon className="w-8 h-8 text-blue-400 mb-4" />
-                <h3 className="font-bold text-lg mb-2">{feature.title}</h3>
-                <p className="text-gray-300 text-sm">{feature.description}</p>
+                <Icon className="w-8 h-8 text-primary/60 mb-4" />
+                <h3 className="font-bold text-lg mb-2 !text-white">{feature.title}</h3>
+                <p className="text-white text-sm">{feature.description}</p>
               </div>
             )
           })}
