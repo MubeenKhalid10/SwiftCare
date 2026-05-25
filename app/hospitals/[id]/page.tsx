@@ -29,7 +29,7 @@ function FacilityDetailContent() {
 
         const [facilityData, allDoctors] = await Promise.all([
           getFacilityById(facilityId),
-          getDoctors()
+          getDoctors(undefined, undefined, true)
         ])
 
         if (!facilityData) {
@@ -39,15 +39,57 @@ function FacilityDetailContent() {
 
         setFacility(facilityData)
 
+        const allDoctorsById = new Map(
+          allDoctors.map((doctor) => [String(doctor.id), doctor])
+        )
+
+        const mergeAffiliatedDoctor = (doctor: Doctor): Doctor => {
+          const normalizedId = String((doctor as any).id || (doctor as any)._id || '')
+          const enriched = allDoctorsById.get(normalizedId)
+
+          const averageRating =
+            doctor.averageRating && doctor.averageRating > 0
+              ? doctor.averageRating
+              : enriched?.averageRating
+          const reviewCount =
+            doctor.reviewCount && doctor.reviewCount > 0
+              ? doctor.reviewCount
+              : enriched?.reviewCount
+          const fee = doctor.fee || enriched?.fee
+          const specialty = doctor.specialty || enriched?.specialty
+          const locationLabel = facilityData?.location?.label
+
+          return {
+            ...enriched,
+            ...doctor,
+            id: normalizedId,
+            averageRating,
+            reviewCount,
+            fee,
+            specialty,
+            location: locationLabel || doctor.location || enriched?.location,
+            locationLabel: locationLabel || doctor.locationLabel || enriched?.locationLabel,
+            clinicName: locationLabel || doctor.clinicName || enriched?.clinicName,
+          }
+        }
+
         // Filter doctors that are affiliated with this facility
         if (facilityData.doctorList && facilityData.doctorList.length > 0) {
-          const affiliatedDoctorIds = facilityData.doctorList.map(d =>
-            typeof d === "string" ? d : d.id
-          )
-          const affiliatedDoctors = allDoctors.filter(doc =>
-            affiliatedDoctorIds.includes(doc.id)
-          )
-          setDoctors(affiliatedDoctors)
+          const populatedDoctors = facilityData.doctorList
+            .filter((doctor): doctor is Doctor => typeof doctor === "object" && doctor !== null)
+            .map(mergeAffiliatedDoctor)
+
+          if (populatedDoctors.length > 0) {
+            setDoctors(populatedDoctors)
+          } else {
+            const affiliatedDoctorIds = facilityData.doctorList.map(d =>
+              typeof d === "string" ? d : String(d.id || (d as any)._id || '')
+            )
+            const affiliatedDoctors = allDoctors.filter(doc =>
+              affiliatedDoctorIds.includes(String(doc.id))
+            )
+            setDoctors(affiliatedDoctors.map(mergeAffiliatedDoctor))
+          }
         }
       } catch (err) {
         console.error(err)

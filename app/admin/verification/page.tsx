@@ -1,8 +1,9 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { getDoctors, approveDoctorVerification, rejectDoctorVerification, createFacility, updateFacility, getFacilityById, updateDoctor } from "@/lib/api"
-import type { Doctor } from "@/lib/types"
+import { getDoctors, getFacilities, approveDoctorVerification, rejectDoctorVerification, createFacility, updateFacility, updateDoctor } from "@/lib/api"
+import { geocodeAddressWithMapbox } from "@/lib/location"
+import type { Doctor, Facility } from "@/lib/types"
 import { Loader2, Search, ShieldCheck, Eye, XCircle, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { DoctorVerificationModal } from "@/components/admin/doctor-verification-modal"
@@ -10,6 +11,7 @@ import AdminLayout from "@/components/admin/admin-layout"
 
 function AdminVerificationPageContent() {
     const [doctors, setDoctors] = useState<Doctor[]>([])
+    const [facilities, setFacilities] = useState<Facility[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
     const [activeTab, setActiveTab] = useState<"action-required" | "approved" | "rejected" | "all">("action-required")
@@ -19,6 +21,7 @@ function AdminVerificationPageContent() {
 
     useEffect(() => {
         fetchDoctors()
+        fetchFacilities()
     }, [])
 
     const fetchDoctors = async () => {
@@ -39,6 +42,29 @@ function AdminVerificationPageContent() {
         }
     }
 
+    const fetchFacilities = async () => {
+        try {
+            const data = await getFacilities(1, 100)
+            setFacilities(data.items || [])
+        } catch (error) {
+            console.error("Failed to fetch facilities for verification review", error)
+            setFacilities([])
+        }
+    }
+
+    const getDoctorCurrentFacility = (doctorId: string, pendingAffiliation?: any) => {
+        const pendingFacilityId = String(pendingAffiliation?.hospitalId || "")
+        const matches = facilities.filter((facility) => {
+            const doctorList = Array.isArray(facility.doctorList) ? facility.doctorList : []
+            return doctorList.some((doctor) => String(typeof doctor === 'string' ? doctor : doctor.id || (doctor as any)._id) === doctorId)
+        })
+
+        if (matches.length === 0) return null
+
+        const nonPending = matches.find((facility) => String(facility.id || facility._id) !== pendingFacilityId)
+        return nonPending || matches[0] || null
+    }
+
     const handleApprove = async (id: string) => {
         try {
             setActionLoading(id)
@@ -48,7 +74,7 @@ function AdminVerificationPageContent() {
             const affiliation = (doc as any)?.hospitalAffiliation
             
             if (affiliation && (affiliation.type === 'registered' || affiliation.affiliationType === 'registered') && affiliation.hospitalId) {
-                const facility = await getFacilityById(String(affiliation.hospitalId))
+                const facility = facilities.find((item) => String(item.id || item._id) === String(affiliation.hospitalId))
                 
                 if (facility) {
                     const currentList = Array.isArray(facility.doctorList) 
@@ -135,17 +161,58 @@ function AdminVerificationPageContent() {
     const counts = getCounts()
 
     // Helper badge color
-    const handleAddAndAffiliateHospital = async (doctorId: string, hospitalName: string, hospitalLocation: string) => {
+    const handleAddAndAffiliateHospital = async (doctorId: string, hospitalName: string, hospitalLocation: string, hospitalImage?: File | string) => {
         try {
             setActionLoading(doctorId)
+            const trimmedLocation = String(hospitalLocation || '').trim()
+            if (!trimmedLocation) {
+                toast.error('Hospital location is required')
+                return
+            }
+
+            const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocation)
+            if (!resolvedLocation) {
+                toast.error('Unable to fetch coordinates for this location')
+                return
+            }
+
+            const [lng, lat] = resolvedLocation.coordinates
+            let uploadedHospitalImageUrl: string | undefined
+
+            if (hospitalImage instanceof File) {
+                const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+                const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+
+                if (cloudName && uploadPreset) {
+                    const formData = new FormData()
+                    formData.append('file', hospitalImage)
+                    formData.append('upload_preset', uploadPreset)
+
+                    const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+                        method: 'POST',
+                        body: formData,
+                    })
+
+                    if (!uploadResponse.ok) {
+                        throw new Error('Hospital image upload failed')
+                    }
+
+                    const uploadData = await uploadResponse.json()
+                    uploadedHospitalImageUrl = uploadData.secure_url
+                }
+            } else if (typeof hospitalImage === 'string') {
+                uploadedHospitalImageUrl = hospitalImage.trim() || undefined
+            }
+
             // Create the facility
             const newFacility = await createFacility({
                 name: hospitalName,
                 about: '',
-                image: '',
+                image: uploadedHospitalImageUrl,
                 location: {
-                    label: hospitalLocation,
-                    geo: { type: 'Point', coordinates: [0, 0] }
+                    label: resolvedLocation.label || trimmedLocation,
+                    coordinates: [lng, lat],
+                    geo: { type: 'Point', coordinates: [lng, lat] }
                 },
                 doctorList: [doctorId]
             } as any)
@@ -166,11 +233,11 @@ function AdminVerificationPageContent() {
                         type: 'registered',
                         hospitalId: facilityId,
                         hospitalName: hospitalName,
-                        hospitalLocation: hospitalLocation
+                        hospitalLocation: resolvedLocation.label || trimmedLocation
                     } as any,
                     location: {
-                        label: hospitalLocation,
-                        geo: { type: 'Point', coordinates: [0, 0] }
+                        label: resolvedLocation.label || trimmedLocation,
+                        geo: { type: 'Point', coordinates: [lng, lat] }
                     } as any
                 })
             }
@@ -362,6 +429,7 @@ function AdminVerificationPageContent() {
             {selectedDoctor && (
                 <DoctorVerificationModal
                     doctor={selectedDoctor}
+                    currentFacility={getDoctorCurrentFacility(String(selectedDoctor._id || selectedDoctor.id), selectedDoctor.hospitalAffiliation)}
                     onClose={() => setSelectedDoctor(null)}
                     onApprove={handleApprove}
                     onReject={handleReject}

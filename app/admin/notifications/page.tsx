@@ -134,10 +134,6 @@ export default function AdminNotificationsPage() {
 
   const notificationTypes = [
     { value: 'all', label: 'All Notifications' },
-    { value: 'feedback_moderation', label: 'Reviews' },
-    { value: 'new_appointment', label: 'New Appointments' },
-    { value: 'new_patient', label: 'New Patients' },
-    { value: 'new_doctor', label: 'New Doctors' },
   ]
 
   const handleNotificationClick = (notification: Notification) => {
@@ -181,7 +177,6 @@ export default function AdminNotificationsPage() {
         {/* Filter and Action Buttons */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600" />
             <select 
               value={filter}
               onChange={(e) => {

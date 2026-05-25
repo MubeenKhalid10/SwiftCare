@@ -127,18 +127,16 @@ export default function DoctorsPage() {
   }
 
   const handleDeleteDoctor = async (id: string) => {
-    if (confirm('Are you sure you want to delete this doctor?')) {
-      try {
-        setIsSubmitting(true)
-        await deleteDoctor(id)
-        setDoctors(doctors.filter(d => String(d.id) !== String(id)))
-        toast({ description: 'Doctor deleted successfully' })
-      } catch (err) {
-        toast({ description: 'Failed to delete doctor', variant: 'destructive' })
-        console.error(err)
-      } finally {
-        setIsSubmitting(false)
-      }
+    try {
+      setIsSubmitting(true)
+      await deleteDoctor(id)
+      setDoctors(doctors.filter(d => String(d.id) !== String(id)))
+      toast({ description: 'Doctor deleted from the database.' })
+    } catch (err) {
+      toast({ description: 'Failed to delete doctor', variant: 'destructive' })
+      console.error(err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 

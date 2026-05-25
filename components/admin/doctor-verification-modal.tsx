@@ -1,19 +1,25 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { FileText, X, Check, XCircle, MapPin, Clock, DollarSign, Users, Award, Phone, Building2, Loader2, AlertTriangle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import type { Facility } from "@/lib/types"
 
 interface DoctorVerificationModalProps {
     doctor: any
+    currentFacility?: Facility | null
     onClose: () => void
     onApprove: (id: string) => void
     onReject: (id: string) => void
-    onAddAndAffiliateHospital?: (doctorId: string, hospitalName: string, hospitalLocation: string) => Promise<void>
+    onAddAndAffiliateHospital?: (doctorId: string, hospitalName: string, hospitalLocation: string, hospitalImage?: string) => Promise<void>
     actionLoading?: string | null
 }
 
-export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject, onAddAndAffiliateHospital, actionLoading }: DoctorVerificationModalProps) {
+export function DoctorVerificationModal({ doctor, currentFacility, onClose, onApprove, onReject, onAddAndAffiliateHospital, actionLoading }: DoctorVerificationModalProps) {
     if (!doctor) return null
+
+    const [hospitalImageFile, setHospitalImageFile] = useState<File | null>(null)
+    const [hospitalImagePreview, setHospitalImagePreview] = useState('')
 
     const doctorId = String(doctor._id || doctor.id)
     const isLoading = actionLoading === doctorId
@@ -73,16 +79,37 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject, 
 
         if (affiliation.type === 'registered') {
             return (
-                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <Building2 className="w-5 h-5 text-green-600" />
-                    <div>
-                        <p className="text-sm font-medium text-green-800">Affiliated with Registered Hospital</p>
-                        <p className="text-sm font-bold text-green-900 mt-0.5">{affiliation.hospitalName || 'N/A'}</p>
-                        {affiliation.hospitalLocation && (
-                            <p className="text-xs text-green-700 mt-0.5 flex items-center gap-1">
-                                <MapPin className="w-3 h-3" /> {affiliation.hospitalLocation}
-                            </p>
-                        )}
+                <div className="space-y-3">
+                    {currentFacility && (
+                        <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium text-blue-800">Current Hospital Affiliation</p>
+                                <p className="text-sm font-bold text-blue-900 mt-0.5">{currentFacility.name || 'N/A'}</p>
+                                {currentFacility.location?.label && (
+                                    <p className="text-xs text-blue-700 mt-0.5 flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" /> {currentFacility.location.label}
+                                    </p>
+                                )}
+                                {currentFacility.image && (
+                                    <div className="mt-3 overflow-hidden rounded-md border border-blue-200 max-w-xs">
+                                        <img src={currentFacility.image} alt={currentFacility.name || 'Current hospital'} className="h-28 w-full object-cover" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <Building2 className="w-5 h-5 text-green-600" />
+                        <div>
+                            <p className="text-sm font-medium text-green-800">Requested Registered Hospital</p>
+                            <p className="text-sm font-bold text-green-900 mt-0.5">{affiliation.hospitalName || 'N/A'}</p>
+                            {affiliation.hospitalLocation && (
+                                <p className="text-xs text-green-700 mt-0.5 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" /> {affiliation.hospitalLocation}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
             )
@@ -107,12 +134,52 @@ export function DoctorVerificationModal({ doctor, onClose, onApprove, onReject, 
                         </div>
                     </div>
 
+                    {currentFacility && (
+                        <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium text-blue-800">Previous Hospital Affiliation</p>
+                                <p className="text-sm font-bold text-blue-900 mt-0.5">{currentFacility.name || 'N/A'}</p>
+                                {currentFacility.location?.label && (
+                                    <p className="text-xs text-blue-700 mt-0.5 flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" /> {currentFacility.location.label}
+                                    </p>
+                                )}
+                                {currentFacility.image && (
+                                    <div className="mt-3 overflow-hidden rounded-md border border-blue-200 max-w-xs">
+                                        <img src={currentFacility.image} alt={currentFacility.name || 'Previous hospital'} className="h-28 w-full object-cover" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-2 p-3 bg-white border border-amber-200 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700">Hospital Picture</label>
+                        <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0] || null
+                                setHospitalImageFile(file)
+                                setHospitalImagePreview(file ? URL.createObjectURL(file) : '')
+                            }}
+                        />
+                        <p className="text-xs text-gray-500">Upload a JPG, PNG, or WebP image for the new hospital.</p>
+                        {hospitalImagePreview && (
+                            <div className="overflow-hidden rounded-md border border-gray-200 max-w-xs">
+                                <img src={hospitalImagePreview} alt="Hospital preview" className="h-28 w-full object-cover" />
+                            </div>
+                        )}
+                    </div>
+
                     {onAddAndAffiliateHospital && affiliation.hospitalName && (
                         <button
                             onClick={() => onAddAndAffiliateHospital(
                                 doctorId,
                                 affiliation.hospitalName!,
-                                affiliation.hospitalLocation || ''
+                                affiliation.hospitalLocation || '',
+                                hospitalImageFile || undefined
                             )}
                             disabled={isLoading}
                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white rounded-lg font-semibold text-sm transition-colors"

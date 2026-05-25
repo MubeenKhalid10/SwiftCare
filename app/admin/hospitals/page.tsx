@@ -6,6 +6,7 @@ import { Loader2, Plus, Edit2, Trash2, MapPin, Users } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getFacilities, createFacility, updateFacility, deleteFacility, getDoctors } from '@/lib/api'
+import { geocodeAddressWithMapbox } from '@/lib/location'
 import { FacilityFormModal, type FacilityFormData } from '@/components/admin/facility-form-modal'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
@@ -87,6 +88,20 @@ export default function FacilitiesPage() {
     try {
       setIsSubmitting(true)
 
+      const trimmedLocationLabel = data.locationLabel.trim()
+      if (!trimmedLocationLabel) {
+        toast({ description: 'Facility location is required', variant: 'destructive' })
+        return
+      }
+
+      const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocationLabel)
+      if (!resolvedLocation) {
+        toast({ description: 'Unable to fetch coordinates for this location', variant: 'destructive' })
+        return
+      }
+
+      const [lng, lat] = resolvedLocation.coordinates
+
       // Parse doctor IDs
       const doctorList = data.doctorIds
         .split(',')
@@ -98,10 +113,11 @@ export default function FacilitiesPage() {
         about: data.about.trim() || undefined,
         image: data.image.trim() || undefined,
         location: {
-          label: data.locationLabel.trim(),
+          label: resolvedLocation.label || trimmedLocationLabel,
+          coordinates: [lng, lat],
           geo: {
             type: 'Point',
-            coordinates: [0, 0], // Default coordinates, can be updated later
+            coordinates: [lng, lat],
           },
         },
         doctorList: doctorList.length > 0 ? doctorList : [],

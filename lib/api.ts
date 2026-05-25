@@ -1166,9 +1166,37 @@ export async function getFacilities(page = 1, limit = 20): Promise<{ items: Faci
 
 export async function getFacilityById(id: string): Promise<Facility | null> {
   try {
-    const data = await fetchAPI<any>(`/facilities/${id}`)
-    const facility = transformMongoDocument(data)
-    return facility as Facility
+    const response = await fetch(`${API_BASE_URL}/facilities/${id}`, {
+      credentials: 'include',
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return transformMongoDocument(data) as Facility
+    }
+
+    if (response.status !== 403) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error("[v0] Error fetching facility:", errorData.error || response.statusText || response.status)
+    }
+
+    const targetId = String(id)
+    const maxPages = 20
+    const pageSize = 100
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const data = await getFacilities(page, pageSize)
+      const match = data.items.find((facility) => String(facility.id || facility._id) === targetId)
+      if (match) {
+        return match
+      }
+
+      if (!data.items.length || page * pageSize >= data.totalCount) {
+        break
+      }
+    }
+
+    return null
   } catch (err) {
     console.error("[v0] Error fetching facility:", err instanceof Error ? err.message : err)
     return null

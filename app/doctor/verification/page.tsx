@@ -306,7 +306,7 @@ export default function DoctorVerification() {
             if (hospitalAffiliation.type === 'registered' && !hospitalAffiliation.hospitalId) {
                 return false;
             }
-            return !!clinicInfo.clinicName && clinicInfo.days.length > 0 && clinicInfo.hours.length > 0 && !!clinicInfo.fees && !!clinicInfo.location && !!clinicInfo.bio;
+            return clinicInfo.days.length > 0 && clinicInfo.hours.length > 0 && !!clinicInfo.fees && !!clinicInfo.location && !!clinicInfo.bio;
         }
         return false;
     }
@@ -526,6 +526,12 @@ export default function DoctorVerification() {
                     hospitalLocation: hospitalAffiliation.hospitalLocation || null,
                 };
 
+                if (hospitalAffiliation.type === 'registered' && hospitalAffiliation.hospitalLocation) {
+                    updatePayload.location = {
+                        label: hospitalAffiliation.hospitalLocation
+                    };
+                }
+
                 if (Object.keys(updatePayload).length) {
                     // Use API updateDoctor route
                     try {
@@ -614,6 +620,32 @@ export default function DoctorVerification() {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const persistHospitalAffiliation = async (nextAffiliation: HospitalAffiliation) => {
+        if (!user?.id) return;
+        try {
+            const { updateDoctor } = await import('@/lib/api');
+            const payload: any = {
+                hospitalAffiliation: {
+                    affiliationType: nextAffiliation.type,
+                    type: nextAffiliation.type,
+                    hospitalId: nextAffiliation.hospitalId || null,
+                    hospitalName: nextAffiliation.hospitalName || null,
+                    hospitalLocation: nextAffiliation.hospitalLocation || null,
+                }
+            };
+
+            if (nextAffiliation.type === 'registered' && nextAffiliation.hospitalLocation) {
+                payload.location = {
+                    label: nextAffiliation.hospitalLocation
+                };
+            }
+
+            await updateDoctor(String(user.id), payload);
+        } catch (e) {
+            console.warn('Failed to persist hospital affiliation selection', e);
         }
     };
 
@@ -813,20 +845,26 @@ export default function DoctorVerification() {
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 if (val === 'na') {
-                                                    setHospitalAffiliation({ type: 'na', hospitalName: '', hospitalLocation: '' });
+                                                    const next: HospitalAffiliation = { type: 'na', hospitalName: '', hospitalLocation: '' };
+                                                    setHospitalAffiliation(next);
+                                                    persistHospitalAffiliation(next);
                                                 } else if (val === 'other') {
-                                                    setHospitalAffiliation({ type: 'other', hospitalName: '', hospitalLocation: '' });
+                                                    const next: HospitalAffiliation = { type: 'other', hospitalName: '', hospitalLocation: '' };
+                                                    setHospitalAffiliation(next);
+                                                    persistHospitalAffiliation(next);
                                                 } else {
                                                     // It's a hospital ID
                                                     const selected = facilities.find(f => (f.id || f._id) === val);
                                                     if (selected) {
                                                         const loc = selected.location?.label || '';
-                                                        setHospitalAffiliation({
+                                                        const next = {
                                                             type: 'registered',
                                                             hospitalId: selected.id || selected._id,
                                                             hospitalName: selected.name,
                                                             hospitalLocation: loc
-                                                        });
+                                                        } as HospitalAffiliation;
+                                                        setHospitalAffiliation(next);
+                                                        persistHospitalAffiliation(next);
                                                         // Overwrite clinic location with hospital's location
                                                         if (loc) setClinicInfo(prev => ({ ...prev, location: loc }));
                                                     }
@@ -861,7 +899,11 @@ export default function DoctorVerification() {
                                             <Input
                                                 placeholder="e.g. ABC Medical Center"
                                                 value={hospitalAffiliation.hospitalName}
-                                                onChange={(e) => setHospitalAffiliation({ ...hospitalAffiliation, hospitalName: e.target.value })}
+                                                onChange={(e) => {
+                                                    const next = { ...hospitalAffiliation, hospitalName: e.target.value };
+                                                    setHospitalAffiliation(next);
+                                                    persistHospitalAffiliation(next);
+                                                }}
                                             />
                                         </div>
                                         <div>
@@ -869,7 +911,11 @@ export default function DoctorVerification() {
                                             <Input
                                                 placeholder="Full address e.g. 123 Main St, Lahore, Pakistan"
                                                 value={hospitalAffiliation.hospitalLocation}
-                                                onChange={(e) => setHospitalAffiliation({ ...hospitalAffiliation, hospitalLocation: e.target.value })}
+                                                onChange={(e) => {
+                                                    const next = { ...hospitalAffiliation, hospitalLocation: e.target.value };
+                                                    setHospitalAffiliation(next);
+                                                    persistHospitalAffiliation(next);
+                                                }}
                                             />
                                             <p className="text-xs text-gray-500 mt-1">Provide the complete address for admin verification.</p>
                                         </div>
