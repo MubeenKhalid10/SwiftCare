@@ -12,7 +12,8 @@ import { useAuth } from '@/lib/auth-context';
 import { getBookableShifts, getDoctorById, updateDoctor } from '@/lib/api';
 import type { Shift } from '@/lib/types';
 import { toast } from 'sonner';
-import { Loader2, Clock, DollarSign, CalendarDays } from 'lucide-react';
+import { Clock, CalendarDays } from 'lucide-react';
+import { LogoLoader } from '@/components/ui/logo-loader';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -150,23 +151,13 @@ export default function AvailableTimings() {
   const availableDays = doctorProfile?.schedule?.availableDays || [];
   const availableHours = doctorProfile?.schedule?.availableHours || [];
 
-  // Color mapping for days of week
-  const dayColors: Record<string, { bg: string; text: string; icon: string }> = {
-    Monday: { bg: 'bg-blue-500', text: 'text-blue-600', icon: '🔵' },
-    Tuesday: { bg: 'bg-purple-500', text: 'text-purple-600', icon: '🟣' },
-    Wednesday: { bg: 'bg-pink-500', text: 'text-pink-600', icon: '🔴' },
-    Thursday: { bg: 'bg-orange-500', text: 'text-orange-600', icon: '🟠' },
-    Friday: { bg: 'bg-green-500', text: 'text-green-600', icon: '🟢' },
-    Saturday: { bg: 'bg-red-500', text: 'text-red-600', icon: '❤️' },
-    Sunday: { bg: 'bg-yellow-500', text: 'text-yellow-600', icon: '☀️' }
-  };
 
   if (isLoading) {
     return (
       <>
         <Header />
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
         <Footer />
       </>
@@ -176,7 +167,7 @@ export default function AvailableTimings() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="min-h-screen bg-gray-50">
         <div className="flex">
           <DoctorSidebar />
           <div className="flex-1">
@@ -192,16 +183,16 @@ export default function AvailableTimings() {
                 <p className="text-gray-500 mt-2">Your appointment schedule and consultation fees</p>
               </div>
 
-              <Card className="mb-8 border-0 shadow-lg bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900">
-                <div className="p-6 text-white">
+              <Card className="mb-8 border border-[#0073CF] shadow-sm bg-white">
+                <div className="p-6 text-gray-900">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-white/70">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
                         <CalendarDays className="w-4 h-4" />
                         <span>Shift Generation</span>
                       </div>
                       <h2 className="text-2xl font-bold">Generate the next 30 days of shifts</h2>
-                      <p className="text-white/75 max-w-2xl">
+                      <p className="text-gray-600 max-w-2xl">
                         {hasFull30DayCoverage
                           ? `Your shifts are already generated for ${generatedCoverageDays} days${generationCoveredThrough ? `, through ${generationCoveredThrough}` : ''}.`
                           : generatedCoverageDays > 0
@@ -213,11 +204,11 @@ export default function AvailableTimings() {
                       <Button
                         onClick={handleGenerateNextShifts}
                         disabled={isGeneratingShifts || isRefreshingShifts || hasFull30DayCoverage}
-                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${hasFull30DayCoverage ? 'bg-white/10 text-white/80 cursor-not-allowed border border-white/10 hover:bg-white/10' : 'bg-white text-slate-900 hover:bg-white/90 hover:shadow-lg'}`}
+                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${hasFull30DayCoverage ? 'bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-200 hover:bg-gray-100' : 'bg-[#0073CF] text-white hover:bg-[#0062B0]'}`}
                       >
                         {isGeneratingShifts ? (
                           <span className="flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <LogoLoader size={16} className="h-4 w-4" />
                             Generating
                           </span>
                         ) : hasFull30DayCoverage ? (
@@ -227,7 +218,7 @@ export default function AvailableTimings() {
                         )}
                       </Button>
                       {hasFull30DayCoverage && generationCoveredThrough && (
-                        <p className="text-xs text-white/65 text-right">
+                        <p className="text-xs text-gray-500 text-right">
                           Covered through {generationCoveredThrough}
                         </p>
                       )}
@@ -237,25 +228,25 @@ export default function AvailableTimings() {
               </Card>
 
               {/* Consultation Fee Card */}
-              <Card className="mb-8 border-0 shadow-lg bg-gradient-to-r from-blue-600 to-purple-600">
+              <Card className="mb-8 border border-[#0073CF] shadow-sm bg-white">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-white/80 text-sm font-medium mb-2">Consultation Fee</p>
+                      <p className="text-gray-500 text-sm font-medium mb-2">Consultation Fee</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-white">${consultationFee}</span>
-                        <span className="text-white/80 text-sm">per appointment</span>
+                        <span className="text-3xl font-bold text-gray-900">Rs. {consultationFee}</span>
+                        <span className="text-gray-500 text-sm">per appointment</span>
                       </div>
                     </div>
-                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                      <DollarSign className="w-8 h-8 text-white" />
+                    <div className="w-16 h-16 bg-[#0073CF]/10 rounded-full flex items-center justify-center">
+                      <span className="text-lg font-semibold text-[#0073CF]">Rs.</span>
                     </div>
                   </div>
                 </div>
               </Card>
 
               {/* Available Days and Hours */}
-              <Card className="border-0 shadow-lg">
+              <Card className="border border-[#0073CF] shadow-sm">
                 <div className="p-8">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Schedule</h2>
 
@@ -267,35 +258,33 @@ export default function AvailableTimings() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {days.map((day) => {
                         const isAvailable = availableDays.includes(day);
-                        const colors = dayColors[day];
-                        
                         return (
                           <div
                             key={day}
                             className={`rounded-lg p-5 transition-all ${
                               isAvailable
-                                ? `${colors.bg} shadow-lg hover:shadow-xl transform hover:scale-105`
-                                : 'bg-gray-100 opacity-50'
+                                ? 'bg-white border border-[#0073CF] shadow-sm hover:shadow-md'
+                                : 'bg-gray-50 border border-gray-200'
                             }`}
                           >
                             <div className="flex items-center gap-3 mb-3">
-                              <span className="text-2xl">{colors.icon}</span>
-                              <h3 className={`text-lg font-bold ${isAvailable ? 'text-white' : 'text-gray-600'}`}>
+                              <div className={`h-2.5 w-2.5 rounded-full ${isAvailable ? 'bg-[#0073CF]' : 'bg-gray-300'}`} />
+                              <h3 className={`text-lg font-bold ${isAvailable ? 'text-gray-900' : 'text-gray-500'}`}>
                                 {day}
                               </h3>
                             </div>
 
                             {isAvailable ? (
-                              <div className="bg-white/20 rounded-lg p-3">
+                              <div className="bg-[#0073CF]/10 rounded-lg p-3">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Clock className="w-4 h-4 text-white" />
-                                  <p className="text-white text-xs font-semibold">Available Hours:</p>
+                                  <Clock className="w-4 h-4 text-[#0073CF]" />
+                                  <p className="text-[#0073CF] text-xs font-semibold">Available Hours:</p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                   {availableHours.map((hour: string, idx: number) => (
                                     <Badge
                                       key={idx}
-                                      className="bg-white text-gray-900 font-semibold text-xs px-2 py-1 hover:shadow-md"
+                                      className="bg-white text-gray-700 border border-[#0073CF] font-semibold text-xs px-2 py-1"
                                     >
                                       {hour}
                                     </Badge>
@@ -314,16 +303,6 @@ export default function AvailableTimings() {
                   )}
                 </div>
               </Card>
-
-              {/* Save Button */}
-              <div className="flex justify-end gap-4 mt-8">
-                <Button variant="outline" className="px-6 py-2 text-sm rounded-lg border-2 hover:bg-gray-100">
-                  Cancel
-                </Button>
-                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-2 text-sm text-white rounded-lg hover:shadow-lg transform hover:scale-105 transition-all">
-                  Save Changes
-                </Button>
-              </div>
             </div>
           </div>
         </div>

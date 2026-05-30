@@ -6,7 +6,7 @@
 import type { Notification } from './types'
 import { getAccessToken } from './auth.service'
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app').replace(/\/+$/, '')
 
 interface NotificationResponse {
   page: number

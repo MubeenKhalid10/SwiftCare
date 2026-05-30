@@ -1,4 +1,4 @@
-// API Response Types based on the backend at http://localhost:5000
+// API Response Types based on the backend at https://swiftcare.up.railway.app
 
 export interface Doctor {
   id: number | string

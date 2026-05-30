@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Menu, Bell, MessageSquare, LogOut, User, Calendar, Stethoscope } from "lucide-react"
@@ -44,16 +45,30 @@ export function Header() {
       case 'admin':
         return '/admin/dashboard'
       default:
-        return '/patient/dashboard'
+        return '/patient/appointments'
     }
   }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-lg shadow-md shadow-primary/8 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center space-x-2 transition-transform duration-300 hover:-translate-y-0.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-600 font-bold text-white shadow-md shadow-primary/30">S</div>
-          <span className="text-lg font-bold tracking-tight text-foreground dark:text-white">SwiftCare</span>
+        <Link href="/" className="flex items-center space-x-3 transition-transform duration-300 hover:-translate-y-0.5">
+          <Image
+            src="/assets/logo(1).png"
+            alt="SwiftCare"
+            width={50}
+            height={50}
+            className="h-10 w-auto object-contain sm:block"
+            priority
+          />
+           <Image
+            src="/assets/logo(2).png"
+            alt="SwiftCare"
+            width={50}
+            height={50}
+            className="hidden h-7 w-auto object-contain sm:block"
+            priority
+          />
         </Link>
 
         {(!isAuthenticated || user?.role === 'admin') && (

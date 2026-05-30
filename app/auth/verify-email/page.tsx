@@ -2,9 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, Mail, ShieldCheck } from 'lucide-react'
+import { Mail, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { LogoLoader } from '@/components/ui/logo-loader'
 import { toast } from 'sonner'
 
 export default function VerifyEmailPage() {
@@ -177,7 +178,7 @@ export default function VerifyEmailPage() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LogoLoader size={16} className="h-4 w-4 mr-2" />
                   Verifying...
                 </>
               ) : (

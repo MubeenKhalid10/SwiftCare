@@ -1,7 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { getAccessToken } from "./auth.service";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "https://swiftcare.up.railway.app";
 
 let socketInstance: Socket | null = null;
 

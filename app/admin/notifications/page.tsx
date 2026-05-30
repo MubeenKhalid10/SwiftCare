@@ -11,11 +11,12 @@ import {
   markAllNotificationsAsRead
 } from '@/lib/notification.service'
 import type { Notification } from '@/lib/types'
-import { Loader2, Check, Filter, AlertCircle, Users, UserPlus, Stethoscope, Star } from 'lucide-react'
+import { Check, Filter, AlertCircle, Users, UserPlus, Stethoscope, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { socket, connectSocket } from '@/lib/socket'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useRouter } from 'next/navigation'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function AdminNotificationsPage() {
   const { user, isAuthenticated } = useAuth()
@@ -208,7 +209,7 @@ export default function AdminNotificationsPage() {
         {/* Notifications List */}
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <LogoLoader size={32} className="h-8 w-8" />
           </div>
         ) : notifications.length === 0 ? (
           <Card className="p-12 text-center">
@@ -225,7 +226,7 @@ export default function AdminNotificationsPage() {
           <div className="space-y-3">
             {notifications.map((notification) => (
               <div
-                key={notification.id}
+                key={notification.id || notification._id || `${notification.type}-${notification.createdAt}`}
                 onClick={() => handleNotificationClick(notification)}
                 className={`p-4 border rounded-lg transition cursor-pointer hover:shadow-md ${
                   notification.read 

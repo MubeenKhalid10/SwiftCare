@@ -1,11 +1,13 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
+import Link from "next/link"
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config"
 import { getAccessToken } from "@/lib/auth.service"
+import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 
 type Message = {
@@ -15,6 +17,7 @@ type Message = {
 }
 
 export function Chatbot() {
+    const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -25,6 +28,9 @@ export function Chatbot() {
     ])
     const [input, setInput] = useState("")
     const [isLoading, setIsLoading] = useState(false)
+    const hasAccessToken = !!getAccessToken()
+    const isAuthed = isAuthenticated && hasAccessToken
+
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -42,7 +48,7 @@ export function Chatbot() {
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault()
 
-        if (!input.trim() || isLoading) return
+        if (!input.trim() || isLoading || !isAuthed) return
 
         const userMessage: Message = {
             id: Date.now().toString(),
@@ -199,6 +205,14 @@ export function Chatbot() {
 
                     {/* Messages Area */}
                     <div className="flex-1 overflow-y-auto p-4 bg-white/50 flex flex-col gap-4">
+                        {!isAuthLoading && !isAuthed && (
+                            <div className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 text-sm shadow-sm">
+                                <p className="font-medium">Login required to use the assistant.</p>
+                                <p className="mt-1 text-xs">
+                                    Please <Link href="/auth/login" className="underline font-semibold">log in</Link> or <Link href="/auth/register" className="underline font-semibold">sign up</Link> to chat.
+                                </p>
+                            </div>
+                        )}
                         {messages.map((message) => (
                             <div
                                 key={message.id}
@@ -242,14 +256,14 @@ export function Chatbot() {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Ask about doctors, payments..."
+                                placeholder={isAuthed ? "Ask about doctors, payments..." : "Log in to start chatting"}
                                 className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 px-3 py-2 text-sm"
-                                disabled={isLoading}
+                                disabled={isLoading || !isAuthed}
                             />
                             <Button
                                 type="submit"
                                 size="icon"
-                                disabled={!input.trim() || isLoading}
+                                disabled={!input.trim() || isLoading || !isAuthed}
                                 className={`h-9 w-9 rounded-lg shrink-0 ${input.trim() && !isLoading
                                         ? "bg-gradient-to-r from-primary to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md"
                                         : "bg-muted text-muted-foreground"

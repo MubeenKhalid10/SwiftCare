@@ -5,11 +5,12 @@ import React from "react"
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Loader2, Shield } from 'lucide-react'
+import { Eye, EyeOff, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -115,7 +116,7 @@ export default function AdminLoginPage() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LogoLoader size={16} className="h-4 w-4 mr-2" />
                   Authenticating...
                 </>
               ) : (
@@ -123,14 +124,6 @@ export default function AdminLoginPage() {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700 mb-2">Admin Credentials:</p>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p>Email: admin@swiftcare.com</p>
-              <p>Password: admin123</p>
-            </div>
-          </div>
 
           <p className="text-center text-gray-600 mt-6 text-sm">
             <Link href="/" className="text-blue-600 hover:text-blue-700 font-semibold">

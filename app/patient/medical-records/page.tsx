@@ -1,12 +1,13 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { Search, Plus, Download, FileText, Share2, Trash2, Loader2, RotateCcw } from "lucide-react"
+import { Search, Plus, Download, FileText, Share2, Trash2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { LogoLoader } from "@/components/ui/logo-loader"
 import {
   Table,
   TableBody,
@@ -195,7 +196,7 @@ function MedicalRecordsContent() {
                 {/* Loading State */}
                 {isLoading ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <LogoLoader size={32} className="h-8 w-8" />
                   </div>
                 ) : (
                   <>

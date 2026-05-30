@@ -2,7 +2,9 @@
 
 import { Suspense, useState, useEffect, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Loader2, MapPin } from "lucide-react"
+import Image from "next/image"
+import { MapPin } from "lucide-react"
+import { LogoLoader } from "@/components/ui/logo-loader"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
@@ -120,7 +122,7 @@ function FacilitiesContent() {
 
               {isLoading ? (
                 <div className="flex justify-center items-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                  <LogoLoader size={32} className="h-8 w-8" />
                 </div>
               ) : filteredFacilities.length === 0 ? (
                 <div className="text-center py-12">
@@ -240,7 +242,20 @@ function FacilitiesContent() {
 
 export default function FacilitiesPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen">
+          <Image
+            src="/assets/logo.png"
+            alt="SwiftCare"
+            width={64}
+            height={64}
+            className="h-16 w-16 animate-pulse rounded-xl object-contain"
+            priority
+          />
+        </div>
+      }
+    >
       <FacilitiesContent />
     </Suspense>
   )

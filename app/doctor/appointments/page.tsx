@@ -11,10 +11,11 @@ import { DoctorSidebar } from "@/components/doctor/doctor-sidebar"
 import { useAuth } from "@/lib/auth-context"
 import { getAppointmentsByDoctorId, getPatients, updateAppointmentStatus, nextQueuePatient, getQueueState } from "@/lib/api"
 import type { Appointment } from "@/lib/types"
-import { Loader2, Calendar, Search, CheckCircle, XCircle, Clock, Zap } from "lucide-react"
+import { Calendar, Search, CheckCircle, XCircle, Clock, Zap } from "lucide-react"
 import { toast } from "sonner"
 import { socket, connectSocket } from "@/lib/socket"
 import { getAppointmentDisplayName, applyAppointmentStatusSync, upsertAppointmentStatusSync } from "@/lib/utils"
+import { LogoLoader } from "@/components/ui/logo-loader"
 
 export default function DoctorAppointments() {
   const { user } = useAuth()
@@ -25,6 +26,7 @@ export default function DoctorAppointments() {
   const [searchTerm, setSearchTerm] = useState("")
   const [consultationNotes, setConsultationNotes] = useState<Record<string, string>>({})
   const [queueStates, setQueueStates] = useState<Record<string, number>>({})
+  const [expandedPatientInfo, setExpandedPatientInfo] = useState<Record<string, boolean>>({})
 
   const getAppointmentKey = (apt: Appointment | any): string => String(apt?.id || apt?._id || '')
 const FALLBACK_AVATAR = 'data:image/jpeg;base64,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';
@@ -72,17 +74,41 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
         getPatients(),
       ])
 
-      const patientNameById = new Map(
-        patients.map((p: any) => [String(p.id || p._id), p.name || "Unknown Patient"])
+      const patientById = new Map(
+        patients.map((p: any) => [
+          String(p.id || p._id),
+          {
+            name: p.name || "Unknown Patient",
+            age: p.age,
+            gender: p.gender,
+            avatar: p.avatar || p.image || p.photo || undefined
+          }
+        ])
       )
+
+      const recentCompletedByPatient = new Map<string, any>()
+      apts.forEach((apt: any) => {
+        const status = normalizeStatus(apt.status)
+        if (status !== "completed") return
+        const patientId = String(apt.patientId || '')
+        if (!patientId) return
+        const prev = recentCompletedByPatient.get(patientId)
+        if (!prev || getAppointmentTimeValue(apt) > getAppointmentTimeValue(prev)) {
+          recentCompletedByPatient.set(patientId, apt)
+        }
+      })
 
       const enriched = apts.map((apt: any) => ({
         ...apt,
-        // Prefer canonical patient name from patients list; otherwise normalize using helper
+        // Prefer canonical patient info from patients list; otherwise normalize using helper
         patientName:
-          patientNameById.get(String(apt.patientId)) ||
+          patientById.get(String(apt.patientId))?.name ||
           getAppointmentDisplayName(apt) ||
           "Unknown Patient",
+        patientAge: patientById.get(String(apt.patientId))?.age,
+        patientGender: patientById.get(String(apt.patientId))?.gender,
+        patientAvatar: patientById.get(String(apt.patientId))?.avatar,
+        recentCompletedAppointment: recentCompletedByPatient.get(String(apt.patientId)) || null,
       }))
 
       setAppointments(applyAppointmentStatusSync(enriched))
@@ -318,7 +344,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 mb-6">
-                    <Button variant="default" onClick={() => setFilter("all")} className="flex items-center gap-2">
+                    <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")} className="flex items-center gap-2">
                       All <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
                     </Button>
                     <Button variant={filter === "upcoming" ? "default" : "outline"} onClick={() => setFilter("upcoming")} className="flex items-center gap-2">
@@ -337,7 +363,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
 
                   {loading ? (
                     <div className="flex justify-center items-center py-20">
-                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                      <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                   ) : sortedAppointments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-500">
@@ -362,14 +388,24 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                               {aptsForDate.map((apt) => {
                         const appointmentKey = getAppointmentKey(apt)
                         const patientName = apt.patientName || "Unknown Patient"
+                        const patientAge = (apt as any).patientAge
+                        const patientGender = (apt as any).patientGender
+                        const recentCompleted = (apt as any).recentCompletedAppointment
+                        const recentDate = recentCompleted?.date
+                        const recentTime = recentCompleted?.time
+                        const recentNotes = recentCompleted?.consultationNotes
+                        const recentLabel = recentDate && recentTime
+                          ? `${recentDate} ${recentTime}`
+                          : recentDate || recentTime || ''
                         const isActionLoading = actionLoading === appointmentKey
+                        const isExpanded = Boolean(expandedPatientInfo[appointmentKey])
 
                         return (
                           <div key={appointmentKey} className="flex flex-col md:flex-row md:items-center justify-between p-5 border rounded-xl hover:shadow-md transition-shadow bg-white" style={{ borderColor: isCurrentlyServing(apt) ? '#22c55e' : '#e5e7eb', backgroundColor: isCurrentlyServing(apt) ? '#f0fdf4' : 'white' }}>
                             <div className="flex items-start md:items-center gap-4 mb-4 md:mb-0 flex-1">
                               <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
   <img
-    src={apt?.avatar || FALLBACK_AVATAR}
+    src={(apt as any)?.patientAvatar || apt?.avatar || FALLBACK_AVATAR}
     alt={apt?.patientName}
     className="w-full h-full object-cover rounded-full"
     onError={(e) => {
@@ -407,6 +443,32 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                   <span>•</span>
                                   <span>Problem: <b>{apt.problem || 'None specified'}</b></span>
                                 </div>
+                                <button
+                                  type="button"
+                                  className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                                  onClick={() =>
+                                    setExpandedPatientInfo(prev => ({
+                                      ...prev,
+                                      [appointmentKey]: !prev[appointmentKey]
+                                    }))
+                                  }
+                                >
+                                  {isExpanded ? 'Hide patient details' : 'View patient details'}
+                                </button>
+                                {isExpanded && (
+                                  <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-gray-700">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <span>Age: <b>{patientAge ?? 'N/A'}</b></span>
+                                      <span>•</span>
+                                      <span>Gender: <b>{patientGender || 'N/A'}</b></span>
+                                      <span>•</span>
+                                      <span>Recent: <b>{recentLabel || 'N/A'}</b></span>
+                                    </div>
+                                    <div className="mt-2">
+                                      Recent Notes: <b>{recentNotes || 'None'}</b>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -454,7 +516,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                     onClick={() => handleUpdateStatus(appointmentKey, "Completed")}
                                     disabled={actionLoading === appointmentKey}
                                   >
-                                    {actionLoading === appointmentKey ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete Consultation (Check-out)"}
+                                    {actionLoading === appointmentKey ? <LogoLoader size={16} className="h-4 w-4" /> : "Complete Consultation (Check-out)"}
                                   </Button>
                                 </div>
                               )}

@@ -97,7 +97,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <NavLink href="/admin/doctors" icon="👨‍⚕️" label="Doctors" open={sidebarOpen} />
           <NavLink href="/admin/patients" icon="🧑" label="Patients" open={sidebarOpen} />
           <NavLink href="/admin/reviews" icon="⭐" label="Reviews" open={sidebarOpen} />
-          <NavLink href="/admin/transactions" icon="💳" label="Transactions" open={sidebarOpen} />
           <NavLink href="/admin/notifications" icon="🔔" label="Notifications" open={sidebarOpen} />
           <NavLink href="/admin/profile" icon="👤" label="Profile" open={sidebarOpen} />
 
@@ -122,11 +121,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
 
           <div className="flex items-center gap-4">
-            <input
-              type="text"
-              placeholder="Search here"
-              className="rounded-full border border-slate-200 bg-white/80 px-4 py-2.5 shadow-sm shadow-slate-900/5 backdrop-blur-md focus:border-sky-300 focus:outline-none dark:border-white/10 dark:bg-white/5"
-            />
             <Link href="/admin/notifications" className="group relative rounded-xl p-2 transition hover:bg-slate-100 dark:hover:bg-white/10">
               <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
               {unreadCount > 0 && (

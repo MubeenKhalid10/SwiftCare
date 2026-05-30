@@ -3,11 +3,12 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { resetPassword } from '@/lib/auth.service'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function ResetPasswordPage() {
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''))
@@ -206,7 +207,7 @@ export default function ResetPasswordPage() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LogoLoader size={16} className="h-4 w-4 mr-2" />
                   Resetting password...
                 </>
               ) : (

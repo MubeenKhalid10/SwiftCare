@@ -22,21 +22,8 @@ export const metadata: Metadata = {
   description: 'Book appointments with top doctors online. SwiftCare provides healthcare services with verified professionals.',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/assets/logo.png',
+    apple: '/assets/logo.png',
   },
 }
 

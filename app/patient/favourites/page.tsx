@@ -1,10 +1,11 @@
 "use client"
 
 import { Suspense, useEffect, useMemo, useState } from "react"
-import { Search, Heart, Star, Loader2, MapPin } from "lucide-react"
+import { Search, Heart, Star, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { LogoLoader } from "@/components/ui/logo-loader"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import Link from "next/link"
@@ -102,7 +103,7 @@ function FavouritesContent() {
 
             {isLoading && (
               <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <LogoLoader size={32} className="h-8 w-8" />
               </div>
             )}
 

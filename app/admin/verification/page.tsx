@@ -4,10 +4,11 @@ import React, { useEffect, useState } from "react"
 import { getDoctors, getFacilities, approveDoctorVerification, rejectDoctorVerification, createFacility, updateFacility, updateDoctor } from "@/lib/api"
 import { geocodeAddressWithMapbox } from "@/lib/location"
 import type { Doctor, Facility } from "@/lib/types"
-import { Loader2, Search, ShieldCheck, Eye, XCircle, AlertCircle } from "lucide-react"
+import { Search, ShieldCheck, Eye, XCircle, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { DoctorVerificationModal } from "@/components/admin/doctor-verification-modal"
 import AdminLayout from "@/components/admin/admin-layout"
+import { LogoLoader } from "@/components/ui/logo-loader"
 
 function AdminVerificationPageContent() {
     const [doctors, setDoctors] = useState<Doctor[]>([])
@@ -364,7 +365,7 @@ function AdminVerificationPageContent() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                 ) : filteredDoctors.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">

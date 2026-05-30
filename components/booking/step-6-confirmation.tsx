@@ -151,7 +151,7 @@ export default function BookingStep6({ data, onBack }: { data: any, onBack: () =
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-100">
-                <Button onClick={() => setIsReceiptOpen(true)} className="flex-1 bg-gray-900 hover:bg-black text-white h-12 rounded-xl font-bold gap-2">
+                <Button onClick={() => setIsReceiptOpen(true)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-xl font-bold gap-2">
                   <FileText className="w-5 h-5" /> View Receipt
                 </Button>
                 <Link href="/patient/appointments" className="flex-1">

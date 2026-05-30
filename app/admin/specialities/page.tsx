@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Users, Stethoscope } from 'lucide-react'
+import { Users, Stethoscope } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getDoctors } from '@/lib/api'
 import type { Doctor } from '@/lib/types'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 type DoctorWithDerivedFields = Doctor & {
   registeredEmail: string
@@ -93,7 +94,7 @@ export default function SpecialitiesPage() {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       </AdminLayout>
     )

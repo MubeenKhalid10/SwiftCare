@@ -17,9 +17,10 @@ import {
   getNotificationStyle 
 } from '@/lib/notification.service'
 import type { Notification } from '@/lib/types'
-import { Loader2, Bell, Trash2, Check, Filter } from 'lucide-react'
+import { Bell, Trash2, Check, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import { socket, connectSocket } from '@/lib/socket'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function NotificationsPage() {
   const { user, isAuthenticated } = useAuth()
@@ -160,7 +161,7 @@ export default function NotificationsPage() {
                   {/* Notifications List */}
                   {loading ? (
                     <div className="flex justify-center items-center py-20">
-                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                      <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="text-center py-16">
@@ -183,7 +184,7 @@ export default function NotificationsPage() {
 
                         return (
                           <div
-                            key={notification.id}
+                            key={notification.id || notification._id || `${notification.type}-${notification.createdAt}`}
                             className={`p-4 border rounded-lg transition-colors cursor-pointer hover:shadow-sm ${
                               notification.read ? 'bg-white' : style.bgColor + ' border-2 border-current'
                             } ${style.borderColor}`}

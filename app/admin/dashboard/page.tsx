@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Users, Calendar, DollarSign, UserRound, Loader2 } from 'lucide-react'
+import { Users, Calendar, DollarSign, UserRound } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getDashboardStats } from '@/lib/api'
 import type { DashboardStats } from '@/lib/types'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function AdminDashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -41,7 +42,7 @@ export default function AdminDashboard() {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       </AdminLayout>
     )

@@ -9,7 +9,6 @@ import {
   MessageCircle,
   Phone,
   Video,
-  Loader2,
   X,
   Star,
 } from "lucide-react"
@@ -28,6 +27,7 @@ import { Appointment, Patient, Doctor } from "@/lib/types"
 import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import { socket } from "@/lib/socket"
 import { applyAppointmentStatusSync, getAppointmentStatusSyncEventName } from "@/lib/utils"
+import { LogoLoader } from "@/components/ui/logo-loader"
 
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -303,7 +303,7 @@ export default function AppointmentsPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <LogoLoader size={32} className="h-8 w-8" />
       </div>
     )
   }
@@ -335,7 +335,7 @@ export default function AppointmentsPage() {
       {isLoading && (
         <div className="max-w-7xl mx-auto px-4 py-8 flex justify-center">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+            <LogoLoader size={32} className="h-8 w-8 mx-auto mb-2" />
             <p className="text-gray-600">Loading your appointments...</p>
           </div>
         </div>
@@ -640,7 +640,7 @@ export default function AppointmentsPage() {
                   className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
                   disabled={isSubmittingReview}
                 >
-                  {isSubmittingReview ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isSubmittingReview ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : null}
                   Submit Review
                 </Button>
               </div>

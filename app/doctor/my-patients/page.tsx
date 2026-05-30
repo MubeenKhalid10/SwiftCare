@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { DoctorSidebar } from "@/components/doctor/doctor-sidebar"
 import { useAuth } from "@/lib/auth-context"
 import { getDoctorUniquePatients } from "@/lib/api"
-import { Loader2, Search, MapPin, Calendar, Users } from "lucide-react"
+import { Search, MapPin, Calendar, Users } from "lucide-react"
 import { toast } from "sonner"
+import { LogoLoader } from "@/components/ui/logo-loader"
 
 export default function DoctorMyPatients() {
   const { user } = useAuth()
@@ -95,7 +96,7 @@ export default function DoctorMyPatients() {
 
                   {loading ? (
                     <div className="flex justify-center items-center py-20">
-                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                      <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                   ) : filteredPatients.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-500">

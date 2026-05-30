@@ -89,19 +89,8 @@ export function DoctorSidebar() {
             <span>Limited Access</span>
           </div>
         ) : (
-          <p className="text-sm text-green-600 mt-2">● Verified & Active</p>
+          <p className="text-sm text-green-600 mt-2">● Verified</p>
         )}
-      </div>
-
-      <div className="mb-6">
-        <label className="text-sm font-medium text-gray-700 block mb-2">
-          Availability *
-        </label>
-        <select 
-          className="w-full px-3 py-2 border rounded-lg bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={hasLimitedAccess}
-        >
-        </select>
       </div>
 
       {/* Limited Access Banner */}

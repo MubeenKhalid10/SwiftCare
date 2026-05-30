@@ -3,12 +3,13 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { GoogleSignInButton } from '@/components/google-signin-button'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -155,7 +156,7 @@ export default function LoginPage() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 animate-spin" />
+                  <LogoLoader size={16} className="h-4 w-4 mr-2" />
                   Signing in...
                 </>
               ) : (

@@ -54,7 +54,7 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
         if (!path) return <span className="text-gray-400 text-sm italic">Not provided</span>
         return (
             <a
-                href={`http://localhost:5000${path}`}
+                href={`${process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app'}${path}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-sm text-primary hover:underline mt-1"

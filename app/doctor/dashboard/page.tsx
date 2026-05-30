@@ -14,7 +14,7 @@ import { VerificationStatusAlert } from '@/components/doctor/verification-status
 import { useAuth } from '@/lib/auth-context';
 import { getAppointmentsByDoctorId, getPatients, getReviewsByDoctorId, getDoctorById, getDoctorInsights, getBookableShifts, createShift, startRestShift, endRestShift, startShiftQueue, endShiftQueue, nextQueuePatient, getQueueState, generateNextShifts, getActiveShift } from '@/lib/api';
 import type { Appointment, Patient, Review, Doctor, DoctorInsights, Shift } from '@/lib/types';
-import { Loader2, AlertCircle, Clock, AlertTriangle, Star } from 'lucide-react';
+import { AlertCircle, Clock, AlertTriangle, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { socket, connectSocket } from '@/lib/socket';
@@ -22,6 +22,7 @@ import { isDoctorAvailableNow, getUnavailabilityReason } from '@/lib/shift-avail
 import { useNotifications } from '@/hooks/use-notifications';
 import type { Notification } from '@/lib/types';
 import { getAppointmentDisplayName } from '@/lib/utils';
+import { LogoLoader } from '@/components/ui/logo-loader';
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function DoctorDashboard() {
   const [isGeneratingShifts, setIsGeneratingShifts] = useState(false);
   const [previousStatus, setPreviousStatus] = useState<string | null>(null);
   const [showApprovalNotification, setShowApprovalNotification] = useState(false);
+  const [approvalAlertDismissed, setApprovalAlertDismissed] = useState(false);
   const [isAvailableNow, setIsAvailableNow] = useState(false);
   const [unavailabilityReason, setUnavailabilityReason] = useState<string | null>(null);
   const [queueStates, setQueueStates] = useState<Record<string, number>>({});
@@ -97,7 +99,7 @@ export default function DoctorDashboard() {
                   rating: review.rating
                 },
                 read: false,
-                readAt: null
+                readAt: undefined
               } as Notification,
               ...prev.slice(0, 4)
             ])
@@ -200,11 +202,34 @@ export default function DoctorDashboard() {
     }
   }, [isAuthenticated, user, authLoading, router, previousStatus]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const key = `swiftcare_approval_alert_dismissed_${user.id}`;
+      const stored = localStorage.getItem(key);
+      setApprovalAlertDismissed(stored === 'true');
+    } catch (err) {
+      console.warn('Failed to read approval alert dismissal state', err);
+    }
+  }, [user?.id]);
+
+  const handleDismissApprovalAlert = () => {
+    if (!user?.id) return;
+    try {
+      const key = `swiftcare_approval_alert_dismissed_${user.id}`;
+      localStorage.setItem(key, 'true');
+    } catch (err) {
+      console.warn('Failed to persist approval alert dismissal state', err);
+    }
+    setApprovalAlertDismissed(true);
+    setShowApprovalNotification(false);
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <LogoLoader size={48} className="h-12 w-12 mx-auto mb-4" />
           <p className="text-gray-600">Loading your dashboard...</p>
         </div>
       </div>
@@ -295,11 +320,13 @@ export default function DoctorDashboard() {
                 <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
                 {/* Verification Status Alert Component */}
-                <VerificationStatusAlert 
-                  status={doctorProfile?.accountStatus?.verificationStatus}
-                  showApprovalNotification={showApprovalNotification}
-                  onDismiss={() => setShowApprovalNotification(false)}
-                />
+                {(doctorProfile?.accountStatus?.verificationStatus !== 'approved' || !approvalAlertDismissed) && (
+                  <VerificationStatusAlert 
+                    status={doctorProfile?.accountStatus?.verificationStatus}
+                    showApprovalNotification={showApprovalNotification}
+                    onDismiss={handleDismissApprovalAlert}
+                  />
+                )}
 
                 {/* Show limited view if not verified */}
                 {doctorProfile?.accountStatus?.verificationStatus !== 'approved' ? (
@@ -340,7 +367,7 @@ export default function DoctorDashboard() {
                                >
                                  {isGeneratingShifts ? (
                                    <span className="flex items-center gap-2">
-                                     <Loader2 className="w-4 h-4 animate-spin" />
+                                     <LogoLoader size={16} className="h-4 w-4" />
                                      Generating
                                    </span>
                                  ) : (
@@ -911,63 +938,6 @@ export default function DoctorDashboard() {
                       </CardContent>
                     </Card>
                   </div>
-
-                  {/* Recent Invoices derived from completed appointments */}
-                  <Card className="mt-6 mb-6">
-                    <CardHeader>
-                      <CardTitle>Recent Invoices</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {recentCompletedAppointments.length > 0 ? (
-                        <div className="space-y-3">
-                          {recentCompletedAppointments.map((apt) => {
-                            const fee = apt.amount || (doctorProfile?.fee ? parseInt(String(doctorProfile.fee).replace(/[^0-9]/g, '')) : 0)
-                            return (
-                              <div key={apt.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                                <div>
-                                  <p className="font-medium text-sm">Invoice for {getAppointmentDisplayName(apt)}</p>
-                                  <p className="text-sm text-gray-600">{apt.date} • {apt.serviceType || 'Consultation'}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="font-bold">Rs. {fee}</p>
-                                  <p className="text-xs text-gray-500">{apt.status}</p>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-500 py-8">No invoices yet</p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="mt-6">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle>Recent Completed Appointments</CardTitle>
-                      <Link href="/doctor/appointments" className="text-blue-600 text-sm hover:underline">
-                        View All
-                      </Link>
-                    </CardHeader>
-                    <CardContent>
-                      {recentCompletedAppointments.length > 0 ? (
-                        <div className="space-y-3">
-                          {recentCompletedAppointments.map((apt) => (
-                            <div key={apt.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                              <div>
-                                <p className="font-medium text-sm">{getAppointmentDisplayName(apt)}</p>
-                                <p className="text-sm text-gray-600">{apt.date} at {apt.time}</p>
-                                <p className="text-xs text-gray-500">{apt.serviceType || 'General Consultation'}</p>
-                              </div>
-                              <Badge className="bg-green-100 text-green-800">{apt.status}</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-500 py-8">No completed appointments yet</p>
-                      )}
-                    </CardContent>
-                  </Card>
                   </>
                 )}
               </div>

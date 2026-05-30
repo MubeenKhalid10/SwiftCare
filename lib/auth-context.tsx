@@ -31,6 +31,46 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = "swiftcare_auth";
+const ACCESS_TOKEN_KEY = "accessToken";
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+type StoredAuth = {
+  user?: User;
+  expiresAt?: number;
+};
+
+const isBrowser = (): boolean => typeof window !== "undefined" && typeof localStorage !== "undefined";
+
+const readStoredAuth = (): StoredAuth | null => {
+  if (!isBrowser()) return null;
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredAuth;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredAuth = (data: StoredAuth): void => {
+  if (!isBrowser()) return;
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+};
+
+const ensureSessionExpiry = (): boolean => {
+  const stored = readStoredAuth();
+  if (!stored) return true;
+  if (!stored.expiresAt) {
+    writeStoredAuth({ ...stored, expiresAt: Date.now() + SESSION_TTL_MS });
+    return true;
+  }
+  if (stored.expiresAt <= Date.now()) {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    return false;
+  }
+  return true;
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -41,12 +81,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = () => {
+      if (!isBrowser()) {
+        setAuthState((p) => ({ ...p, isLoading: false }));
+        return;
+      }
+
+      if (!ensureSessionExpiry()) {
+        setAuthState((p) => ({ ...p, isLoading: false }));
+        return;
+      }
+
       const accessToken = getAccessToken();
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
 
       if (accessToken && stored) {
         try {
-          const parsed = JSON.parse(stored);
+          const parsed = JSON.parse(stored) as StoredAuth;
           if (parsed?.user) {
             console.log("[v0] Restoring user session:", parsed.user.role, parsed.user.email);
             setAuthState({
@@ -60,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("[v0] Failed to parse stored auth:", e);
           // Clear corrupted auth data
           localStorage.removeItem(AUTH_STORAGE_KEY);
-          localStorage.removeItem("accessToken");
+          localStorage.removeItem(ACCESS_TOKEN_KEY);
         }
       } else if (!accessToken) {
         console.log("[v0] No access token found, clearing stored auth");
@@ -137,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user }));
+      writeStoredAuth({ user, expiresAt: Date.now() + SESSION_TTL_MS });
       setAuthState({ user, isAuthenticated: true, isLoading: false });
       return { success: true };
     } catch (error) {
@@ -212,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user }));
+      writeStoredAuth({ user, expiresAt: Date.now() + SESSION_TTL_MS });
       setAuthState({ user, isAuthenticated: true, isLoading: false });
       return { success: true };
     } catch (error) {
@@ -258,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user }));
+      writeStoredAuth({ user, expiresAt: Date.now() + SESSION_TTL_MS });
       setAuthState({ user, isAuthenticated: true, isLoading: false });
       return { success: true };
     } catch (error) {
@@ -276,8 +326,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("[v0] Logout error:", err);
     }
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem("accessToken");
+    if (isBrowser()) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+    }
     console.log("[v0] User logged out, all auth data cleared");
     setAuthState({ user: null, isAuthenticated: false, isLoading: false });
   };
@@ -290,14 +342,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedUser = { ...prev.user, ...updates };
       
       // Update local storage to persist between refreshes
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          parsed.user = updatedUser;
-          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
-        } catch (e) {
-          console.error("[v0] Failed to update local storage user:", e);
+      if (isBrowser()) {
+        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as StoredAuth;
+            parsed.user = updatedUser;
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
+          } catch (e) {
+            console.error("[v0] Failed to update local storage user:", e);
+          }
         }
       }
       

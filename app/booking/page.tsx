@@ -4,8 +4,6 @@ import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import BookingStep1 from "@/components/booking/step-1-specialty"
-import BookingStep2 from "@/components/booking/step-2-appointment-type"
 import BookingStep3 from "@/components/booking/step-3-date-time"
 import BookingStep4 from "@/components/booking/step-4-basic-info"
 import BookingStep5 from "@/components/booking/step-5-payment"
@@ -13,7 +11,6 @@ import BookingStep6 from "@/components/booking/step-6-confirmation"
 import { getDoctorById, createAppointment, confirmPayment } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import type { Doctor } from "@/lib/types"
-import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import Loading from "./loading"
 
@@ -80,7 +77,9 @@ function BookingContent() {
               name: data.name,
               specialty: data.specialty || "",
               rating: data.rating || 0,
-              address: data.location || "Location not specified",
+              address: typeof (data.location) === "string"
+                ? data.location
+                : (data.location && (data.location.label || data.location.clinicName)) || "Location not specified",
               image: data.image || "",
               fee: data.fee || "$100",
               availableDays,

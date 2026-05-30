@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus, Edit2, Trash2, MapPin, Users } from 'lucide-react'
+import { Plus, Edit2, Trash2, MapPin, Users } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getFacilities, createFacility, updateFacility, deleteFacility, getDoctors } from '@/lib/api'
@@ -11,6 +11,7 @@ import { FacilityFormModal, type FacilityFormData } from '@/components/admin/fac
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import type { Facility, Doctor } from '@/lib/types'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function FacilitiesPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -157,7 +158,7 @@ export default function FacilitiesPage() {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       </AdminLayout>
     )

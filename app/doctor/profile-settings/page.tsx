@@ -5,20 +5,37 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, MapPin, Phone, Mail, Calendar, Award, BookOpen } from 'lucide-react'
+import { MapPin, Phone, Mail, Calendar, Award, BookOpen } from 'lucide-react'
 import { DoctorSidebar } from '@/components/doctor/doctor-sidebar'
 import { useAuth } from '@/lib/auth-context'
-import { getDoctorById } from '@/lib/api'
+import { getDoctorById, updateDoctor } from '@/lib/api'
 import { API_BASE_URL } from '@/lib/api-config'
 import { toast } from 'sonner'
 import type { Doctor } from '@/lib/types'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function DoctorProfileSettings() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  const [errors, setErrors] = useState({
+    experience: '',
+    consultationFee: ''
+  })
+  const [formData, setFormData] = useState({
+    name: '',
+    contactNo: '',
+    experience: '',
+    consultationFee: '',
+    about: ''
+  })
+
+  const readOnlyInputClass = 'bg-gray-50 text-gray-600 border-gray-200 cursor-not-allowed'
+  const editableInputClass = 'bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-500'
 
   const resolveDoctorImage = (image?: string | null) => {
     if (!image) return null
@@ -36,6 +53,13 @@ export default function DoctorProfileSettings() {
           if (data.image) {
             setProfileImage(resolveDoctorImage(data.image))
           }
+          setFormData({
+            name: data.name || '',
+            contactNo: (data as any).contactNo || '',
+            experience: String((data as any).experience || (data as any).yearsOfExperience || data?.professionalInfo?.yearsOfExperience || ''),
+            consultationFee: String((data as any).consultationFee || (data as any).fee || ''),
+            about: (data as any).about || ''
+          })
         }
       } catch (err) {
         console.error('Failed to fetch doctor profile:', err)
@@ -64,6 +88,7 @@ export default function DoctorProfileSettings() {
       const resolvedImage = resolveDoctorImage(result.imageUrl)
       setProfileImage(resolvedImage)
       setDoctor(prev => prev ? { ...prev, image: resolvedImage || result.imageUrl } : null)
+      updateUser({ avatar: resolvedImage || result.imageUrl })
       toast.success('Profile image updated!')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Image upload failed'
@@ -73,12 +98,77 @@ export default function DoctorProfileSettings() {
     }
   }
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+
+    if (name === 'experience' || name === 'consultationFee') {
+      const next = value.trim()
+      const num = Number(next)
+      setErrors(prev => ({
+        ...prev,
+        [name]: next === '' || Number.isNaN(num) || num < 0 ? 'Enter a valid non-negative number' : ''
+      }))
+    }
+  }
+
+  const handleSave = async () => {
+    if (!user?.id) return
+    if (errors.experience || errors.consultationFee) {
+      toast.error('Please fix the validation errors before saving')
+      return
+    }
+    setIsSaving(true)
+    setSaveMessage('')
+    try {
+      const experienceValue = Number(formData.experience)
+      const feeValue = Number(formData.consultationFee)
+
+      const payload: Partial<Doctor> & {
+        contactNo?: string
+        experience?: number | string
+        consultationFee?: number | string
+        about?: string
+      } = {
+        name: formData.name.trim(),
+        contactNo: formData.contactNo.trim(),
+        about: formData.about.trim(),
+      }
+
+      if (!Number.isNaN(experienceValue)) payload.experience = experienceValue
+      if (!Number.isNaN(feeValue)) payload.consultationFee = feeValue
+
+      const updated = await updateDoctor(String(user.id), payload)
+      setDoctor(updated)
+      setFormData({
+        name: updated.name || formData.name,
+        contactNo: (updated as any).contactNo || formData.contactNo,
+        experience: String((updated as any).experience || formData.experience),
+        consultationFee: String((updated as any).consultationFee || formData.consultationFee),
+        about: (updated as any).about || formData.about,
+      })
+
+      updateUser({
+        name: updated.name || formData.name,
+        avatar: (updated as any).image || profileImage || undefined
+      })
+
+      toast.success('Profile updated successfully')
+      setSaveMessage('Changes saved successfully.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update profile'
+      toast.error(msg)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <>
         <Header />
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
         <Footer />
       </>
@@ -142,7 +232,7 @@ export default function DoctorProfileSettings() {
                           disabled={isUploading}
                           onClick={() => document.getElementById('doctor-avatar-upload')?.click()}
                         >
-                          {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          {isUploading ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : null}
                           {isUploading ? 'Uploading...' : 'Upload Photo'}
                         </Button>
                       </div>
@@ -162,12 +252,13 @@ export default function DoctorProfileSettings() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                       <Input
                         type="text"
-                        value={doctor?.name || ''}
-                        readOnly
-                        className="bg-gray-50"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className={editableInputClass}
                         placeholder="Your full name"
                       />
-                      <p className="text-xs text-gray-500 mt-1">From verification form (read-only)</p>
+                      <p className="text-xs text-gray-500 mt-1">Updates your profile across the platform</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
@@ -175,7 +266,7 @@ export default function DoctorProfileSettings() {
                         type="email"
                         value={doctor?.credentials?.email || user?.email || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Your email"
                       />
                       <p className="text-xs text-gray-500 mt-1">From signup (read-only)</p>
@@ -184,12 +275,13 @@ export default function DoctorProfileSettings() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
                       <Input
                         type="tel"
-                        value={doctor?.contactNo || ''}
-                        readOnly
-                        className="bg-gray-50"
+                        name="contactNo"
+                        value={formData.contactNo}
+                        onChange={handleChange}
+                        className={editableInputClass}
                         placeholder="Your contact number"
                       />
-                      <p className="text-xs text-gray-500 mt-1">From verification form (read-only)</p>
+                      <p className="text-xs text-gray-500 mt-1">Visible to patients on your profile</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
@@ -197,7 +289,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.specialization || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Your specialization"
                       />
                       <p className="text-xs text-gray-500 mt-1">From verification form (read-only)</p>
@@ -208,7 +300,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.age != null ? String(doctor.age) : ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Your age"
                       />
                     </div>
@@ -218,7 +310,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.gender || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Your gender"
                       />
                     </div>
@@ -239,7 +331,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.professionalInfo?.degree || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Your degree (e.g., MBBS)"
                       />
                     </div>
@@ -249,29 +341,41 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.professionalInfo?.registrationNumber || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Your registration number"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
                       <Input
-                        type="text"
-                        value={doctor?.experience || (doctor as any)?.yearsOfExperience || doctor?.professionalInfo?.yearsOfExperience || doctor?.professionalInfo?.experience || ''}
-                        readOnly
-                        className="bg-gray-50"
+                        type="number"
+                        name="experience"
+                        value={formData.experience}
+                        onChange={handleChange}
+                        min={0}
+                        step={1}
+                        className={editableInputClass}
                         placeholder="Years of experience"
                       />
+                      {errors.experience && (
+                        <p className="text-xs text-red-600 mt-1">{errors.experience}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Consultation Fee (RS.)</label>
                       <Input
-                        type="text"
-                        value={doctor?.consultationFee || ''}
-                        readOnly
-                        className="bg-gray-50"
+                        type="number"
+                        name="consultationFee"
+                        value={formData.consultationFee}
+                        onChange={handleChange}
+                        min={0}
+                        step={1}
+                        className={editableInputClass}
                         placeholder="Consultation fee"
                       />
+                      {errors.consultationFee && (
+                        <p className="text-xs text-red-600 mt-1">{errors.consultationFee}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -287,7 +391,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.identification?.idNumber || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="CNIC number"
                       />
                     </div>
@@ -308,7 +412,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={typeof doctor?.location === 'string' ? doctor.location : doctor?.location?.label || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Clinic location"
                       />
                     </div>
@@ -318,7 +422,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.schedule?.availableDays?.join(', ') || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Available days"
                       />
                     </div>
@@ -328,7 +432,7 @@ export default function DoctorProfileSettings() {
                         type="text"
                         value={doctor?.schedule?.availableHours?.join(', ') || ''}
                         readOnly
-                        className="bg-gray-50"
+                        className={readOnlyInputClass}
                         placeholder="Available hours"
                       />
                     </div>
@@ -336,14 +440,17 @@ export default function DoctorProfileSettings() {
                 </div>
 
                 {/* About Section */}
-                {doctor?.about && (
-                  <div className="mb-8 pb-8 border-b">
-                    <h3 className="font-semibold text-lg text-gray-900 mb-4">About</h3>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-gray-700 text-sm">{doctor.about}</p>
-                    </div>
-                  </div>
-                )}
+                <div className="mb-8 pb-8 border-b">
+                  <h3 className="font-semibold text-lg text-gray-900 mb-4">About</h3>
+                  <textarea
+                    name="about"
+                    value={formData.about}
+                    onChange={handleChange}
+                    rows={5}
+                    className={`w-full rounded-lg border px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 ${editableInputClass}`}
+                    placeholder="Write a short bio about your experience, approach, and specialties."
+                  ></textarea>
+                </div>
 
                 {/* Verification Status */}
                 <div className="mb-8">
@@ -358,9 +465,16 @@ export default function DoctorProfileSettings() {
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-end gap-4 pt-6 border-t">
+                  {saveMessage && (
+                    <p className="text-sm text-green-600 mr-auto">{saveMessage}</p>
+                  )}
                   <Button variant="outline">Back</Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled>
-                    All fields are read-only
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={handleSave}
+                    disabled={isSaving || Boolean(errors.experience || errors.consultationFee)}
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               </div>

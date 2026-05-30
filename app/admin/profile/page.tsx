@@ -11,7 +11,8 @@ import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Mail, MapPin, ShieldCheck, UserCircle2 } from 'lucide-react'
+import { Mail, MapPin, ShieldCheck, UserCircle2 } from 'lucide-react'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 type ProfileFormState = {
   name: string
@@ -76,7 +77,7 @@ export default function AdminProfilePage() {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       </AdminLayout>
     )
@@ -87,7 +88,8 @@ export default function AdminProfilePage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Profile</h1>
-          <p className="text-gray-600">Dashboard / Profile</p>
+          <p className="text-gray-600">Profile</p>
+        </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
@@ -107,19 +109,14 @@ export default function AdminProfilePage() {
               <p className="text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" />SwiftCare Admin Portal</p>
               <p className="text-gray-600 max-w-2xl">{formData.about}</p>
             </div>
-
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-auto" onClick={() => setIsEditOpen(true)}>
-              Edit
-            </Button>
           </div>
 
           <div className="flex gap-4 border-b border-gray-200 mb-6">
             <button className="px-4 py-2 text-cyan-500 border-b-2 border-cyan-500 font-medium">About</button>
-            <button className="px-4 py-2 text-gray-600 hover:text-gray-800">Security</button>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xl font-bold">Personal Details</h3>
+            <h3 className="text-xl font-bold">Details</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-gray-600 text-sm">Name</p>
@@ -134,9 +131,6 @@ export default function AdminProfilePage() {
                 <p className="font-medium capitalize">{user?.role || 'admin'}</p>
               </div>
               <div>
-                <p className="text-gray-600 text-sm">Avatar</p>
-                <p className="font-medium truncate">{user?.avatar || 'Not set'}</p>
-              </div>
               <div className="col-span-2">
                 <p className="text-gray-600 text-sm">About</p>
                 <p className="font-medium">{formData.about}</p>
@@ -147,19 +141,12 @@ export default function AdminProfilePage() {
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
             <div className="flex items-start gap-3">
               <UserCircle2 className="w-5 h-5 text-gray-500 mt-0.5" />
-              <div>
-                <p className="font-semibold text-gray-900">Security</p>
-                <p className="text-sm text-gray-600">Password changes are handled from the sign-in flow in this frontend-only setup.</p>
-              </div>
             </div>
           </div>
         </div>
 
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Edit Profile</DialogTitle>
-            </DialogHeader>
             <div className="space-y-4">
               <div>
                 <Label htmlFor="name">Name</Label>
@@ -199,9 +186,6 @@ export default function AdminProfilePage() {
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" className="bg-transparent" onClick={() => setIsEditOpen(false)}>
                   Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700">
-                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             </div>

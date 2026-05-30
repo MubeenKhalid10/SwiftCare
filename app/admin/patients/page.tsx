@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Edit2, Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getPatients, updatePatient, deletePatient, createPatient, getAppointmentsByPatientId, getDoctors } from '@/lib/api'
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import type { Appointment, Patient } from '@/lib/types'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 function normalizePatient(raw: any): Patient {
   return {
@@ -179,7 +180,7 @@ export default function PatientsPage() {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       </AdminLayout>
     )
@@ -277,7 +278,7 @@ export default function PatientsPage() {
             <div className="max-h-[70vh] overflow-y-auto">
               {appointmentsLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <LogoLoader size={24} className="h-6 w-6" />
                 </div>
               ) : recentAppointments.length > 0 ? (
                 <table className="w-full">

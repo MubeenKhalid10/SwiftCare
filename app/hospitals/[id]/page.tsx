@@ -2,12 +2,14 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, MapPin, Phone, Mail, Users, Star } from "lucide-react"
+import Image from "next/image"
+import { ArrowLeft, MapPin, Phone, Mail, Users, Star } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { LogoLoader } from "@/components/ui/logo-loader"
 import { getFacilityById, getDoctors } from "@/lib/api"
 import type { Facility, Doctor } from "@/lib/types"
 
@@ -107,7 +109,7 @@ function FacilityDetailContent() {
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 flex justify-center items-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </main>
         <Footer />
       </div>
@@ -316,7 +318,20 @@ function FacilityDetailContent() {
 
 export default function FacilityDetailPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen">
+          <Image
+            src="/assets/logo.png"
+            alt="SwiftCare"
+            width={64}
+            height={64}
+            className="h-16 w-16 animate-pulse rounded-xl object-contain"
+            priority
+          />
+        </div>
+      }
+    >
       <FacilityDetailContent />
     </Suspense>
   )

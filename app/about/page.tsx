@@ -6,9 +6,10 @@ import Footer from "@/components/footer"
 import Reviews from "@/components/reviews"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage} from "@/components/ui/avatar"
-import { ChevronDown, Phone, Users, Clock, Microscope, HandshakeIcon, Loader2 } from "lucide-react"
+import { ChevronDown, Phone, Users, Clock, Microscope, HandshakeIcon } from "lucide-react"
 import { getDoctors } from "@/lib/api"
 import type { Doctor } from "@/lib/types"
+import { LogoLoader } from "@/components/ui/logo-loader"
 
 export default function AboutPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([])
@@ -148,7 +149,7 @@ export default function AboutPage() {
           <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Best Doctors</h2>
           {isLoadingDoctors ? (
             <div className="flex justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <LogoLoader size={32} className="h-8 w-8" />
             </div>
           ) : doctors.length === 0 ? (
             <div className="text-center text-gray-500">No doctors available.</div>

@@ -1,7 +1,7 @@
 import type { Doctor, Patient, Review, Appointment, LoginCredentials, RegisterData, User, DashboardStats, DoctorInsights, QueueState, Shift, Notification, Facility } from "./types"
 import { getAccessToken, refreshAccessToken } from "./auth.service"
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "")
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://swiftcare.up.railway.app").replace(/\/+$/, "")
 
 // Helper to transform MongoDB _id to id
 function transformMongoDocument<T extends { _id?: string; id?: string | number }>(doc: T): T {

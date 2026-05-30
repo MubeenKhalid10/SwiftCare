@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Heart, Phone, Video, MapPin, Star, Clock, Loader2 } from 'lucide-react';
+import { Heart, Phone, Video, MapPin, Star, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { getFavouriteDoctorIds, toggleFavouriteDoctor } from '@/lib/utils';
 import type { Doctor, Review } from '@/lib/types';
 import Loading from './loading'; // Import the Loading component
 import { ClinicLocationMap } from '@/components/doctor/clinic-location-map';
+import { LogoLoader } from '@/components/ui/logo-loader';
 
 function DoctorProfileContent() {
   const searchParams = useSearchParams();
@@ -420,7 +421,7 @@ function DoctorProfileContent() {
                 />
                 {reviewError && <p className="text-red-500 text-xs mb-3">{reviewError}</p>}
                 <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmittingReview}>
-                  {isSubmittingReview ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isSubmittingReview ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : null}
                   Submit Review
                 </Button>
               </form>

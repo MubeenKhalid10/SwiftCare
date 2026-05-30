@@ -1,4 +1,51 @@
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://swiftcare.up.railway.app").replace(/\/+$/, "");
+const ACCESS_TOKEN_KEY = "accessToken";
+const AUTH_STORAGE_KEY = "swiftcare_auth";
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+type StoredAuth = {
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: "patient" | "doctor" | "admin";
+  };
+  expiresAt?: number;
+};
+
+const isBrowser = (): boolean => typeof window !== "undefined" && typeof localStorage !== "undefined";
+
+const getStoredAuth = (): StoredAuth | null => {
+  if (!isBrowser()) return null;
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredAuth;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredAuth = (data: StoredAuth): void => {
+  if (!isBrowser()) return;
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+};
+
+const ensureSessionExpiry = (): boolean => {
+  const stored = getStoredAuth();
+  if (!stored) return true;
+  if (!stored.expiresAt) {
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    writeStoredAuth({ ...stored, expiresAt });
+    return true;
+  }
+  if (stored.expiresAt <= Date.now()) {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    return false;
+  }
+  return true;
+};
 
 export interface AuthResponse {
   accessToken: string;
@@ -43,15 +90,13 @@ export const login = async (email: string, password: string): Promise<AuthRespon
         },
       };
 
-      localStorage.setItem("accessToken", adminData.accessToken);
-      localStorage.setItem(
-        "swiftcare_auth",
-        JSON.stringify({
+      if (isBrowser()) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, adminData.accessToken);
+        writeStoredAuth({
           user: adminData.user,
-          role: adminData.role,
-          userId: adminData.userId,
-        })
-      );
+          expiresAt: Date.now() + SESSION_TTL_MS,
+        });
+      }
 
       console.log("[v0] Hardcoded admin login successful");
       return adminData;
@@ -96,8 +141,8 @@ export const login = async (email: string, password: string): Promise<AuthRespon
     console.log("[v0] Login successful, role:", data.role);
 
     // Store access token for Authorization header
-    if (data.accessToken) {
-      localStorage.setItem("accessToken", data.accessToken);
+    if (data.accessToken && isBrowser()) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
     }
     // Refresh token is stored in HTTPONLY cookie by backend, don't duplicate in localStorage
 
@@ -190,8 +235,8 @@ export const verifyEmailOtp = async (
   const data: AuthResponse = await res.json();
 
   // Store access token for Authorization header
-  if (data.accessToken) {
-    localStorage.setItem("accessToken", data.accessToken);
+  if (data.accessToken && isBrowser()) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
   }
   // Refresh token is stored in HTTPONLY cookie by backend, don't duplicate in localStorage
 
@@ -322,8 +367,8 @@ export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"
     console.log("[v0] Google auth successful");
 
     // Store access token for Authorization header
-    if (data.accessToken) {
-      localStorage.setItem("accessToken", data.accessToken);
+    if (data.accessToken && isBrowser()) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
     }
     // Refresh token is stored in HTTPONLY cookie by backend, don't duplicate in localStorage
 
@@ -358,8 +403,10 @@ export const refreshAccessToken = async (): Promise<string> => {
         console.error("[v0] Token refresh failed with status:", res.status)
         console.error("[v0] Backend error response:", errorData)
       }
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("swiftcare_auth");
+      if (isBrowser()) {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
       if (res.status === 401) {
         throw new Error("Unauthorized")
       }
@@ -370,8 +417,8 @@ export const refreshAccessToken = async (): Promise<string> => {
     console.log("[v0] Token refresh successful");
 
     // Update access token if provided (backend may also send via cookie)
-    if (data.accessToken) {
-      localStorage.setItem("accessToken", data.accessToken);
+    if (data.accessToken && isBrowser()) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
     }
 
     return data.accessToken || getAccessToken() || "";
@@ -397,14 +444,18 @@ export const logout = async (): Promise<void> => {
   }
 
   // Clear all auth tokens and data
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("swiftcare_auth");
+  if (isBrowser()) {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
   console.log("[v0] All auth tokens cleared");
 };
 
 /* ── Get Access Token (Session Persistence) ── */
 export const getAccessToken = (): string | null => {
-  const token = localStorage.getItem("accessToken");
+  if (!isBrowser()) return null;
+  if (!ensureSessionExpiry()) return null;
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
   if (token) {
     console.log("[v0] Access token found in localStorage");
   }
@@ -413,14 +464,16 @@ export const getAccessToken = (): string | null => {
 
 /* ── Check if user has valid session ── */
 export const hasValidSession = (): boolean => {
+  if (!isBrowser()) return false;
+  if (!ensureSessionExpiry()) return false;
   const token = getAccessToken();
-  const authData = localStorage.getItem("swiftcare_auth");
-  
+  const authData = localStorage.getItem(AUTH_STORAGE_KEY);
+
   if (!token || !authData) {
     console.log("[v0] No valid session found");
     return false;
   }
-  
+
   try {
     JSON.parse(authData);
     console.log("[v0] Valid session found");
@@ -432,8 +485,9 @@ export const hasValidSession = (): boolean => {
 
 /* ── Clear all auth data securely ── */
 export const clearAuthData = (): void => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("swiftcare_auth");
+  if (!isBrowser()) return;
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(AUTH_STORAGE_KEY);
   console.log("[v0] Auth data cleared");
 };
 

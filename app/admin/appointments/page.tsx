@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Video, Phone, MessageCircle, Calendar, Trash2 } from 'lucide-react'
+import { Video, Phone, MessageCircle, Calendar, Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getAppointments, deleteAppointment, getPatients } from '@/lib/api'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import type { Appointment } from '@/lib/types'
 import { getAppointmentDisplayName } from '@/lib/utils'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -101,7 +102,7 @@ export default function AppointmentsPage() {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       </AdminLayout>
     )
@@ -131,7 +132,6 @@ export default function AppointmentsPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Doctor Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Speciality</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Patient Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date & Time</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
@@ -156,10 +156,6 @@ export default function AppointmentsPage() {
                       {apt?.doctorName ?? 'N/A'}
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-blue-600">
-                      {apt?.doctorSpecialty ?? 'N/A'}
-                    </td>
-
                     <td className="px-6 py-4 text-sm font-medium">
                       {getAppointmentDisplayName(apt)}
                     </td>
@@ -172,17 +168,20 @@ export default function AppointmentsPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        apt?.status === 'upcoming'
-                          ? 'bg-green-100 text-green-700'
-                          : apt?.status === 'completed'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {apt?.status
-                          ? apt.status.charAt(0).toUpperCase() + apt.status.slice(1)
-                          : 'Unknown'}
-                      </div>
+                      {(() => {
+                        const statusText = String(apt?.status || '').trim()
+                        const normalized = statusText.toLowerCase()
+                        const isCompleted = normalized === 'completed'
+                        return (
+                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            isCompleted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {statusText
+                              ? statusText.charAt(0).toUpperCase() + statusText.slice(1)
+                              : 'Unknown'}
+                          </div>
+                        )
+                      })()}
                     </td>
 
                     <td className="px-6 py-4 text-sm space-x-2 flex">

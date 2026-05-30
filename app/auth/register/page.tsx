@@ -3,13 +3,15 @@
 import React, { useState } from "react"
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, LocateFixed } from 'lucide-react'
+import { LocateFixed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
 import { GoogleSignInButton } from '@/components/google-signin-button'
 import { geocodeAddressWithMapbox, resolveCurrentLocation } from '@/lib/location'
+import { LogoLoader } from '@/components/ui/logo-loader'
+import Image from "next/image"
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
@@ -339,7 +341,7 @@ export default function RegisterPage() {
                 >
                   {isResolvingLocation ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <LogoLoader size={16} className="h-4 w-4 mr-2" />
                       Detecting location...
                     </>
                   ) : (
@@ -385,7 +387,7 @@ export default function RegisterPage() {
                       >
                         {isFetchingCoordinates ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            <LogoLoader size={16} className="h-4 w-4 mr-2" />
                             Fetching coordinates...
                           </>
                         ) : (
@@ -512,7 +514,7 @@ export default function RegisterPage() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LogoLoader size={16} className="h-4 w-4 mr-2" />
                   Creating account...
                 </>
               ) : (
@@ -549,18 +551,8 @@ export default function RegisterPage() {
         </div>
       </div>
       {/* Right Side - Gradient Background */}
-     <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 items-center justify-center p-8">
-  
-  <div className="text-center flex flex-col items-center">
+     <div className="text-center flex flex-col items-center">
     
-    {/* Image in center */}
-    <img
-      src="https://plus.unsplash.com/premium_vector-1682298570780-c416aa7b710f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjN8fGRvY3RvcnxlbnwwfHwwfHx8MA%3D%3D" // change path as needed
-      alt="SwiftCare"
-       className="w-full h-auto object-contain mt-8 rounded-2xl shadow-2xl"
-    />
-
-    {/* Existing text (unchanged) */}
     <h2 className="text-5xl font-bold text-white mb-4">
       SwiftCare
     </h2>
@@ -572,9 +564,13 @@ export default function RegisterPage() {
     <p className="text-blue-100 mt-2">
       Experience healthcare like never before
     </p>
+    {/* Image in center */}
+    <img
+      src="https://plus.unsplash.com/premium_vector-1682298570780-c416aa7b710f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjN8fGRvY3RvcnxlbnwwfHwwfHx8MA%3D%3D" // change path as needed
+      alt="SwiftCare"
+       className="w-full h-auto object-contain mt-8 rounded-2xl shadow-2xl"
+    />
 
   </div>
 </div>
-    </div>
-  )
-}
+)}

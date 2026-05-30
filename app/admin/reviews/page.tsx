@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Trash2, Loader2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { getReviews, deleteReview, getPatients, getDoctors } from '@/lib/api'
 import type { Review, Patient, Doctor } from '@/lib/types'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app').replace(/\/+$/, '')
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([])
@@ -126,7 +127,7 @@ export default function ReviewsPage() {
                       disabled={isDeleting === review.id}
                       className="text-red-600 hover:text-red-700 disabled:opacity-50"
                     >
-                      {isDeleting === review.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      {isDeleting === review.id ? <LogoLoader size={16} className="h-4 w-4" /> : <Trash2 className="w-4 h-4" />}
                     </button>
                   </td>
                 </tr>

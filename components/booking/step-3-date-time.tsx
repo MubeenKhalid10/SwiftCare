@@ -216,17 +216,17 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       <div className="flex items-center justify-center mb-12 gap-2 text-sm">
-        {[1, 2, 3].map((step) => (
+        {[1, 2, 3, 4].map((step) => (
           <div key={step} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${step <= 1 ? "bg-teal-500 text-white" : "bg-gray-300 text-gray-600"}`}>
               {step}
             </div>
-            {step < 3 && <div className={`w-6 h-0.5 ${step < 1 ? "bg-teal-500" : "bg-gray-300"}`}></div>}
+            {step < 4 && <div className={`w-6 h-0.5 ${step < 1 ? "bg-teal-500" : "bg-gray-300"}`}></div>}
           </div>
         ))}
       </div>
 
-      <Card className="p-6 mb-6">
+      <Card className="p-6 mb-6 border border-sky-200">
         <h3 className="font-semibold text-gray-900 mb-4">Booking Info</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
@@ -248,7 +248,7 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
         </div>
       </Card>
 
-      <Card className="p-6 mb-6">
+      <Card className="p-6 mb-6 border border-sky-200">
         <h3 className="font-semibold text-gray-900 mb-4">Select Date & Time</h3>
         
         {availableDays.length === 0 || availableHours.length === 0 ? (

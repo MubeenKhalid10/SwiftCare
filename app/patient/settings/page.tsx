@@ -1,38 +1,72 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, ChevronDown, Phone, Users, Clock, Microscope, HandshakeIcon, Loader2, MapPin, Mail } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LogoLoader } from '@/components/ui/logo-loader';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { PatientSidebar } from '@/components/patient/patient-sidebar';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import { getDoctors, getReviews, getDashboardStats, getPatientById, updatePatient } from "@/lib/api"
+import { getPatientById, updatePatient, sendContactMessage } from "@/lib/api"
 import { getInitials } from "@/lib/avatar-utils"
 import { useAuth } from '@/lib/auth-context';
 import { toast } from 'sonner';
-import type { Doctor, Review, DashboardStats, Patient } from "@/lib/types"
+import type { Patient } from "@/lib/types"
 
 const FAQsList = [
-  { id: 1, question: 'How do I book an appointment?' },
-  { id: 2, question: 'Can I book appointments for family members through my account?' },
-  { id: 3, question: 'Can i make an Appointment Online with White Plains Hospital Kendl?' },
-  { id: 4, question: 'Is my payment information secure?' },
-  { id: 5, question: 'Is my personal information secure?' },
-  { id: 6, question: 'Can I use Doccure on my mobile device?' },
-  { id: 7, question: 'Can I cancel or reschedule my appointment?' },
-  { id: 8, question: 'How can I change my password or update my account information?' },
-  { id: 9, question: 'How do I find a specific doctor or specialist?' },
-  { id: 10, question: 'What happens if my chosen doctor is unavailable for the selected time?' },
+  {
+    id: 1,
+    question: 'How do I book an appointment?',
+    answer: 'Select a doctor, choose an available date, and the system shows patients before you with the next available time.'
+  },
+  {
+    id: 2,
+    question: 'How does the queue-based booking work?',
+    answer: 'Appointments are first-come, first-serve. Your time slot is assigned based on the number of patients already booked.'
+  },
+  {
+    id: 3,
+    question: 'Can I track my queue position?',
+    answer: 'Yes. Use Track Queue to see current serving, your position, and estimated wait time in real time.'
+  },
+  {
+    id: 4,
+    question: 'Can I book for a family member?',
+    answer: 'Yes. While booking, choose who the appointment is for and enter their details.'
+  },
+  {
+    id: 5,
+    question: 'Is my personal information secure?',
+    answer: 'We use secure data handling practices to protect your information.'
+  },
+  {
+    id: 6,
+    question: 'Do doctors manage the live queue?',
+    answer: 'Yes. Doctors start shifts, check in patients, and advance the queue from their dashboard.'
+  },
+  {
+    id: 7,
+    question: 'What if a doctor has no active shift?',
+    answer: 'If no active shift is running, queue tracking and live serving will start once the doctor begins the shift.'
+  },
+  {
+    id: 8,
+    question: 'How do I find a doctor or specialty?',
+    answer: 'Use the Doctors page to browse, filter, and open a doctor profile before booking.'
+  },
+  {
+    id: 9,
+    question: 'Will I receive appointment notifications?',
+    answer: 'Yes. You receive confirmations and status updates, and queue notifications as your turn approaches.'
+  },
+  {
+    id: 10,
+    question: 'Can I cancel an appointment?',
+    answer: 'Yes. You can cancel from your appointments page before the appointment time.'
+  },
 ];
-
-const whyChooseUs = [
-  { icon: Users, title: "Qualified Staff of Doctors", description: "We have a team of highly qualified doctors with years of experience delivering top-notch healthcare." },
-  { icon: Clock, title: "24 Hours Service", description: "Experience healthcare advantage whether day or night. Find & book appointments easily." },
-  { icon: Microscope, title: "Quality Lab Services", description: "High standards of excellence in lab services & medical operations for highest expertise." },
-  { icon: HandshakeIcon, title: "Free Consultations", description: "Accessible care begins with a free initial consultation." },
-]
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuth();
@@ -47,21 +81,20 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // About Tab States
-  const [doctors, setDoctors] = useState<Doctor[]>([])
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [isLoadingDoctors, setIsLoadingDoctors] = useState(false)
-  const [isLoadingReviews, setIsLoadingReviews] = useState(false)
-  const [isLoadingStats, setIsLoadingStats] = useState(false)
-
   // Contact Tab States
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', services: '', message: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    contactNumber: '',
+    subject: '',
+    message: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const tabs = [
-    { id: 'profile', label: 'Profile Setting' },
+    { id: 'profile', label: 'Profile Settings' },
     { id: 'faq', label: 'FAQ' },
-    { id: 'about', label: 'About' },
     { id: 'contact', label: 'Contact/Support' },
   ];
 
@@ -160,6 +193,34 @@ export default function SettingsPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus(null)
+
+    try {
+      setIsSubmitting(true)
+      await sendContactMessage({
+        name: formData.name,
+        contactNumber: formData.contactNumber,
+        email: user?.email || formData.email,
+        subject: formData.subject,
+        message: formData.message,
+      })
+      setStatus({ type: 'success', message: 'Message sent successfully.' })
+      setFormData({
+        name: '',
+        email: '',
+        contactNumber: '',
+        subject: '',
+        message: '',
+      })
+    } catch (err: any) {
+      setStatus({ type: 'error', message: err?.message || 'Failed to send message.' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -282,70 +343,12 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Address Section */}
+                {/* Save Changes Button */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Address</h3>
-                  <div className="mb-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Address *</label>
-                    <Input 
-                      placeholder="Address" 
-                      name="address" 
-                      className="w-full" 
-                      value={patientData.address || ''} 
-                      onChange={handleProfileChange}
-                      onBlur={async () => {
-                        // Auto-geocode address when user leaves the field
-                        if (patientData.address && patientData.address.trim()) {
-                          try {
-                            const { geocodeAddress } = await import('@/lib/geocode');
-                            const coords = await geocodeAddress(patientData.address);
-                            if (coords) {
-                              // Update location data with coordinates
-                              setPatientData(prev => ({
-                                ...prev,
-                                location: {
-                                  label: patientData.address || '',
-                                  type: 'Point',
-                                  coordinates: [coords.lng, coords.lat]
-                                }
-                              }));
-                              console.log(`📍 Geocoded "${patientData.address}" to:`, coords);
-                            }
-                          } catch (err) {
-                            console.warn('Geocoding unavailable', err);
-                          }
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">💡 Location coordinates will be auto-filled from address</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">City *</label>
-                      <Input placeholder="City" name="city" className="w-full" value={patientData.city || ''} onChange={handleProfileChange} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">State *</label>
-                      <Input placeholder="State" name="state" className="w-full" value={patientData.state || ''} onChange={handleProfileChange} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Country *</label>
-                      <Input placeholder="Country" name="country" className="w-full" value={patientData.country || ''} onChange={handleProfileChange} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Pincode *</label>
-                      <Input placeholder="Pincode" name="pincode" className="w-full" value={patientData.pincode || ''} onChange={handleProfileChange} />
-                    </div>
-                  </div>
-
                   <div className="flex gap-4 mt-8">
                     <Button variant="outline">Cancel</Button>
                     <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleSaveProfile} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Save Changes"}
+                      {isSaving ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : "Save Changes"}
                     </Button>
                   </div>
                 </div>
@@ -368,7 +371,7 @@ export default function SettingsPage() {
                       </button>
                       {expandedFaqId === faq.id && (
                         <div className="px-4 pb-4 border-t border-gray-100 mt-2 pt-2 text-gray-600 text-sm">
-                          Answer content would go here
+                          {faq.answer}
                         </div>
                       )}
                     </div>
@@ -377,147 +380,65 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* About Tab Content */}
-            {activeTab === 'about' && (
-              <div className="bg-white border border-gray-200 rounded-lg p-8 space-y-12">
-                <div>
-                  <h2 className="text-2xl font-bold mb-4">About Us</h2>
-                  <p className="text-gray-600 leading-relaxed mb-4">
-                    Our mission is to simplify finding and booking appointments with highly qualified medical professionals.
-                    We connect you with the right medical expert when you need it.
-                  </p>
-                  <p className="text-gray-600 leading-relaxed">
-                    Over 25+ Years of Experience in ensuring the best medical treatment for your health.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold mb-6">Why Choose Us</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {whyChooseUs.map((item, idx) => {
-                      const Icon = item.icon
-                      return (
-                        <div key={idx} className="flex gap-4 p-4 border rounded-lg">
-                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-900 mb-1">{item.title}</h4>
-                            <p className="text-sm text-gray-600">{item.description}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold mb-6">Best Doctors</h3>
-                  {isLoadingDoctors ? (
-                    <div className="flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {doctors.map(doctor => (
-                        <div key={doctor.id} className="flex gap-4 p-4 border rounded-lg items-center">
-                          <Avatar className="w-16 h-16">
-                            <AvatarImage src={doctor.image || ""} />
-                            <AvatarFallback className="bg-blue-600 text-white font-bold">{getInitials(doctor.name)}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-bold text-gray-900">{doctor.name}</h4>
-                            <p className="text-sm text-blue-600">{doctor.specialty}</p>
-                            <p className="text-xs text-gray-500">{doctor.location}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold mb-6">Platform Stats</h3>
-                  {isLoadingStats || !stats ? (
-                    <div className="flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div>
-                  ) : (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-                      <div className="p-4 border rounded-lg bg-blue-50">
-                        <p className="text-2xl font-bold text-blue-600">{stats.totalDoctors}</p>
-                        <p className="text-xs text-gray-600 mt-1">Doctors</p>
-                      </div>
-                      <div className="p-4 border rounded-lg bg-blue-50">
-                        <p className="text-2xl font-bold text-blue-600">{stats.totalPatients}</p>
-                        <p className="text-xs text-gray-600 mt-1">Patients</p>
-                      </div>
-                      <div className="p-4 border rounded-lg bg-blue-50">
-                        <p className="text-2xl font-bold text-blue-600">{stats.totalAppointments}</p>
-                        <p className="text-xs text-gray-600 mt-1">Appointments</p>
-                      </div>
-                      <div className="p-4 border rounded-lg bg-blue-50">
-                        <p className="text-2xl font-bold text-blue-600">${stats.totalRevenue.toLocaleString()}</p>
-                        <p className="text-xs text-gray-600 mt-1">Revenue</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Contact Tab Content */}
             {activeTab === 'contact' && (
               <div className="bg-white border border-gray-200 rounded-lg p-8">
                 <h2 className="text-2xl font-bold mb-8">Contact / Support</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                  <div>
-                    <h3 className="text-lg font-bold mb-6">Contact Information</h3>
-                    <div className="space-y-6">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-blue-600 font-semibold">
-                          <MapPin className="w-4 h-4" /> Address
-                        </div>
-                        <p className="text-gray-600 text-sm pl-6">8432 Mante Highway, Aminaport, USA</p>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-blue-600 font-semibold">
-                          <Phone className="w-4 h-4" /> Phone Number
-                        </div>
-                        <p className="text-gray-600 text-sm pl-6">+1 315 369 5943</p>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-blue-600 font-semibold">
-                          <Mail className="w-4 h-4" /> Email Address
-                        </div>
-                        <p className="text-gray-600 text-sm pl-6">doccure@example.com</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
+                <div>
                     <h3 className="text-lg font-bold mb-6">Send a Message</h3>
-                    <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                    <form className="space-y-4" onSubmit={handleContactSubmit}>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input name="name" placeholder="Name" value={formData.name} onChange={handleChange} />
-                        <Input name="email" type="email" placeholder="Email" value={formData.email} onChange={handleChange} />
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Your Name *</label>
+                          <Input name="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Email Address *</label>
+                          <Input
+                            name="email"
+                            type="email"
+                            placeholder="john@example.com"
+                            value={user?.email || formData.email}
+                            readOnly
+                            disabled
+                            required
+                            className="h-11"
+                          />
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input name="phone" type="tel" placeholder="Phone Number" value={formData.phone} onChange={handleChange} />
-                        <select name="services" value={formData.services} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                          <option value="">Select Service</option>
-                          <option value="cardiology">Cardiology</option>
-                          <option value="dentistry">Dentistry</option>
-                          <option value="orthopedics">Orthopedics</option>
-                        </select>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Phone Number *</label>
+                          <Input name="contactNumber" type="tel" placeholder="+92 311 3333252" value={formData.contactNumber} onChange={handleChange} required className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Subject *</label>
+                          <Input name="subject" placeholder="Project Inquiry" value={formData.subject} onChange={handleChange} required className="h-11" />
+                        </div>
                       </div>
-                      <textarea
-                        name="message"
-                        placeholder="Your Message..."
-                        rows={4}
-                        value={formData.message}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-none"
-                      ></textarea>
-                      <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">Send Message</Button>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-gray-700">Message *</label>
+                        <textarea
+                          name="message"
+                          placeholder="Tell us about your project..."
+                          rows={6}
+                          value={formData.message}
+                          onChange={handleChange}
+                          required
+                          className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                        ></textarea>
+                      </div>
+
+                      {status && (
+                        <div className={`text-sm px-3 py-2 rounded-md ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                          {status.message}
+                        </div>
+                      )}
+
+                      <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary-600 text-white font-semibold h-11 px-6 rounded-full">
+                        {isSubmitting ? 'Sending...' : 'Send Message'}
+                      </Button>
                     </form>
-                  </div>
                 </div>
               </div>
             )}

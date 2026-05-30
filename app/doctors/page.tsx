@@ -2,7 +2,8 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, MapPin, Heart, Grid3x3, List, Loader2, Star, Map } from "lucide-react"
+import Image from "next/image"
+import { Search, MapPin, Heart, Grid3x3, List, Star, Map } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -435,7 +436,14 @@ function DoctorsContent() {
               {/* Loading State */}
               {isLoading && (
                 <div className="flex justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                  <Image
+                    src="/assets/logo.png"
+                    alt="SwiftCare"
+                    width={64}
+                    height={64}
+                    className="h-16 w-16 animate-pulse rounded-xl object-contain"
+                    priority
+                  />
                 </div>
               )}
 

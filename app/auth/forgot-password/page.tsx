@@ -3,11 +3,12 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, KeyRound, ArrowLeft } from 'lucide-react'
+import { KeyRound, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { forgotPassword } from '@/lib/auth.service'
+import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -123,7 +124,7 @@ export default function ForgotPasswordPage() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <LogoLoader size={16} className="h-4 w-4 mr-2" />
                   Sending code...
                 </>
               ) : (

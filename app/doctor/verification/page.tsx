@@ -7,7 +7,7 @@ import { getAccessToken } from '@/lib/auth.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { LogoLoader } from '@/components/ui/logo-loader';
 
 const STEP_LABELS = ["Personal", "Professional", "Documents", "Clinic"] as const;
 
@@ -274,7 +274,7 @@ export default function DoctorVerification() {
     if (authLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-white">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <LogoLoader size={32} className="h-8 w-8" />
             </div>
         );
     }
@@ -602,7 +602,7 @@ export default function DoctorVerification() {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/doctors/verification/submit`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app'}/doctors/verification/submit`, {
                 method: 'POST',
                 headers,
                 body: formData, // Auto sets multipart/form-data boundary
@@ -981,7 +981,7 @@ export default function DoctorVerification() {
                         </Button>
                         {currentStep === STEP_LABELS.length - 1 ? (
                             <Button onClick={handleSubmit} disabled={!isStepValid(currentStep) || loading} className="px-6 bg-blue-600 hover:bg-blue-700">
-                                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                {loading ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : null}
                                 Submit Verification
                             </Button>
                         ) : (

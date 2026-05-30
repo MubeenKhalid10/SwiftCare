@@ -8,7 +8,8 @@ import { DoctorSidebar } from '@/components/doctor/doctor-sidebar';
 import { useAuth } from '@/lib/auth-context';
 import { getReviewsByDoctorId, getPatients } from '@/lib/api';
 import { useEffect, useState } from 'react';
-import { Loader2, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
+import { LogoLoader } from '@/components/ui/logo-loader';
 import type { Review, Patient } from '@/lib/types';
 
 interface ReviewWithPatient extends Review {
@@ -86,7 +87,7 @@ export default function DoctorReviews() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {isLoading ? (
                   <div className="col-span-full flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <LogoLoader size={32} className="h-8 w-8" />
                   </div>
                 ) : reviews.length === 0 ? (
                   <div className="col-span-full text-center py-12">
