@@ -1,10 +1,12 @@
 // API Response Types based on the backend at https://swiftcare.up.railway.app
 
 export interface Doctor {
+  _id?: string
   id: number | string
   name: string
   email: string
   password?: string
+  contactNo?: string
   specialty?: string
   specialization?: string
   location?: string | {
@@ -19,8 +21,27 @@ export interface Doctor {
   locationLabel?: string
   locationCoordinates?: [number, number]
   clinicName?: string
+  credentials?: {
+    email?: string
+  }
+  professionalInfo?: {
+    degree?: string
+    registrationNumber?: string
+    yearsOfExperience?: number | string
+  }
+  identification?: {
+    idNumber?: string
+  }
+  hospitalAffiliation?: {
+    affiliationType?: string
+    type?: string
+    hospitalId?: string
+    hospitalName?: string
+    hospitalLocation?: string
+  }
   rating?: number
-  experience?: string
+  experience?: string | number
+  consultationFee?: string | number
   fee?: string
   image?: string
   available?: boolean
@@ -72,6 +93,7 @@ export interface Patient {
   pincode?: string
   lastVisit?: string
   paid?: string
+  image?: string
 }
 
 export interface Review {
@@ -101,9 +123,10 @@ export interface Appointment {
   age?: string
   problem?: string
   amount?: number
-  status?: "Pending" | "In Progress" | "Completed" | "Cancelled"
+  status?: "Pending" | "In Progress" | "Completed" | "Cancelled" | "upcoming"
   fullDateIso?: string
   timestamp?: string
+  createdAt?: string
   // Frontend-only display fields (not stored in backend)
   patientName?: string
   doctorSpecialty?: string

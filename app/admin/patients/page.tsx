@@ -163,7 +163,7 @@ export default function PatientsPage() {
           image: data.image.trim() || undefined,
           avatar: data.avatar.trim() || undefined,
         }
-        const newPatient = await createPatient(payload as Omit<Patient, 'id'>)
+        const newPatient = await createPatient(payload)
         setPatients([...patients, normalizePatient(newPatient)])
         toast({ description: 'Patient created successfully' })
       }

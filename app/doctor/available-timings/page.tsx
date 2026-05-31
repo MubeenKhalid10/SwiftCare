@@ -148,8 +148,21 @@ export default function AvailableTimings() {
   };
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const availableDays = doctorProfile?.schedule?.availableDays || [];
-  const availableHours = doctorProfile?.schedule?.availableHours || [];
+  const availableDays = (doctorProfile?.schedule?.availableDays || []) as string[];
+  const availableHours = (doctorProfile?.schedule?.availableHours || []) as string[];
+  const hoursByDay = useMemo(() => {
+    return availableDays.reduce<Record<string, string[]>>((accumulator, day, index) => {
+      const hour = availableHours[index];
+      if (!hour) return accumulator;
+
+      if (!accumulator[day]) {
+        accumulator[day] = [];
+      }
+
+      accumulator[day].push(hour);
+      return accumulator;
+    }, {});
+  }, [availableDays, availableHours]);
 
 
   if (isLoading) {
@@ -281,7 +294,7 @@ export default function AvailableTimings() {
                                   <p className="text-[#0073CF] text-xs font-semibold">Available Hours:</p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  {availableHours.map((hour: string, idx: number) => (
+                                  {(hoursByDay[day] || []).map((hour: string, idx: number) => (
                                     <Badge
                                       key={idx}
                                       className="bg-white text-gray-700 border border-[#0073CF] font-semibold text-xs px-2 py-1"

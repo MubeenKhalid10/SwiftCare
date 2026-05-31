@@ -33,6 +33,9 @@ function DoctorProfileContent() {
   const [newComment, setNewComment] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
   const isRegisteredDoctor = doctor?.accountStatus?.registered !== false;
+  const doctorLocationLabel = typeof doctor?.location === 'string'
+    ? doctor.location
+    : doctor?.location?.label || 'Location not specified';
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -204,7 +207,7 @@ function DoctorProfileContent() {
                     </div>
                     <div className="flex items-center gap-1">
                       <MapPin className="w-4 h-4" />
-                      <span className="text-sm">{doctor.location || 'Location not specified'}</span>
+                      <span className="text-sm">{doctorLocationLabel}</span>
                     </div>
                   </div>
                   <div className="flex gap-2 flex-wrap">
@@ -304,7 +307,7 @@ function DoctorProfileContent() {
                     <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0" />
                     <div>
                       <p className="font-semibold">Current Location</p>
-                      <p className="text-gray-600">{doctor.location}</p>
+                      <p className="text-gray-600">{doctorLocationLabel}</p>
                     </div>
                   </div>
                 )}
@@ -339,7 +342,7 @@ function DoctorProfileContent() {
             <div className="bg-gray-50 p-6 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-5 h-5 text-blue-600" />
-                <span className="font-semibold">{doctor.locationLabel || doctor.location || 'Location not specified'}</span>
+                <span className="font-semibold">{doctor.locationLabel || doctorLocationLabel}</span>
               </div>
               <p className="text-gray-600">Contact the clinic for detailed address and directions.</p>
             </div>

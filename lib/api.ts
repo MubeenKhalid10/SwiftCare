@@ -399,7 +399,9 @@ export async function getPatientByEmail(email: string): Promise<Patient | undefi
   }
 }
 
-export async function createPatient(patient: Omit<Patient, "id">): Promise<Patient> {
+export async function createPatient(
+  patient: Pick<Patient, "name" | "phone" | "age" | "gender"> & Partial<Patient>
+): Promise<Patient> {
   return fetchAPI<Patient>("/patients", {
     method: "POST",
     body: JSON.stringify(patient),

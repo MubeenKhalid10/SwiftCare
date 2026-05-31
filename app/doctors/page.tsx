@@ -168,7 +168,7 @@ function DoctorsContent() {
       selectedGenderValue === "" ||
       normalizedGender === selectedGenderValue.toLowerCase();
 
-    const docExp = parseInt(doc.experience || "0");
+    const docExp = parseInt(String(doc.experience || "0"));
     const matchesExperience =
       appliedFilters.selectedExperience === "" ||
       (appliedFilters.selectedExperience === "0 - 5 Years" ? docExp <= 5 : docExp > 5);

@@ -138,7 +138,6 @@ export default function LoginPage() {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                <span className="text-sm text-gray-700">Remember Me</span>
               </label>
               <Link
                 href="/auth/forgot-password"

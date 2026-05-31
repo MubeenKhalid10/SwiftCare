@@ -135,7 +135,7 @@ export default function DoctorProfileSettings() {
         about: formData.about.trim(),
       }
 
-      if (!Number.isNaN(experienceValue)) payload.experience = experienceValue
+      if (!Number.isNaN(experienceValue)) payload.experience = String(experienceValue)
       if (!Number.isNaN(feeValue)) payload.consultationFee = feeValue
 
       const updated = await updateDoctor(String(user.id), payload)

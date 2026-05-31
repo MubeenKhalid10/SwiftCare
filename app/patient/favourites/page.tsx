@@ -54,7 +54,9 @@ function FavouritesContent() {
     return favouriteDoctors.filter((doc) => {
       const name = doc.name?.toLowerCase?.() || ""
       const specialty = doc.specialty?.toLowerCase?.() || ""
-      const location = doc.location?.toLowerCase?.() || ""
+      const location = typeof doc.location === 'string'
+        ? doc.location.toLowerCase()
+        : doc.location?.label?.toLowerCase?.() || ""
 
       return (
         name.includes(term) ||
@@ -166,7 +168,7 @@ function FavouritesContent() {
 
                       <div className="space-y-1 text-xs text-gray-600 mb-3">
                         <p className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" /> {doctor.location}
+                          <MapPin className="w-3 h-3" /> {typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || 'Location not specified'}
                         </p>
                         <p>Fee: {doctor.fee}</p>
                       </div>

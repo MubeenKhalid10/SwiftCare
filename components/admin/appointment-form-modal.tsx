@@ -30,7 +30,7 @@ export function AppointmentFormModal({
       doctorName: '',
       date: '',
       time: '',
-      status: 'upcoming',
+      status: 'Pending',
       email: '',
       phone: '',
     }
@@ -53,7 +53,7 @@ export function AppointmentFormModal({
         doctorName: '',
         date: '',
         time: '',
-        status: 'upcoming',
+        status: 'Pending',
         email: '',
         phone: '',
       })

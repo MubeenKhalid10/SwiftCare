@@ -457,7 +457,7 @@ export default function AppointmentsPage() {
                                 </Button>
                               ) : (
                                 (() => {
-                                  const currentServing = queueStates[String(apt.shiftId)] ?? currentServingPositionByShift[String(apt.shiftId)] ?? 0
+                                  const currentServing = queueStates[String(apt.shiftId)] ?? 0
                                   const queueMetrics = getQueueMetrics(apt)
                                   
                                   const isServingNow = queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing === queueMetrics.yourPosition;

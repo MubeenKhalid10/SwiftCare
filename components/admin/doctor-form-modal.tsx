@@ -63,7 +63,7 @@ function buildFormFromDoctor(doctor?: Doctor | null): DoctorFormData {
     age: doctor.age != null ? String(doctor.age) : '',
     gender: doctor.gender || '',
     specialization: doctor.specialty || doctor.specialization || anyDoctor.professionalInfo?.specialization || '',
-    experience: doctor.experience || '',
+    experience: String(doctor.experience || ''),
     about: doctor.about || '',
     image: doctor.image || '',
     clinicName: anyDoctor.clinicName || locationObject?.clinicName || '',

@@ -11,7 +11,7 @@ interface DoctorVerificationModalProps {
     onClose: () => void
     onApprove: (id: string) => void
     onReject: (id: string) => void
-    onAddAndAffiliateHospital?: (doctorId: string, hospitalName: string, hospitalLocation: string, hospitalImage?: string) => Promise<void>
+    onAddAndAffiliateHospital?: (doctorId: string, hospitalName: string, hospitalLocation: string, hospitalImage?: File | string) => Promise<void>
     actionLoading?: string | null
 }
 

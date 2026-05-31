@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { getReviews, deleteReview, getPatients, getDoctors } from '@/lib/api'
@@ -10,6 +11,7 @@ import { LogoLoader } from '@/components/ui/logo-loader'
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app').replace(/\/+$/, '')
 
 export default function ReviewsPage() {
+  const router = useRouter()
   const [reviews, setReviews] = useState<Review[]>([])
   const [patients, setPatients] = useState<Record<string, Patient>>({})
   const [doctors, setDoctors] = useState<Record<string, Doctor>>({})

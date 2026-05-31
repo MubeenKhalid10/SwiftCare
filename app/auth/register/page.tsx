@@ -551,6 +551,8 @@ export default function RegisterPage() {
         </div>
       </div>
       {/* Right Side - Gradient Background */}
+<div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 items-center justify-center p-8">
+ 
      <div className="text-center flex flex-col items-center">
     
     <h2 className="text-5xl font-bold text-white mb-4">
@@ -572,5 +574,6 @@ export default function RegisterPage() {
     />
 
   </div>
+</div>
 </div>
 )}

@@ -31,7 +31,10 @@ export function FindDoctorsModal({ isOpen, onClose }: FindDoctorsModalProps) {
   useEffect(() => {
     const filtered = doctors.filter(doc =>
       doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.specialty?.toLowerCase().includes(searchTerm.toLowerCase())
+      doc.specialty?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (typeof doc.location === 'string'
+        ? doc.location.toLowerCase().includes(searchTerm.toLowerCase())
+        : doc.location?.label?.toLowerCase?.().includes(searchTerm.toLowerCase()))
     )
     setFilteredDoctors(filtered)
   }, [searchTerm, doctors])
@@ -98,7 +101,7 @@ export function FindDoctorsModal({ isOpen, onClose }: FindDoctorsModalProps) {
                     <div className="flex-1">
                       <p className="font-semibold text-foreground">{doctor.name}</p>
                       <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
-                      <p className="text-xs text-muted-foreground">{doctor.location}</p>
+                      <p className="text-xs text-muted-foreground">{typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || 'Location not specified'}</p>
                     </div>
                   </div>
                   <Button
