@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { LogoLoader } from '@/components/ui/logo-loader'
 import { toast } from 'sonner'
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''))
   const [isLoading, setIsLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
@@ -209,5 +209,17 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <LogoLoader size={32} />
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
