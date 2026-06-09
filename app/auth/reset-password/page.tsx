@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { resetPassword } from '@/lib/auth.service'
 import { LogoLoader } from '@/components/ui/logo-loader'
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''))
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -222,5 +222,17 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <LogoLoader size={32} />
+      </div>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
   )
 }
