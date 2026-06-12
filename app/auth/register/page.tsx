@@ -523,23 +523,17 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-             
-            </div>
-          </div>
-
           {/* Google Sign Up */}
           {role === 'patient' && (
-             <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-600">Or continue with</span>
             <div className="mt-6">
-              <GoogleSignInButton roleHint={role} text="signup_with" />
-            </div>
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-x-0 top-1/2 border-t border-gray-200" />
+                <span className="relative bg-white px-3 text-sm text-gray-600">Or continue with</span>
               </div>
+              <div className="mt-6 flex justify-center">
+                <GoogleSignInButton roleHint={role} text="signup_with" className="justify-center" />
+              </div>
+            </div>
           )}
 
           <p className="text-center text-gray-600 mt-6 text-sm">

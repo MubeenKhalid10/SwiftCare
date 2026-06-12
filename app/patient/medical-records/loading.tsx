@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <Image
-        src="/assets/logo.png"
+        src="/assets/Logo.png"
         alt="SwiftCare"
         width={64}
         height={64}

@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { getReviews, deleteReview, getPatients, getDoctors } from '@/lib/api'
+import { API_BASE_URL as API_URL } from '@/lib/api-config'
 import type { Review, Patient, Doctor } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
-
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
 
 export default function ReviewsPage() {
   const router = useRouter()

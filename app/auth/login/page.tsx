@@ -170,7 +170,9 @@ export default function LoginPage() {
           </div>
 
           {/* Google Sign In */}
-          <GoogleSignInButton roleHint="patient" text="signin_with" />
+          <div className="mt-4 flex justify-center">
+            <GoogleSignInButton roleHint="patient" text="signin_with" className="w-full" />
+          </div>
 
           {/* Sign Up */}
           <p className="text-center text-gray-600 mt-8">

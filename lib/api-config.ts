@@ -1,5 +1,20 @@
 // API Configuration
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+const DEFAULT_PRODUCTION_API_URL = 'https://swiftcare.up.railway.app';
+
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+export function resolveApiBaseUrl(): string {
+  const explicitUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (explicitUrl) {
+    return normalizeBaseUrl(explicitUrl);
+  }
+
+  return DEFAULT_PRODUCTION_API_URL;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Token storage keys
 export const TOKEN_KEYS = {

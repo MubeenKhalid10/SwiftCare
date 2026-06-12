@@ -5,8 +5,7 @@
 
 import type { Notification } from './types'
 import { getAccessToken } from './auth.service'
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
+import { API_BASE_URL } from './api-config'
 
 interface NotificationResponse {
   page: number

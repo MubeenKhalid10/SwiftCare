@@ -1,7 +1,8 @@
 import { io, Socket } from "socket.io-client";
 import { getAccessToken } from "./auth.service";
+import { API_BASE_URL } from "./api-config";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const SOCKET_URL = API_BASE_URL;
 
 let socketInstance: Socket | null = null;
 

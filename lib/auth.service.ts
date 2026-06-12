@@ -1,4 +1,4 @@
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+import { API_BASE_URL } from './api-config';
 const ACCESS_TOKEN_KEY = "accessToken";
 const AUTH_STORAGE_KEY = "swiftcare_auth";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -102,7 +102,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
       return adminData;
     }
 
-    const res = await fetch(`${BASE_URL}/auth/login`, {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: normalizedEmail, password }),
@@ -176,7 +176,7 @@ export const register = async (payload: {
   try {
     console.log("[v0] Signup attempt for:", payload.email, "as", payload.roleHint);
 
-    const res = await fetch(`${BASE_URL}/auth/signup`, {
+    const res = await fetch(`${API_BASE_URL}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -220,7 +220,7 @@ export const verifyEmailOtp = async (
   roleHint: "patient" | "doctor",
   otp: string
 ): Promise<AuthResponse> => {
-  const res = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+  const res = await fetch(`${API_BASE_URL}/auth/verify-email-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, roleHint, otp }),
@@ -251,7 +251,7 @@ export const resendSignupOtp = async (
   password: string,
   roleHint: "patient" | "doctor"
 ): Promise<SignupResponse> => {
-  const res = await fetch(`${BASE_URL}/auth/signup`, {
+  const res = await fetch(`${API_BASE_URL}/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email, password, roleHint }),
@@ -272,7 +272,7 @@ export const forgotPassword = async (
   email: string,
   roleHint: "patient" | "doctor"
 ): Promise<{ message: string }> => {
-  const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+  const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, roleHint }),
@@ -295,7 +295,7 @@ export const resetPassword = async (
   otp: string,
   newPassword: string
 ): Promise<{ message: string }> => {
-  const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+  const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, roleHint, otp, newPassword }),
@@ -329,7 +329,7 @@ export const uploadProfileImage = async (
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}/api/user/upload-image`, {
+  const res = await fetch(`${API_BASE_URL}/api/user/upload-image`, {
     method: "POST",
     body: formData,
     headers,
@@ -347,9 +347,9 @@ export const uploadProfileImage = async (
 export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"): Promise<AuthResponse> => {
   try {
     console.log("[v0] Google auth attempt as", roleHint);
-    console.log("[v0] Sending idToken to backend at:", `${BASE_URL}/auth/google`);
+    console.log("[v0] Sending idToken to backend at:", `${API_BASE_URL}/auth/google`);
 
-    const res = await fetch(`${BASE_URL}/auth/google`, {
+    const res = await fetch(`${API_BASE_URL}/auth/google`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken, roleHint }),
@@ -386,7 +386,7 @@ export const refreshAccessToken = async (): Promise<string> => {
     console.log("[v0] Attempting to refresh access token");
 
     // Backend stores refresh token in HTTPONLY cookie, send credentials: 'include'
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include", // This sends the refreshToken cookie
@@ -429,7 +429,7 @@ export const logout = async (): Promise<void> => {
   try {
     console.log("[v0] Logging out");
 
-    await fetch(`${BASE_URL}/auth/logout`, {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

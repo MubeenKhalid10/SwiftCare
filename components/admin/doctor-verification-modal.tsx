@@ -3,6 +3,7 @@
 import React, { useState } from "react"
 import { FileText, X, Check, XCircle, MapPin, Clock, DollarSign, Users, Award, Phone, Building2, Loader2, AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { API_BASE_URL } from "@/lib/api-config"
 import type { Facility } from "@/lib/types"
 
 interface DoctorVerificationModalProps {
@@ -54,7 +55,7 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
         if (!path) return <span className="text-gray-400 text-sm italic">Not provided</span>
         return (
             <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${path}`}
+                href={`${API_BASE_URL}${path}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-sm text-primary hover:underline mt-1"

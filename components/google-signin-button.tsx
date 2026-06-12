@@ -34,13 +34,16 @@ interface GoogleSignInButtonProps {
   roleHint: 'patient' | 'doctor'
   onSuccess?: () => void
   text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin'
+  className?: string
 }
 
-export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }: GoogleSignInButtonProps) {
+const DEFAULT_GOOGLE_CLIENT_ID = '911635912176-io7eeq8vr81m3j23thic57pcn1s4lj6t.apps.googleusercontent.com'
+
+export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with', className = '' }: GoogleSignInButtonProps) {
   const buttonRef = useRef<HTMLDivElement>(null)
   const { googleAuth } = useAuth()
   const router = useRouter()
-  const googleClientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').replace(/^"|"$/g, '').trim()
+  const googleClientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID).replace(/^"|"$/g, '').trim()
   
   // Use the provided roleHint (patient or doctor)
   const effectiveRoleHint = roleHint
@@ -153,5 +156,5 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
     }
   }, [text, handleCredentialResponse, googleClientId])
 
-  return <div ref={buttonRef} className="w-full" />
+  return <div ref={buttonRef} className={`inline-flex ${className}`} />
 }

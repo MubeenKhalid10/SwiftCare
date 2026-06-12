@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getAccessToken } from '@/lib/auth.service';
+import { API_BASE_URL } from '@/lib/api-config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -602,7 +603,7 @@ export default function DoctorVerification() {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/doctors/verification/submit`, {
+            const response = await fetch(`${API_BASE_URL}/doctors/verification/submit`, {
                 method: 'POST',
                 headers,
                 body: formData, // Auto sets multipart/form-data boundary
