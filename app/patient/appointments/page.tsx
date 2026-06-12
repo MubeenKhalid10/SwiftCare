@@ -459,13 +459,22 @@ export default function AppointmentsPage() {
                                 (() => {
                                   const currentServing = queueStates[String(apt.shiftId)] ?? 0
                                   const queueMetrics = getQueueMetrics(apt)
+                                  const isShiftNotStarted = currentServing <= 0
                                   
-                                  const isServingNow = queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing === queueMetrics.yourPosition;
+                                  const isServingNow = !isShiftNotStarted && queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing === queueMetrics.yourPosition;
                                   const isTurnPassed = queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing > queueMetrics.yourPosition;
 
                                   return (
                                     <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
-                                      {isServingNow ? (
+                                      {isShiftNotStarted ? (
+                                        <div className="flex items-center gap-3 px-4">
+                                          <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-blue-500 uppercase tracking-widest">Status</span>
+                                            <span className="text-xl font-black text-blue-700 leading-none whitespace-nowrap">Doctor did not start the shift yet</span>
+                                            <span className="text-xs font-medium text-blue-500 mt-1">Queue tracking will activate once the doctor starts the shift from the dashboard.</span>
+                                          </div>
+                                        </div>
+                                      ) : isServingNow ? (
                                         <div className="flex items-center gap-3 px-4">
                                           <div className="flex flex-col">
                                             <span className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">Status</span>

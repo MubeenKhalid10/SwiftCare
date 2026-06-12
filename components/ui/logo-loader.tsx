@@ -11,7 +11,7 @@ export function LogoLoader({ size = 32, className, priority = false }: LogoLoade
 
   return (
     <Image
-      src="/assets/logo.png"
+      src="/assets/Logo.png"
       alt="SwiftCare"
       width={size}
       height={size}

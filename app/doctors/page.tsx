@@ -437,7 +437,7 @@ function DoctorsContent() {
               {isLoading && (
                 <div className="flex justify-center py-12">
                   <Image
-                    src="/assets/logo.png"
+                    src="/assets/Logo.png"
                     alt="SwiftCare"
                     width={64}
                     height={64}

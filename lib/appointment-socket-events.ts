@@ -24,25 +24,28 @@ export function initializeAppointmentSocketEvents(config: AppointmentSocketConfi
 
   // Listen for appointment confirmations
   if (config.onAppointmentConfirmed) {
-    socket.on('appointment:confirmed', (appointment: Appointment) => {
-      console.log('[v0] Appointment confirmed via socket:', appointment)
-      config.onAppointmentConfirmed?.(appointment)
+    socket.on('appointment:created', (payload: { appointment?: Appointment } | Appointment) => {
+      const appointment = (payload as any)?.appointment || payload
+      console.log('[v0] Appointment created via socket:', appointment)
+      config.onAppointmentConfirmed?.(appointment as Appointment)
     })
   }
 
   // Listen for appointment cancellations
   if (config.onAppointmentCancelled) {
-    socket.on('appointment:cancelled', (appointment: Appointment) => {
+    socket.on('appointment:cancelled', (payload: { appointment?: Appointment } | Appointment) => {
+      const appointment = (payload as any)?.appointment || payload
       console.log('[v0] Appointment cancelled via socket:', appointment)
-      config.onAppointmentCancelled?.(appointment)
+      config.onAppointmentCancelled?.(appointment as Appointment)
     })
   }
 
   // Listen for appointment completions
   if (config.onAppointmentCompleted) {
-    socket.on('appointment:completed', (appointment: Appointment) => {
-      console.log('[v0] Appointment completed via socket:', appointment)
-      config.onAppointmentCompleted?.(appointment)
+    socket.on('consultation:ended', (payload: { appointment?: Appointment } | Appointment) => {
+      const appointment = (payload as any)?.appointment || payload
+      console.log('[v0] Consultation ended via socket:', appointment)
+      config.onAppointmentCompleted?.(appointment as Appointment)
     })
   }
 
@@ -73,9 +76,9 @@ export function initializeAppointmentSocketEvents(config: AppointmentSocketConfi
   // Return cleanup function
   return () => {
     if (socket) {
-      socket.off('appointment:confirmed')
+      socket.off('appointment:created')
       socket.off('appointment:cancelled')
-      socket.off('appointment:completed')
+      socket.off('consultation:ended')
       socket.off('queueUpdated')
       socket.off('doctor:checked-in')
       socket.off('doctor:checked-out')

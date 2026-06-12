@@ -47,7 +47,7 @@ export default function DoctorDashboard() {
 
   // Handle real-time notifications
   useNotifications({
-    showToasts: true,
+    showToasts: false,
     onReviewSubmitted: (notif) => {
       setNewReviewNotifications(prev => [notif, ...prev.slice(0, 4)])
       // Refresh reviews to show new ones

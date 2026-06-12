@@ -1,7 +1,7 @@
 import type { Doctor, Patient, Review, Appointment, LoginCredentials, RegisterData, User, DashboardStats, DoctorInsights, QueueState, Shift, Notification, Facility } from "./types"
 import { getAccessToken, refreshAccessToken } from "./auth.service"
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://swiftcare.up.railway.app").replace(/\/+$/, "")
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "")
 
 // Helper to transform MongoDB _id to id
 function transformMongoDocument<T extends { _id?: string; id?: string | number }>(doc: T): T {
@@ -111,10 +111,6 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
 
     // Handle 401 - token expired, try to refresh and retry
     if (response.status === 401 && retry) {
-      if (!token) {
-        throw new Error("Unauthorized")
-      }
-
       try {
         console.log(`[v0] Token expired (401), refreshing...`)
         const newToken = await refreshAccessToken()
@@ -315,10 +311,12 @@ export async function getDoctorByEmail(email: string): Promise<Doctor | undefine
 }
 
 export async function createDoctor(doctor: Omit<Doctor, "id">): Promise<Doctor> {
-  return fetchAPI<Doctor>("/doctors", {
+  const data = await fetchAPI<{ doctor?: Doctor } & Doctor>("/doctors", {
     method: "POST",
     body: JSON.stringify(doctor),
   })
+
+  return (data as { doctor?: Doctor }).doctor || (data as Doctor)
 }
 
 export async function updateDoctor(id: string, doctor: Partial<Doctor>): Promise<Doctor> {

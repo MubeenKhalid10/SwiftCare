@@ -322,7 +322,7 @@ export default function FacilityDetailPage() {
       fallback={
         <div className="flex justify-center items-center min-h-screen">
           <Image
-            src="/assets/logo.png"
+            src="/assets/Logo.png"
             alt="SwiftCare"
             width={64}
             height={64}

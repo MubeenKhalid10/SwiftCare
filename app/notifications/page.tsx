@@ -11,19 +11,24 @@ import { PatientSidebar } from '@/components/patient/patient-sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { 
   getNotifications, 
+  getUnreadCount,
   markNotificationAsRead, 
   markAllNotificationsAsRead,
   getNotificationIcon,
-  getNotificationStyle 
+  getNotificationStyle,
+  getNotificationRoute,
+  NOTIFICATION_FILTER_OPTIONS,
 } from '@/lib/notification.service'
 import type { Notification } from '@/lib/types'
 import { Bell, Trash2, Check, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import { socket, connectSocket } from '@/lib/socket'
 import { LogoLoader } from '@/components/ui/logo-loader'
+import { useRouter } from 'next/navigation'
 
 export default function NotificationsPage() {
   const { user, isAuthenticated } = useAuth()
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
@@ -54,12 +59,14 @@ export default function NotificationsPage() {
   const fetchNotifications = async () => {
     try {
       setLoading(true)
-      const filterType = filter !== 'all' ? filter : undefined
-      const response = await getNotifications(page, 20, filter === 'unread', filterType)
+      const unreadOnly = filter === 'unread'
+      const filterType = filter !== 'all' && filter !== 'unread' ? filter : undefined
+      const response = await getNotifications(page, 20, unreadOnly, filterType)
       setNotifications(response.items)
       setTotalPages(response.totalPages)
       setTotal(response.total)
-      setUnreadCount(response.items.filter(n => !n.read).length)
+      const unread = await getUnreadCount().catch(() => 0)
+      setUnreadCount(unread)
     } catch (err) {
       toast.error('Failed to load notifications')
     } finally {
@@ -71,7 +78,7 @@ export default function NotificationsPage() {
     try {
       await markNotificationAsRead(notificationId)
       setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, read: true, readAt: new Date().toISOString() } : n)
+        prev.map(n => String(n.id || n._id) === String(notificationId) ? { ...n, read: true, readAt: new Date().toISOString() } : n)
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
     } catch (err) {
@@ -90,9 +97,19 @@ export default function NotificationsPage() {
     }
   }
 
-  const notificationTypes = [
-    { value: 'all', label: 'All Notifications' },
-  ]
+  const notificationTypes = NOTIFICATION_FILTER_OPTIONS
+
+  const handleNotificationClick = async (notification: Notification) => {
+    const notificationId = String(notification.id || notification._id || '')
+    if (!notification.read && notificationId) {
+      await handleMarkAsRead(notificationId)
+    }
+
+    const route = getNotificationRoute(notification.type)
+    if (route) {
+      router.push(route)
+    }
+  }
 
   const SidebarComponent = user?.role === 'doctor' ? DoctorSidebar : PatientSidebar
 
@@ -188,7 +205,7 @@ export default function NotificationsPage() {
                             className={`p-4 border rounded-lg transition-colors cursor-pointer hover:shadow-sm ${
                               notification.read ? 'bg-white' : style.bgColor + ' border-2 border-current'
                             } ${style.borderColor}`}
-                            onClick={() => !notification.read && notification.id && handleMarkAsRead(notification.id)}
+                            onClick={() => handleNotificationClick(notification)}
                           >
                             <div className="flex items-start gap-4">
                               {/* Icon */}
@@ -237,7 +254,8 @@ export default function NotificationsPage() {
                                   className="flex-shrink-0"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    if (notification.id) handleMarkAsRead(notification.id)
+                                      const notificationId = String(notification.id || notification._id || '')
+                                      if (notificationId) handleMarkAsRead(notificationId)
                                   }}
                                 >
                                   <Check className="w-4 h-4" />

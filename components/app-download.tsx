@@ -26,12 +26,11 @@ export default function AppDownload() {
           </div>
 
           <div className="relative h-96">
-            <div className="absolute inset-0 bg-white/20 rounded-3xl backdrop-blur-sm flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="w-32 h-64 bg-white/30 rounded-2xl mb-4 mx-auto"></div>
-                <p>Mobile App Screenshot</p>
-              </div>
-            </div>
+            <img
+                src="/assets/app.jpeg" // Replace with your image path
+                alt="Mobile App Screenshot"
+                className="w-full h-full object-contain rounded-3xl"
+              />
           </div>
         </div>
       </div>

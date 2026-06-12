@@ -40,14 +40,20 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
   const buttonRef = useRef<HTMLDivElement>(null)
   const { googleAuth } = useAuth()
   const router = useRouter()
+  const googleClientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').replace(/^"|"$/g, '').trim()
   
   // Use the provided roleHint (patient or doctor)
   const effectiveRoleHint = roleHint
 
   const handleCredentialResponse = useCallback(async (response: { credential: string }) => {
     try {
+      if (!response?.credential) {
+        toast.error('Google sign-in did not return a credential token')
+        return
+      }
+
       console.log('[v0] Google sign-in initiated')
-      console.log('[v0] Frontend Google Client ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+      console.log('[v0] Frontend Google Client ID:', googleClientId)
       console.log('[v0] Role hint:', effectiveRoleHint)
       
       const result = await googleAuth(response.credential, effectiveRoleHint)
@@ -84,7 +90,7 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
       console.error('[v0] Full error:', error)
       toast.error(errorMsg)
     }
-  }, [googleAuth, effectiveRoleHint, onSuccess, router])
+  }, [googleAuth, effectiveRoleHint, googleClientId, onSuccess, router])
 
   useEffect(() => {
     // Load Google Identity Services script only once
@@ -97,8 +103,13 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
 
       script.onload = () => {
         if (window.google && buttonRef.current) {
+          if (!googleClientId) {
+            toast.error('Google client ID is missing in frontend environment')
+            return
+          }
+
           window.google.accounts.id.initialize({
-            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+            client_id: googleClientId,
             callback: handleCredentialResponse,
           })
 
@@ -114,8 +125,13 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
     } else {
       // Script already loaded, just initialize
       if (window.google && buttonRef.current) {
+        if (!googleClientId) {
+          toast.error('Google client ID is missing in frontend environment')
+          return
+        }
+
         window.google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+          client_id: googleClientId,
           callback: handleCredentialResponse,
         })
 
@@ -135,7 +151,7 @@ export function GoogleSignInButton({ roleHint, onSuccess, text = 'signin_with' }
         buttonRef.current.innerHTML = ''
       }
     }
-  }, [text, handleCredentialResponse, effectiveRoleHint])
+  }, [text, handleCredentialResponse, googleClientId])
 
   return <div ref={buttonRef} className="w-full" />
 }

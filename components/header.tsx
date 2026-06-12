@@ -54,7 +54,7 @@ export function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center space-x-3 transition-transform duration-300 hover:-translate-y-0.5">
           <Image
-            src="/assets/logo(1).png"
+            src="/assets/Logo(1).png"
             alt="SwiftCare"
             width={50}
             height={50}
@@ -62,7 +62,7 @@ export function Header() {
             priority
           />
            <Image
-            src="/assets/logo(2).png"
+            src="/assets/Logo(2).png"
             alt="SwiftCare"
             width={50}
             height={50}

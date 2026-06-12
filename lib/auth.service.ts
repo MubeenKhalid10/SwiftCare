@@ -1,4 +1,4 @@
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://swiftcare.up.railway.app").replace(/\/+$/, "");
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 const ACCESS_TOKEN_KEY = "accessToken";
 const AUTH_STORAGE_KEY = "swiftcare_auth";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -384,11 +384,6 @@ export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"
 export const refreshAccessToken = async (): Promise<string> => {
   try {
     console.log("[v0] Attempting to refresh access token");
-
-    const currentToken = getAccessToken()
-    if (!currentToken) {
-      throw new Error("Unauthorized")
-    }
 
     // Backend stores refresh token in HTTPONLY cookie, send credentials: 'include'
     const res = await fetch(`${BASE_URL}/auth/refresh`, {

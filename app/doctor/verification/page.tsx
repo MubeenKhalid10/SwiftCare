@@ -602,7 +602,7 @@ export default function DoctorVerification() {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app'}/doctors/verification/submit`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/doctors/verification/submit`, {
                 method: 'POST',
                 headers,
                 body: formData, // Auto sets multipart/form-data boundary

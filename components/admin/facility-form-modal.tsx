@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { geocodeAddressWithMapbox } from '@/lib/location'
+import { useToast } from '@/hooks/use-toast'
 import type { Facility } from '@/lib/types'
 
 export interface FacilityFormData {
@@ -14,6 +16,7 @@ export interface FacilityFormData {
   about: string
   image: string
   locationLabel: string
+  locationCoordinates?: [number, number] | null
   doctorIds: string
 }
 
@@ -22,6 +25,7 @@ const EMPTY_FORM: FacilityFormData = {
   about: '',
   image: '',
   locationLabel: '',
+  locationCoordinates: null,
   doctorIds: '',
 }
 
@@ -39,6 +43,7 @@ function buildFormFromFacility(facility?: Facility | null): FacilityFormData {
     about: facility.about || '',
     image: facility.image || '',
     locationLabel: facility.location?.label || '',
+    locationCoordinates: facility.location?.coordinates || facility.location?.geo?.coordinates || null,
     doctorIds,
   }
 }
@@ -58,8 +63,10 @@ export function FacilityFormModal({
   initialData,
   isLoading = false,
 }: FacilityFormModalProps) {
+  const { toast } = useToast()
   const [formData, setFormData] = useState<FacilityFormData>(buildFormFromFacility(initialData))
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isFetchingCoordinates, setIsFetchingCoordinates] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -73,6 +80,7 @@ export function FacilityFormModal({
     setFormData(prev => ({
       ...prev,
       [name]: value,
+      ...(name === 'locationLabel' ? { locationCoordinates: null } : {}),
     }))
     // Clear error for this field when user starts typing
     if (errors[name]) {
@@ -81,6 +89,44 @@ export function FacilityFormModal({
         delete newErrors[name]
         return newErrors
       })
+    }
+  }
+
+  const handleFetchCoordinates = async () => {
+    const trimmedLocation = formData.locationLabel.trim()
+    if (!trimmedLocation) {
+      setErrors(prev => ({ ...prev, locationLabel: 'Location/Address is required' }))
+      toast({ description: 'Enter a location first', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setIsFetchingCoordinates(true)
+      const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocation)
+
+      if (!resolvedLocation || !Array.isArray(resolvedLocation.coordinates) || resolvedLocation.coordinates.length < 2) {
+        toast({ description: 'Unable to fetch coordinates for this location', variant: 'destructive' })
+        return
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        locationLabel: resolvedLocation.label || trimmedLocation,
+        locationCoordinates: resolvedLocation.coordinates,
+      }))
+
+      setErrors(prev => {
+        const next = { ...prev }
+        delete next.locationLabel
+        return next
+      })
+
+      toast({ description: 'Coordinates fetched successfully' })
+    } catch (error) {
+      console.error('Error fetching coordinates:', error)
+      toast({ description: 'Failed to fetch coordinates', variant: 'destructive' })
+    } finally {
+      setIsFetchingCoordinates(false)
     }
   }
 
@@ -138,15 +184,31 @@ export function FacilityFormModal({
 
           <div>
             <Label htmlFor="locationLabel">Location/Address *</Label>
-            <Input
-              id="locationLabel"
-              name="locationLabel"
-              placeholder="e.g., 123 Main Street, City, Country"
-              value={formData.locationLabel || ''}
-              onChange={handleChange}
-              className={errors.locationLabel ? 'border-red-500' : ''}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="locationLabel"
+                name="locationLabel"
+                placeholder="e.g., 123 Main Street, City, Country"
+                value={formData.locationLabel || ''}
+                onChange={handleChange}
+                className={errors.locationLabel ? 'border-red-500' : ''}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleFetchCoordinates}
+                disabled={isLoading || isFetchingCoordinates}
+              >
+                {isFetchingCoordinates ? 'Fetching...' : 'Fetch Coordinates'}
+              </Button>
+            </div>
             {errors.locationLabel && <p className="text-red-500 text-sm mt-1">{errors.locationLabel}</p>}
+            <p className="text-xs text-gray-500 mt-1">Use fetch button to geocode this address before saving.</p>
+            {formData.locationCoordinates && (
+              <p className="text-xs text-green-700 mt-1">
+                Coordinates: {formData.locationCoordinates[1].toFixed(6)}, {formData.locationCoordinates[0].toFixed(6)}
+              </p>
+            )}
           </div>
 
           <div>

@@ -130,14 +130,9 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me + Forgot Password */}
+            {/* Forgot Password */}
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
               </label>
               <Link
                 href="/auth/forgot-password"

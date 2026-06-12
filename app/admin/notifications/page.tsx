@@ -7,11 +7,16 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { 
   getNotifications, 
+  getUnreadCount,
   markNotificationAsRead, 
-  markAllNotificationsAsRead
+  markAllNotificationsAsRead,
+  getNotificationIcon,
+  getNotificationStyle,
+  getAdminNotificationRoute,
+  NOTIFICATION_FILTER_OPTIONS,
 } from '@/lib/notification.service'
 import type { Notification } from '@/lib/types'
-import { Check, Filter, AlertCircle, Users, UserPlus, Stethoscope, Star } from 'lucide-react'
+import { Check, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { socket, connectSocket } from '@/lib/socket'
 import AdminLayout from '@/components/admin/admin-layout'
@@ -72,7 +77,8 @@ export default function AdminNotificationsPage() {
       setNotifications(response.items)
       setTotalPages(response.totalPages)
       setTotal(response.total)
-      setUnreadCount(response.items.filter(n => !n.read).length)
+      const unread = await getUnreadCount().catch(() => 0)
+      setUnreadCount(unread)
     } catch (err) {
       toast.error('Failed to load notifications')
     } finally {
@@ -84,7 +90,7 @@ export default function AdminNotificationsPage() {
     try {
       await markNotificationAsRead(notificationId)
       setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, read: true, readAt: new Date().toISOString() } : n)
+        prev.map(n => String(n.id || n._id) === String(notificationId) ? { ...n, read: true, readAt: new Date().toISOString() } : n)
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
     } catch (err) {
@@ -103,61 +109,17 @@ export default function AdminNotificationsPage() {
     }
   }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'feedback_moderation':
-        return <Star className="w-5 h-5 text-yellow-500" />
-      case 'new_appointment':
-        return <AlertCircle className="w-5 h-5 text-blue-500" />
-      case 'new_patient':
-        return <UserPlus className="w-5 h-5 text-green-500" />
-      case 'new_doctor':
-        return <Stethoscope className="w-5 h-5 text-purple-500" />
-      default:
-        return <AlertCircle className="w-5 h-5 text-gray-500" />
-    }
-  }
-
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case 'feedback_moderation':
-        return 'bg-yellow-50 border-yellow-200'
-      case 'new_appointment':
-        return 'bg-blue-50 border-blue-200'
-      case 'new_patient':
-        return 'bg-green-50 border-green-200'
-      case 'new_doctor':
-        return 'bg-purple-50 border-purple-200'
-      default:
-        return 'bg-gray-50 border-gray-200'
-    }
-  }
-
-  const notificationTypes = [
-    { value: 'all', label: 'All Notifications' },
-  ]
+  const notificationTypes = NOTIFICATION_FILTER_OPTIONS
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) {
-      handleMarkAsRead(notification.id || '')
+    const notificationId = String(notification.id || notification._id || '')
+    if (!notification.read && notificationId) {
+      handleMarkAsRead(notificationId)
     }
 
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'feedback_moderation':
-        router.push('/admin/reviews')
-        break
-      case 'new_appointment':
-        router.push('/admin/appointments')
-        break
-      case 'new_patient':
-        router.push('/admin/patients')
-        break
-      case 'new_doctor':
-        router.push('/admin/verification')
-        break
-      default:
-        break
+    const route = getAdminNotificationRoute(notification.type)
+    if (route) {
+      router.push(route)
     }
   }
 
@@ -231,11 +193,11 @@ export default function AdminNotificationsPage() {
                 className={`p-4 border rounded-lg transition cursor-pointer hover:shadow-md ${
                   notification.read 
                     ? 'bg-white border-gray-200' 
-                    : getNotificationColor(notification.type)
+                    : `${getNotificationStyle(notification.type).bgColor} ${getNotificationStyle(notification.type).borderColor}`
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  <div className="pt-1">
+                  <div className="pt-1 text-xl" aria-hidden>
                     {getNotificationIcon(notification.type)}
                   </div>
 
@@ -273,7 +235,8 @@ export default function AdminNotificationsPage() {
                       variant="ghost"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleMarkAsRead(notification.id || '')
+                        const notificationId = String(notification.id || notification._id || '')
+                        if (notificationId) handleMarkAsRead(notificationId)
                       }}
                       className="flex-shrink-0"
                     >

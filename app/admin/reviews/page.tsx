@@ -8,7 +8,7 @@ import { getReviews, deleteReview, getPatients, getDoctors } from '@/lib/api'
 import type { Review, Patient, Doctor } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://swiftcare.up.railway.app').replace(/\/+$/, '')
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, '')
 
 export default function ReviewsPage() {
   const router = useRouter()

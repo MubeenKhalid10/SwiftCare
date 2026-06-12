@@ -95,13 +95,20 @@ export default function FacilitiesPage() {
         return
       }
 
-      const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocationLabel)
-      if (!resolvedLocation) {
-        toast({ description: 'Unable to fetch coordinates for this location', variant: 'destructive' })
-        return
+      let finalLabel = trimmedLocationLabel
+      let coordinates = data.locationCoordinates || null
+
+      if (!coordinates) {
+        const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocationLabel)
+        if (!resolvedLocation) {
+          toast({ description: 'Unable to fetch coordinates for this location', variant: 'destructive' })
+          return
+        }
+        coordinates = resolvedLocation.coordinates
+        finalLabel = resolvedLocation.label || trimmedLocationLabel
       }
 
-      const [lng, lat] = resolvedLocation.coordinates
+      const [lng, lat] = coordinates
 
       // Parse doctor IDs
       const doctorList = data.doctorIds
@@ -114,7 +121,7 @@ export default function FacilitiesPage() {
         about: data.about.trim() || undefined,
         image: data.image.trim() || undefined,
         location: {
-          label: resolvedLocation.label || trimmedLocationLabel,
+          label: finalLabel,
           coordinates: [lng, lat],
           geo: {
             type: 'Point',

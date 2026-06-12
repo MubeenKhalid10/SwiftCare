@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Phone, Mail, Star, Calendar, Plus, Edit2, Trash2 } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
-import { getDoctors, updateDoctor, deleteDoctor, createDoctor, getAppointments, getReviews } from '@/lib/api'
+import { getDoctors, getDoctorByEmail, updateDoctor, deleteDoctor, createDoctor, getAppointments, getReviews } from '@/lib/api'
 import { DoctorFormModal, type DoctorFormData } from '@/components/admin/doctor-form-modal'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
@@ -47,6 +47,58 @@ function splitCommaSeparated(value: string): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function formatTimeToken(value: string, suffix?: 'AM' | 'PM'): string | null {
+  const raw = String(value || '').trim()
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i)
+  if (!match) return null
+
+  let hours = Number(match[1])
+  const minutes = Number(match[2])
+  const tokenSuffix = (match[3] || suffix || '').toUpperCase() as 'AM' | 'PM' | ''
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || minutes < 0 || minutes > 59) {
+    return null
+  }
+
+  if (tokenSuffix) {
+    if (hours < 1 || hours > 12) return null
+    const paddedHours = String(hours).padStart(2, '0')
+    const paddedMinutes = String(minutes).padStart(2, '0')
+    return `${paddedHours}:${paddedMinutes} ${tokenSuffix}`
+  }
+
+  if (hours < 0 || hours > 23) return null
+
+  const detectedSuffix: 'AM' | 'PM' = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12
+  if (hours === 0) hours = 12
+
+  const paddedHours = String(hours).padStart(2, '0')
+  const paddedMinutes = String(minutes).padStart(2, '0')
+  return `${paddedHours}:${paddedMinutes} ${detectedSuffix}`
+}
+
+function normalizeTimeRangeEntry(entry: string): string | null {
+  const raw = String(entry || '').trim()
+  if (!raw) return null
+
+  const parts = raw.split('-').map((item) => item.trim()).filter(Boolean)
+  if (parts.length !== 2) return null
+
+  const start = formatTimeToken(parts[0])
+  const end = formatTimeToken(parts[1])
+  if (!start || !end) return null
+
+  return `${start} - ${end}`
+}
+
+function normalizeAvailableHours(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => normalizeTimeRangeEntry(item))
+    .filter((item): item is string => Boolean(item))
 }
 
 export default function DoctorsPage() {
@@ -189,9 +241,52 @@ export default function DoctorsPage() {
         setDoctors(doctors.map((d) => String(d.id) === String(selectedDoctor.id) ? normalizedUpdated : d))
         toast({ description: 'Doctor updated successfully' })
       } else {
-        const newDoctor = await createDoctor(data as unknown as Omit<Doctor, 'id'>)
+        const normalizedEmail = data.email.trim().toLowerCase()
+        const existingDoctor = await getDoctorByEmail(normalizedEmail)
+        if (existingDoctor) {
+          toast({ description: 'A doctor with this email already exists', variant: 'destructive' })
+          setIsSubmitting(false)
+          return
+        }
+
+        const tempPassword = `unregistered-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+        const newDoctorPayload: any = {
+          name: data.name.trim(),
+          specialization: data.specialization.trim(),
+          experience: data.experience.trim(),
+          about: data.about.trim(),
+          image: data.image.trim() || undefined,
+          contactNo: data.phone.trim() || undefined,
+          age: data.age ? Number(data.age) : undefined,
+          gender: data.gender.trim() || undefined,
+          consultationFee: Number.isFinite(Number(data.consultationFee)) ? Number(data.consultationFee) : undefined,
+          location: {
+            label: data.clinicLocation.trim() || undefined,
+            clinicName: data.clinicName.trim() || undefined,
+            geo: {
+              type: 'Point',
+              coordinates: [0, 0],
+            },
+          },
+          schedule: {
+            availableDays: splitCommaSeparated(data.availableDays),
+            availableHours: normalizeAvailableHours(data.availableHours),
+          },
+          credentials: {
+            email: normalizedEmail,
+            password: tempPassword,
+            provider: 'manual',
+            emailVerified: false,
+          },
+          accountStatus: {
+            registered: false,
+            verificationStatus: 'pending',
+          },
+        }
+
+        const newDoctor = await createDoctor(newDoctorPayload as Omit<Doctor, 'id'>)
         setDoctors([...doctors, normalizeDoctor(newDoctor)])
-        toast({ description: 'Doctor created successfully' })
+        toast({ description: 'Doctor created successfully as unregistered information only' })
       }
       setIsFormOpen(false)
     } catch (err) {
@@ -220,6 +315,10 @@ export default function DoctorsPage() {
             <h1 className="text-3xl font-bold">Doctors</h1>
             <p className="text-gray-600">Dashboard / Doctors</p>
           </div>
+          <Button onClick={handleAddDoctor} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Unregistered Doctor
+          </Button>
         </div>
 
         {error && (

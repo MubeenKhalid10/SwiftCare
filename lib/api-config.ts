@@ -1,5 +1,5 @@
 // API Configuration
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://swiftcare.up.railway.app").replace(/\/+$/, "");
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
 // Token storage keys
 export const TOKEN_KEYS = {

@@ -120,7 +120,12 @@ export function DoctorFormModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{initialData ? 'Edit Doctor' : 'Add New Doctor'}</DialogTitle>
+          <DialogTitle>{initialData ? 'Edit Doctor' : 'Add Unregistered Doctor'}</DialogTitle>
+          {!initialData && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+              This doctor will be created as unregistered. Patients can view the profile, but booking stays disabled until the doctor is registered and approved.
+            </p>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="rounded-lg border border-gray-200 p-3">
@@ -290,8 +295,11 @@ export function DoctorFormModal({
               name="availableHours"
               value={formData.availableHours || ''}
               onChange={handleChange}
-              placeholder="09:00-12:00, 17:00-20:00"
+              placeholder="09:00 AM - 12:00 PM, 05:00 PM - 09:00 PM"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use 12-hour ranges with AM/PM, one range per available day.
+            </p>
           </div>
           </div>
 
