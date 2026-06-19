@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getAccessToken } from '@/lib/auth.service';
-import { API_BASE_URL } from '@/lib/api-config';
+import { buildApiUrl, API_ENDPOINTS } from '@/lib/api-config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { LogoLoader } from '@/components/ui/logo-loader';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const STEP_LABELS = ["Personal", "Professional", "Documents", "Clinic"] as const;
 
@@ -274,7 +276,7 @@ export default function DoctorVerification() {
 
     if (authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-white">
+            <div className="min-h-screen flex items-center justify-center bg-card">
                 <LogoLoader size={32} className="h-8 w-8" />
             </div>
         );
@@ -357,7 +359,7 @@ export default function DoctorVerification() {
 
     const validateSize = (file: File) => {
         if (file.size > 1024 * 1024) {
-            alert("File size exceeds 1MB limit.");
+            toast.error('File size exceeds 1MB limit.');
             return false;
         }
         return true;
@@ -366,7 +368,7 @@ export default function DoctorVerification() {
     const validateDocumentType = (file: File) => {
         const isJpeg = file.type === 'image/jpeg' || /\.(jpe?g)$/i.test(file.name || '');
         if (!isJpeg) {
-            alert('Only JPG/JPEG files are allowed for verification documents.');
+            toast.error('Only JPG/JPEG files are allowed for verification documents.');
             return false;
         }
         return true;
@@ -603,7 +605,7 @@ export default function DoctorVerification() {
             const headers: Record<string, string> = {};
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const response = await fetch(`${API_BASE_URL}/doctors/verification/submit`, {
+            const response = await fetch(buildApiUrl(API_ENDPOINTS.DOCTORS_VERIFICATION_SUBMIT), {
                 method: 'POST',
                 headers,
                 body: formData, // Auto sets multipart/form-data boundary
@@ -651,36 +653,36 @@ export default function DoctorVerification() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
+        <div className="min-h-screen bg-muted flex flex-col items-center py-10 px-4">
             <div className="w-full max-w-3xl mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Doctor Verification</h1>
-                <p className="text-gray-600">Please complete all 4 steps to verify your account.</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Doctor Verification</h1>
+                <p className="text-muted-foreground">Please complete all 4 steps to verify your account.</p>
 
                 {/* Progress bar */}
                 <div className="mt-8 relative pt-1">
                     <div className="flex mb-2 items-center justify-between">
                         {STEP_LABELS.map((label, index) => (
                             <div key={label} className="text-center flex-1">
-                                <div className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center font-bold text-sm ${index <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                                <div className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center font-bold text-sm ${index <= currentStep ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
                                     }`}>
                                     {index + 1}
                                 </div>
-                                <div className="text-xs mt-2 font-medium text-gray-500">{label}</div>
+                                <div className="text-xs mt-2 font-medium text-muted-foreground">{label}</div>
                             </div>
                         ))}
                     </div>
-                    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-                        <div style={{ width: `${((currentStep + 1) / STEP_LABELS.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-600 transition-all duration-300"></div>
+                    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-muted">
+                        <div style={{ width: `${((currentStep + 1) / STEP_LABELS.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary transition-all duration-300"></div>
                     </div>
                 </div>
             </div>
 
             <Card className="w-full max-w-3xl shadow-lg border-0">
-                <CardHeader className="bg-white border-b border-gray-100 rounded-t-xl">
+                <CardHeader className="bg-card border-b border-border/50 rounded-t-xl">
                     <CardTitle className="text-xl">Step {currentStep + 1}: {STEP_LABELS[currentStep]}</CardTitle>
                     <CardDescription>Fill in your {STEP_LABELS[currentStep].toLowerCase()} details below.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-6 bg-white rounded-b-xl">
+                <CardContent className="p-6 bg-card rounded-b-xl">
                     {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded border border-red-100">{error}</div>}
 
                     <div className="min-h-[300px]">
@@ -688,7 +690,7 @@ export default function DoctorVerification() {
                         {currentStep === 0 && (
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Profile Picture <span className="text-red-500">*</span> <span className="text-xs text-gray-400">(Max 1MB)</span></label>
+                                    <label className="block text-sm font-medium mb-1">Profile Picture <span className="text-red-500">*</span> <span className="text-xs text-muted-foreground">(Max 1MB)</span></label>
                                     <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'profilePic', setPersonalInfo)} />
                                     {personalInfo.profilePic && <p className="text-xs text-green-600 mt-1">Image selected</p>}
                                 </div>
@@ -700,8 +702,8 @@ export default function DoctorVerification() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Email <span className="text-red-500">*</span></label>
-                                        <Input type="email" value={personalInfo.email} readOnly className="bg-gray-100" />
-                                        <p className="text-xs text-gray-500 mt-1">Email is taken from your account and cannot be changed here.</p>
+                                        <Input type="email" value={personalInfo.email} readOnly className="bg-muted" />
+                                        <p className="text-xs text-muted-foreground mt-1">Email is taken from your account and cannot be changed here.</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -719,7 +721,7 @@ export default function DoctorVerification() {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Gender <span className="text-red-500">*</span></label>
                                         <select
-                                            className="w-full border rounded px-3 py-2 bg-white"
+                                            className="w-full border rounded px-3 py-2 bg-card"
                                             value={personalInfo.gender}
                                             onChange={(e) => setPersonalInfo({ ...personalInfo, gender: e.target.value })}
                                         >
@@ -735,7 +737,7 @@ export default function DoctorVerification() {
                                 <div>
                                     <label className="block text-sm font-medium mb-1">CNIC Number <span className="text-red-500">*</span></label>
                                     <Input placeholder="xxxxx-xxxxxxx-x (include dashes)" value={identInfo.idNumber} onChange={(e) => setIdentInfo({ ...identInfo, idNumber: formatCnic(e.target.value) })} />
-                                    <p className="text-xs text-gray-500 mt-1">Enter CNIC with dashes. Example: 35202-1234567-1</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Enter CNIC with dashes. Example: 35202-1234567-1</p>
                                 </div>
                             </div>
                         )}
@@ -747,7 +749,7 @@ export default function DoctorVerification() {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Degree <span className="text-red-500">*</span></label>
                                         <Input placeholder="MBBS, MD etc. (e.g. MBBS)" value={profInfo.degree} onChange={(e) => setProfInfo({ ...profInfo, degree: e.target.value })} />
-                                        <p className="text-xs text-gray-500 mt-1">Provide your highest qualification.</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Provide your highest qualification.</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Specialization <span className="text-red-500">*</span></label>
@@ -758,7 +760,7 @@ export default function DoctorVerification() {
                                         {profInfo.specialization === 'Other' && (
                                             <div className="mt-2 space-y-1">
                                                 <Input placeholder="Type your specialist title, e.g. dermatologist" value={customSpecialization} onChange={(e) => setCustomSpecialization(e.target.value)} />
-                                                <p className="text-xs text-gray-500">Use a specialist title, not a field name like dermatology.</p>
+                                                <p className="text-xs text-muted-foreground">Use a specialist title, not a field name like dermatology.</p>
                                             </div>
                                         )}
                                     </div>
@@ -827,15 +829,15 @@ export default function DoctorVerification() {
 
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Location <span className="text-red-500">*</span></label>
-                                    <Input value={clinicInfo.location} readOnly className="bg-gray-100" />
-                                    <p className="text-xs text-gray-500 mt-1">This value is loaded from your doctor profile and cannot be changed here.</p>
+                                    <Input value={clinicInfo.location} readOnly className="bg-muted" />
+                                    <p className="text-xs text-muted-foreground mt-1">This value is loaded from your doctor profile and cannot be changed here.</p>
                                 </div>
 
                                 {/* Hospital Affiliation Section */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Hospital Affiliation</label>
                                     {facilitiesLoading ? (
-                                        <div className="w-full border rounded px-3 py-2 bg-gray-50 text-gray-400 text-sm">Loading hospitals...</div>
+                                        <div className="w-full border rounded px-3 py-2 bg-muted text-muted-foreground text-sm">Loading hospitals...</div>
                                     ) : (
                                         <select
                                             value={
@@ -871,7 +873,7 @@ export default function DoctorVerification() {
                                                     }
                                                 }
                                             }}
-                                            className="w-full border rounded px-3 py-2 bg-white"
+                                            className="w-full border rounded px-3 py-2 bg-card"
                                         >
                                             <option value="na">N/A (Personal Clinic)</option>
                                             {facilities.map((facility) => (
@@ -882,11 +884,14 @@ export default function DoctorVerification() {
                                             <option value="other">Others — Add Custom Hospital</option>
                                         </select>
                                     )}
-                                    <p className="text-xs text-gray-500 mt-1">Select a registered hospital (its location will be used), N/A for personal clinic, or Others to request a new hospital.</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Select a registered hospital (its location will be used), N/A for personal clinic, or Others to request a new hospital.</p>
 
                                     {hospitalAffiliation.type === 'registered' && hospitalAffiliation.hospitalId && (
-                                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                                            <p className="font-medium text-blue-900">✓ Affiliated with: {hospitalAffiliation.hospitalName}</p>
+                                        <div className="mt-2 p-3 bg-icon-bg border border-primary/30 rounded text-sm">
+                                            <p className="font-medium text-blue-900 flex items-center gap-1.5">
+                                              <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                                              Affiliated with: {hospitalAffiliation.hospitalName}
+                                            </p>
                                             <p className="text-blue-800 text-xs mt-1">Location auto-filled: {hospitalAffiliation.hospitalLocation}</p>
                                         </div>
                                     )}
@@ -894,7 +899,10 @@ export default function DoctorVerification() {
 
                                 {hospitalAffiliation.type === 'other' && (
                                     <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <p className="text-sm font-medium text-amber-800">⚠ New hospital request — Admin will review and add it. You will be automatically affiliated once approved.</p>
+                                        <p className="text-sm font-medium text-amber-800 flex items-center gap-1.5">
+                                          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                                          New hospital request — Admin will review and add it. You will be automatically affiliated once approved.
+                                        </p>
                                         <div>
                                             <label className="block text-sm font-medium mb-1">Hospital / Clinic Name <span className="text-red-500">*</span></label>
                                             <Input
@@ -918,7 +926,7 @@ export default function DoctorVerification() {
                                                     persistHospitalAffiliation(next);
                                                 }}
                                             />
-                                            <p className="text-xs text-gray-500 mt-1">Provide the complete address for admin verification.</p>
+                                            <p className="text-xs text-muted-foreground mt-1">Provide the complete address for admin verification.</p>
                                         </div>
                                     </div>
                                 )}
@@ -926,9 +934,9 @@ export default function DoctorVerification() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Available Days <span className="text-red-500">*</span></label>
-                                        <div className="min-h-12 rounded border bg-gray-50 p-3 flex flex-wrap gap-2">
+                                        <div className="min-h-12 rounded border bg-muted p-3 flex flex-wrap gap-2">
                                             {isProfileLoading ? (
-                                                <span className="text-sm text-gray-500">Loading from your doctor profile...</span>
+                                                <span className="text-sm text-muted-foreground">Loading from your doctor profile...</span>
                                             ) : clinicInfo.days.length > 0 ? (
                                                 clinicInfo.days.map((day) => (
                                                     <span key={day} className="px-3 py-1 bg-indigo-100 text-indigo-900 text-xs font-semibold rounded-full">
@@ -936,15 +944,15 @@ export default function DoctorVerification() {
                                                     </span>
                                                 ))
                                             ) : (
-                                                <span className="text-sm text-gray-500">No availability found on your profile.</span>
+                                                <span className="text-sm text-muted-foreground">No availability found on your profile.</span>
                                             )}
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Available Hours <span className="text-red-500">*</span></label>
-                                        <div className="min-h-12 rounded border bg-gray-50 p-3 flex flex-wrap gap-2">
+                                        <div className="min-h-12 rounded border bg-muted p-3 flex flex-wrap gap-2">
                                             {isProfileLoading ? (
-                                                <span className="text-sm text-gray-500">Loading from your doctor profile...</span>
+                                                <span className="text-sm text-muted-foreground">Loading from your doctor profile...</span>
                                             ) : clinicInfo.hours.length > 0 ? (
                                                 clinicInfo.hours.map((hour) => (
                                                     <span key={hour} className="px-3 py-1 bg-indigo-100 text-indigo-900 text-xs font-semibold rounded-full">
@@ -952,7 +960,7 @@ export default function DoctorVerification() {
                                                     </span>
                                                 ))
                                             ) : (
-                                                <span className="text-sm text-gray-500">No hours found on your profile.</span>
+                                                <span className="text-sm text-muted-foreground">No hours found on your profile.</span>
                                             )}
                                         </div>
                                     </div>
@@ -971,7 +979,7 @@ export default function DoctorVerification() {
                         </div>
                     )}
 
-                    <div className="flex justify-between mt-8 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between mt-8 pt-4 border-t border-border/50">
                         <Button
                             variant="outline"
                             disabled={currentStep === 0 || loading}
@@ -981,12 +989,12 @@ export default function DoctorVerification() {
                             Back
                         </Button>
                         {currentStep === STEP_LABELS.length - 1 ? (
-                            <Button onClick={handleSubmit} disabled={!isStepValid(currentStep) || loading} className="px-6 bg-blue-600 hover:bg-blue-700">
+                            <Button onClick={handleSubmit} disabled={!isStepValid(currentStep) || loading} className="px-6 bg-primary hover:bg-primary/90 text-primary-foreground">
                                 {loading ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : null}
                                 Submit Verification
                             </Button>
                         ) : (
-                            <Button onClick={handleNext} disabled={!isStepValid(currentStep) || loading} className="px-6 bg-blue-600 hover:bg-blue-700">
+                            <Button onClick={handleNext} disabled={!isStepValid(currentStep) || loading} className="px-6 bg-primary hover:bg-primary/90 text-primary-foreground">
                                 Next
                             </Button>
                         )}

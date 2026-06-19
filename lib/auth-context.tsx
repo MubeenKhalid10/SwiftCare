@@ -10,6 +10,7 @@ import {
   googleAuth as googleAuthService,
 } from "./auth.service";
 import type { AuthState, LoginCredentials, RegisterData, User } from "./types";
+import type { GoogleRedirectSession } from "./google-auth";
 
 interface RegisterResult {
   success: boolean;
@@ -24,6 +25,7 @@ interface AuthContextType extends AuthState {
   register: (data: RegisterData) => Promise<RegisterResult>;
   verifyOtp: (email: string, role: "patient" | "doctor", otp: string) => Promise<{ success: boolean; error?: string }>;
   googleAuth: (idToken: string, roleHint: "patient" | "doctor") => Promise<{ success: boolean; error?: string }>;
+  completeGoogleRedirect: (session: GoogleRedirectSession) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   getUser: () => User | null;
   updateUser: (updates: Partial<User>) => void;
@@ -98,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const parsed = JSON.parse(stored) as StoredAuth;
           if (parsed?.user) {
-            console.log("[v0] Restoring user session:", parsed.user.role, parsed.user.email);
             setAuthState({
               user: parsed.user,
               isAuthenticated: true,
@@ -113,7 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(ACCESS_TOKEN_KEY);
         }
       } else if (!accessToken) {
-        console.log("[v0] No access token found, clearing stored auth");
         localStorage.removeItem(AUTH_STORAGE_KEY);
       }
 
@@ -273,47 +273,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /* ── Google Auth ── */
+  const persistGoogleSession = async (
+    response: {
+      userId: string;
+      role: "patient" | "doctor" | "admin";
+      name?: string;
+      email?: string;
+      accessToken: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!response?.userId) {
+      return { success: false, error: "Invalid response from Google authentication" };
+    }
+
+    const user: User = {
+      id: response.userId,
+      name: response.name || "",
+      email: response.email || "",
+      role: response.role || "patient",
+    };
+
+    if (!["patient", "doctor", "admin"].includes(user.role)) {
+      user.role = "patient";
+    }
+
+    if (user.role === "doctor") {
+      try {
+        const { getDoctorById } = await import("./api");
+        const doctorData = await getDoctorById(user.id);
+        if (doctorData?.accountStatus?.verificationStatus) {
+          user.verificationStatus = doctorData.accountStatus.verificationStatus;
+        }
+      } catch (err) {
+        console.error("[v0] Failed to fetch doctor verification status:", err);
+      }
+    }
+
+    if (isBrowser()) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
+    }
+
+    writeStoredAuth({ user, expiresAt: Date.now() + SESSION_TTL_MS });
+    setAuthState({ user, isAuthenticated: true, isLoading: false });
+    return { success: true };
+  };
+
   const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"): Promise<{ success: boolean; error?: string }> => {
     try {
       setAuthState((p) => ({ ...p, isLoading: true }));
       const response = await googleAuthService(idToken, roleHint);
-
-      // Validate response has required fields
-      if (!response?.userId && !response?.user?.id) {
-        throw new Error("Invalid response from Google authentication");
-      }
-
-      const user: User = {
-        id: response.user?.id || response.userId,
-        name: response.user?.name || "",
-        email: response.user?.email || "",
+      const result = await persistGoogleSession({
+        userId: response.user?.id || response.userId,
         role: response.user?.role || response.role || "patient",
-      };
+        name: response.user?.name,
+        email: response.user?.email,
+        accessToken: response.accessToken,
+      });
 
-      // Ensure we have a valid role
-      if (!["patient", "doctor", "admin"].includes(user.role)) {
-        user.role = "patient";
+      if (!result.success) {
+        setAuthState((p) => ({ ...p, isLoading: false }));
       }
 
-      // For doctors, try to fetch verification status
-      if (user.role === "doctor") {
-        try {
-          const { getDoctorById } = await import("./api");
-          const doctorData = await getDoctorById(user.id);
-          if (doctorData?.accountStatus?.verificationStatus) {
-            user.verificationStatus = doctorData.accountStatus.verificationStatus;
-          }
-        } catch (err) {
-          console.error("[v0] Failed to fetch doctor verification status:", err);
-        }
-      }
-
-      writeStoredAuth({ user, expiresAt: Date.now() + SESSION_TTL_MS });
-      setAuthState({ user, isAuthenticated: true, isLoading: false });
-      return { success: true };
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Google authentication failed";
       console.error("[v0] Google auth error:", errorMessage);
+      setAuthState((p) => ({ ...p, isLoading: false }));
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const completeGoogleRedirect = async (
+    session: GoogleRedirectSession
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setAuthState((p) => ({ ...p, isLoading: true }));
+
+      if (isBrowser()) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, session.accessToken);
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+
+      return persistGoogleSession({
+        userId: session.userId,
+        role: session.role,
+        name: session.name,
+        email: session.email,
+        accessToken: session.accessToken,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Google authentication failed";
+      console.error("[google redirect]", errorMessage);
       setAuthState((p) => ({ ...p, isLoading: false }));
       return { success: false, error: errorMessage };
     }
@@ -330,7 +380,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       localStorage.removeItem(ACCESS_TOKEN_KEY);
     }
-    console.log("[v0] User logged out, all auth data cleared");
     setAuthState({ user: null, isAuthenticated: false, isLoading: false });
   };
 
@@ -360,7 +409,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ ...authState, login, register, verifyOtp, googleAuth, logout, getUser, updateUser }}>
+    <AuthContext.Provider value={{ ...authState, login, register, verifyOtp, googleAuth, completeGoogleRedirect, logout, getUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

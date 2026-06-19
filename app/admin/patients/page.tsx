@@ -9,7 +9,7 @@ import { getPatients, updatePatient, deletePatient, createPatient, getAppointmen
 import { PatientFormModal, type PatientFormData } from '@/components/admin/patient-form-modal'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type { Appointment, Patient } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
 
@@ -29,7 +29,6 @@ function normalizePatient(raw: any): Patient {
 export default function PatientsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
   const [patients, setPatients] = useState<Patient[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -117,7 +116,7 @@ export default function PatientsPage() {
     } catch (err) {
       console.error(err)
       setRecentAppointments([])
-      toast({ description: 'Failed to load patient appointments', variant: 'destructive' })
+      toast.error('Failed to load patient appointments')
     } finally {
       setAppointmentsLoading(false)
     }
@@ -129,9 +128,9 @@ export default function PatientsPage() {
         setIsSubmitting(true)
         await deletePatient(id)
         setPatients(patients.filter(p => String(p.id) !== String(id)))
-        toast({ description: 'Patient deleted successfully' })
+        toast.success('Patient deleted successfully')
       } catch (err) {
-        toast({ description: 'Failed to delete patient', variant: 'destructive' })
+        toast.error('Failed to delete patient')
         console.error(err)
       } finally {
         setIsSubmitting(false)
@@ -153,7 +152,7 @@ export default function PatientsPage() {
         }
         const updated = await updatePatient(String(selectedPatient.id), payload)
         setPatients(patients.map((p) => String(p.id) === String(selectedPatient.id) ? normalizePatient(updated) : p))
-        toast({ description: 'Patient updated successfully' })
+        toast.success('Patient updated successfully')
       } else {
         const payload = {
           name: data.name.trim(),
@@ -165,11 +164,11 @@ export default function PatientsPage() {
         }
         const newPatient = await createPatient(payload)
         setPatients([...patients, normalizePatient(newPatient)])
-        toast({ description: 'Patient created successfully' })
+        toast.success('Patient created successfully')
       }
       setIsFormOpen(false)
     } catch (err) {
-      toast({ description: 'Failed to save patient', variant: 'destructive' })
+      toast.error('Failed to save patient')
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -192,7 +191,7 @@ export default function PatientsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Patients</h1>
-            <p className="text-gray-600">Dashboard / Patients</p>
+            <p className="text-muted-foreground">Dashboard / Patients</p>
           </div>
           {/* <Button onClick={handleAddPatient} className="bg-blue-600">
             <Plus className="w-4 h-4 mr-2" />
@@ -204,36 +203,36 @@ export default function PatientsPage() {
           <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
         )}
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <div className="p-6 border-b border-gray-200">
+        <div className="bg-card border border-border rounded-lg overflow-x-auto">
+          <div className="p-6 border-b border-border">
             <h2 className="text-xl font-bold">Patient List</h2>
           </div>
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Age</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">ID</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Email</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Phone</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Age</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Gender</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {patients.map((patient) => (
                 <tr
                   key={patient.id ?? patient.email}
-                  className={`hover:bg-gray-50 cursor-pointer ${activePatient && String(activePatient.id) === String(patient.id) ? 'bg-blue-50' : ''}`}
+                  className={`hover:bg-muted cursor-pointer ${activePatient && String(activePatient.id) === String(patient.id) ? 'bg-icon-bg' : ''}`}
                   onClick={() => handleSelectPatient(patient)}
                 >
                   <td className="px-6 py-4 text-sm font-medium">
                     {`#PAT${String(patient.id ?? '000').slice(-6).toUpperCase()}`}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium">{patient.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{patient.email || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{patient.phone || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{patient.age || 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">{patient.email || 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">{patient.phone || 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">{patient.age || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm">{patient.gender || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm space-x-2 flex">
                     <Button
@@ -263,7 +262,7 @@ export default function PatientsPage() {
             </tbody>
           </table>
           {patients.length === 0 && !error && (
-            <div className="text-center py-8 text-gray-600">No patients found</div>
+            <div className="text-center py-8 text-muted-foreground">No patients found</div>
           )}
         </div>
 
@@ -282,16 +281,16 @@ export default function PatientsPage() {
                 </div>
               ) : recentAppointments.length > 0 ? (
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <thead className="bg-muted border-b border-border sticky top-0">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Doctor</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Time</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Amount</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground/80">Doctor</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground/80">Date</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground/80">Time</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground/80">Amount</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground/80">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-border">
                     {recentAppointments.map((appointment) => {
                       const doctorId = String(appointment.doctorId || '')
                       const doctorName = appointment.doctorName || doctorNameById[doctorId] || 'Unknown Doctor'
@@ -306,9 +305,9 @@ export default function PatientsPage() {
                       return (
                         <tr key={String(appointment.id || appointment._id || `${appointment.patientId}-${appointment.doctorId}-${appointment.time || ''}`)}>
                           <td className="px-4 py-3 text-sm font-medium">{doctorName}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{appointment.date || 'N/A'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{appointment.time || 'N/A'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{amountText}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{appointment.date || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{appointment.time || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{amountText}</td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusTone}`}>
                               {statusLabel}
@@ -320,7 +319,7 @@ export default function PatientsPage() {
                   </tbody>
                 </table>
               ) : (
-                <div className="text-center py-8 text-gray-600">No appointments found for this patient</div>
+                <div className="text-center py-8 text-muted-foreground">No appointments found for this patient</div>
               )}
             </div>
           </DialogContent>

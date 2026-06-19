@@ -1,4 +1,5 @@
-import Image from "next/image";
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type LogoLoaderProps = {
   size?: number;
@@ -6,17 +7,12 @@ type LogoLoaderProps = {
   priority?: boolean;
 };
 
-export function LogoLoader({ size = 32, className, priority = false }: LogoLoaderProps) {
-  const classes = ["animate-pulse", "object-contain", className].filter(Boolean).join(" ");
-
+export function LogoLoader({ size = 32, className }: LogoLoaderProps) {
   return (
-    <Image
-      src="/assets/Logo.png"
-      alt="SwiftCare"
-      width={size}
-      height={size}
-      className={classes}
-      priority={priority}
+    <Loader2
+      className={cn("animate-spin text-primary", className)}
+      style={{ width: size, height: size }}
+      aria-label="Loading"
     />
   );
 }

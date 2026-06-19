@@ -110,7 +110,7 @@
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
+  --font-sans: "Poppins", "Inter", system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -168,6 +168,9 @@
 
   html {
     scroll-behavior: smooth;
+    /* Poppins renders visually larger than the previous font; nudge the base
+       size slightly below 16px so the UI reads at a comfortable, normal scale. */
+    font-size: 15px;
   }
 
   body {
@@ -301,6 +304,12 @@
   .btn-primary {
     @apply bg-primary text-primary-foreground;
     box-shadow: 0 4px 12px rgba(1, 101, 252, 0.3);
+  }
+
+  button.bg-primary,
+  a.bg-primary,
+  [data-slot='button'].bg-primary {
+    color: var(--primary-foreground);
   }
 
   .btn-primary:hover:not(:disabled) {

@@ -134,7 +134,7 @@ export function PatientFormModal({
               name="gender"
               value={formData.gender || ''}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-border rounded-md"
             >
               <option value="">Select gender</option>
               <option value="Male">Male</option>

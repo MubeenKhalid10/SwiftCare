@@ -9,14 +9,14 @@ import { getFacilities, createFacility, updateFacility, deleteFacility, getDocto
 import { geocodeAddressWithMapbox } from '@/lib/location'
 import { FacilityFormModal, type FacilityFormData } from '@/components/admin/facility-form-modal'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type { Facility, Doctor } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
+import { resolveFacilityImage, onFacilityImageError } from '@/lib/image-utils'
 
 export default function FacilitiesPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -75,9 +75,9 @@ export default function FacilitiesPage() {
         setIsSubmitting(true)
         await deleteFacility(id)
         setFacilities(facilities.filter(f => String(f.id || f._id) !== String(id)))
-        toast({ description: 'Facility deleted successfully' })
+        toast.success('Facility deleted successfully')
       } catch (err) {
-        toast({ description: 'Failed to delete facility', variant: 'destructive' })
+        toast.error('Failed to delete facility')
         console.error(err)
       } finally {
         setIsSubmitting(false)
@@ -91,7 +91,7 @@ export default function FacilitiesPage() {
 
       const trimmedLocationLabel = data.locationLabel.trim()
       if (!trimmedLocationLabel) {
-        toast({ description: 'Facility location is required', variant: 'destructive' })
+        toast.error('Facility location is required')
         return
       }
 
@@ -101,7 +101,7 @@ export default function FacilitiesPage() {
       if (!coordinates) {
         const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocationLabel)
         if (!resolvedLocation) {
-          toast({ description: 'Unable to fetch coordinates for this location', variant: 'destructive' })
+          toast.error('Unable to fetch coordinates for this location')
           return
         }
         coordinates = resolvedLocation.coordinates
@@ -137,19 +137,19 @@ export default function FacilitiesPage() {
         setFacilities(facilities.map(f =>
           String(f.id || f._id) === String(selectedFacility.id || selectedFacility._id) ? updated : f
         ))
-        toast({ description: 'Facility updated successfully' })
+        toast.success('Facility updated successfully')
       } else {
         // Create new facility
         const created = await createFacility(facilityPayload)
         setFacilities([created, ...facilities])
-        toast({ description: 'Facility created successfully' })
+        toast.success('Facility created successfully')
       }
 
       setIsFormOpen(false)
       setSelectedFacility(null)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save facility'
-      toast({ description: errorMessage, variant: 'destructive' })
+      toast.error(errorMessage)
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -178,7 +178,7 @@ export default function FacilitiesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Facilities</h1>
-            <p className="text-gray-600">Dashboard / Facilities Management</p>
+            <p className="text-muted-foreground">Dashboard / Facilities Management</p>
           </div>
           <Button onClick={handleAddFacility} className="gap-2">
             <Plus className="w-4 h-4" />
@@ -194,10 +194,10 @@ export default function FacilitiesPage() {
         )}
 
         {/* Facilities Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-card rounded-lg shadow overflow-hidden">
           {facilities.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No facilities found</p>
+              <p className="text-muted-foreground mb-4">No facilities found</p>
               <Button onClick={handleAddFacility} variant="outline" className="gap-2">
                 <Plus className="w-4 h-4" />
                 Create First Facility
@@ -207,57 +207,51 @@ export default function FacilitiesPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-muted border-b border-border">
                     <tr>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Image</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Location</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Doctors</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Description</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Created</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Image</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Name</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Location</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Doctors</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Description</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Created</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-foreground/80">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-border">
                     {facilities.map((facility) => (
-                      <tr key={facility.id || facility._id} className="hover:bg-gray-50">
+                      <tr key={facility.id || facility._id} className="hover:bg-muted">
                         <td className="px-6 py-4">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                            {facility.image ? (
-                              <img 
-                                src={facility.image} 
-                                alt={facility.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none'
-                                }}
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400">No Image</span>
-                            )}
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                            <img
+                              src={resolveFacilityImage(facility.image)}
+                              alt={facility.name}
+                              className="w-full h-full object-cover"
+                              onError={onFacilityImageError}
+                            />
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="font-medium text-gray-900">{facility.name}</p>
+                          <p className="font-medium text-foreground">{facility.name}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <MapPin className="w-4 h-4 text-blue-600" />
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <MapPin className="w-4 h-4 text-primary" />
                             {facility.location?.label || 'N/A'}
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-blue-600" />
+                            <Users className="w-4 h-4 text-primary" />
                             <span className="font-medium">{getAffiliatedDoctorsCount(facility)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-600 line-clamp-1">
+                          <p className="text-sm text-muted-foreground line-clamp-1">
                             {facility.about || 'No description'}
                           </p>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
                           {facility.createdAt
                             ? new Date(facility.createdAt).toLocaleDateString('en-US', {
                                 year: 'numeric',
@@ -298,8 +292,8 @@ export default function FacilitiesPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-                  <p className="text-sm text-gray-600">
+                <div className="border-t border-border px-6 py-4 flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages}
                   </p>
                   <div className="flex gap-2">

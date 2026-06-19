@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getDoctorById } from '@/lib/api';
-import { API_BASE_URL } from '@/lib/api-config';
+import { resolveDoctorImage, onDoctorImageError } from '@/lib/image-utils';
 import { useEffect, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, LayoutDashboard, Calendar, Clock, Users, Star, User, Bell, LogOut, BadgeCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function DoctorSidebar() {
@@ -42,7 +42,7 @@ export function DoctorSidebar() {
     const disabled = hasLimitedAccess && href !== '/doctor/dashboard' && href !== '/logout';
     return `flex items-center gap-3 px-3 py-2 rounded-lg transition ${
       disabled
-        ? 'text-gray-400 cursor-not-allowed opacity-50'
+        ? 'text-muted-foreground/50 cursor-not-allowed opacity-50'
         : pathname.startsWith(href)
         ? 'bg-primary/20 text-primary font-medium border-l-3 border-primary'
         : 'text-foreground/70 hover:bg-primary/10 hover:border-l-3 hover:border-primary/30 cursor-pointer'
@@ -66,21 +66,22 @@ export function DoctorSidebar() {
     .toUpperCase()
     .slice(0, 2) || 'DR';
 
-  const resolvedDoctorImage = doctorImage
-    ? (doctorImage.startsWith('http') ? doctorImage : `${API_BASE_URL}${doctorImage.startsWith('/') ? '' : '/'}${doctorImage}`)
-    : '';
-
   return (
     <div className="w-64 bg-gradient-to-b from-primary-50 to-icon-bg border-r-2 border-primary/20 min-h-screen p-4 flex flex-col">
       <div className="mb-8">
         <Avatar className="w-40 h-40 rounded-lg mb-3 ring-4 ring-primary/20 shadow-sm">
-          <AvatarImage src={resolvedDoctorImage || undefined} alt={user?.name || 'Doctor'} className="object-cover" />
+          <AvatarImage
+            src={resolveDoctorImage(doctorImage)}
+            alt={user?.name || 'Doctor'}
+            className="object-cover"
+            onError={onDoctorImageError}
+          />
           <AvatarFallback className="rounded-lg bg-gradient-to-br from-primary to-primary-600 text-white text-3xl font-bold">
             {initials}
           </AvatarFallback>
         </Avatar>
         <h3 className="font-bold text-lg">Dr {user?.name || 'Doctor'}</h3>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Medical Professional
         </p>
         {hasLimitedAccess ? (
@@ -89,7 +90,10 @@ export function DoctorSidebar() {
             <span>Limited Access</span>
           </div>
         ) : (
-          <p className="text-sm text-green-600 mt-2">● Verified</p>
+          <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+            <BadgeCheck className="w-4 h-4" />
+            Verified
+          </p>
         )}
       </div>
 
@@ -126,7 +130,7 @@ export function DoctorSidebar() {
           className={navItemClass('/doctor/dashboard')}
           onClick={(e) => handleNavClick(e, '/doctor/dashboard')}
         >
-          <span>📊</span>
+          <LayoutDashboard className="w-5 h-5" />
           <span>Dashboard</span>
         </Link>
 
@@ -138,7 +142,7 @@ export function DoctorSidebar() {
           }}
           style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
         >
-          <span>📅</span>
+          <Calendar className="w-5 h-5" />
           <span>Appointments</span>
         </Link>
 
@@ -150,11 +154,11 @@ export function DoctorSidebar() {
           }}
           style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
         >
-          <span>🕐</span>
+          <Clock className="w-5 h-5" />
           <span>Available Timings</span>
         </Link>
 
-        <Link 
+        {/* <Link 
           href="/doctor/my-patients" 
           className={navItemClass('/doctor/my-patients')}
           onClick={(e) => {
@@ -162,21 +166,10 @@ export function DoctorSidebar() {
           }}
           style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
         >
-          <span>👥</span>
+          <Users className="w-5 h-5" />
           <span>My Patients</span>
-        </Link>
-
-        {/* <Link 
-          href="/doctor/specialities" 
-          className={navItemClass('/doctor/specialities')}
-          onClick={(e) => {
-            if (!handleNavClick(e, '/doctor/specialities')) e.preventDefault();
-          }}
-          style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
-        >
-          <span>⚕️</span>
-          <span>Specialities & Services</span>
         </Link> */}
+        {/* </Link> */}
 
         <Link 
           href="/doctor/reviews" 
@@ -186,21 +179,9 @@ export function DoctorSidebar() {
           }}
           style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
         >
-          <span>⭐</span>
+          <Star className="w-5 h-5" />
           <span>Reviews</span>
         </Link>
-
-        {/* <Link 
-          href="/doctor/accounts" 
-          className={navItemClass('/doctor/accounts')}
-          onClick={(e) => {
-            if (!handleNavClick(e, '/doctor/accounts')) e.preventDefault();
-          }}
-          style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
-        >
-          <span>💳</span>
-          <span>Accounts</span>
-        </Link> */}
 
         <Link
           href="/doctor/profile-settings"
@@ -210,21 +191,9 @@ export function DoctorSidebar() {
           }}
           style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
         >
-          <span>👤</span>
+          <User className="w-5 h-5" />
           <span>Profile Settings</span>
         </Link>
-
-        {/* <Link
-          href="/doctor/change-password"
-          className={navItemClass('/doctor/change-password')}
-          onClick={(e) => {
-            if (!handleNavClick(e, '/doctor/change-password')) e.preventDefault();
-          }}
-          style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
-        >
-          <span>🔐</span>
-          <span>Change Password</span>
-        </Link> */}
 
         <Link
           href="/notifications"
@@ -234,7 +203,7 @@ export function DoctorSidebar() {
           }}
           style={{ pointerEvents: hasLimitedAccess ? 'none' : 'auto' }}
         >
-          <span>🔔</span>
+          <Bell className="w-5 h-5" />
           <span>Notifications</span>
         </Link>
 
@@ -243,7 +212,7 @@ export function DoctorSidebar() {
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50"
           onClick={(e) => handleNavClick(e, '/logout')}
         >
-          <span>🚪</span>
+          <LogOut className="w-5 h-5" />
           <span>Logout</span>
         </Link>
       </nav>

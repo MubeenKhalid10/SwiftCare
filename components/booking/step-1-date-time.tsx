@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { getSlotAvailability, getDoctorShiftsForBooking } from "@/lib/api"
-import { Loader2 } from "lucide-react"
+import { Loader2, Circle } from "lucide-react"
 import type { Shift } from "@/lib/types"
 
 type ShiftAvailability = {
@@ -31,8 +31,6 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
   // Handle both nested schedule object and top-level fields
   const availableDays = (doctorSchedule as any).schedule?.availableDays || doctorSchedule.availableDays || []
   const availableHours = (doctorSchedule as any).schedule?.availableHours || doctorSchedule.availableHours || []
-  
-  console.log("[step3] Doctor availability:", { availableDays, availableHours, doctorSchedule })
   
   const [selectedDate, setSelectedDate] = useState<AvailableDate | null>(null)
   const [selectedTime, setSelectedTime] = useState<string>("")
@@ -218,38 +216,38 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
       <div className="flex items-center justify-center mb-12 gap-2 text-sm">
         {[1, 2, 3, 4].map((step) => (
           <div key={step} className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${step <= 1 ? "bg-teal-500 text-white" : "bg-gray-300 text-gray-600"}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${step <= 1 ? "bg-primary text-white" : "bg-muted text-white"}`}>
               {step}
             </div>
-            {step < 4 && <div className={`w-6 h-0.5 ${step < 1 ? "bg-teal-500" : "bg-gray-300"}`}></div>}
+            {step < 4 && <div className={`w-6 h-0.5 ${step < 1 ? "bg-primary" : "bg-muted"}`}></div>}
           </div>
         ))}
       </div>
 
       <Card className="p-6 mb-6 border border-sky-200">
-        <h3 className="font-semibold text-gray-900 mb-4">Booking Info</h3>
+        <h3 className="font-semibold text-foreground mb-4">Booking Info</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <p className="text-gray-600">Doctor</p>
-            <p className="font-semibold text-gray-900">{data.doctor.name || "Doctor"}</p>
+            <p className="text-muted-foreground">Doctor</p>
+            <p className="font-semibold text-foreground">{data.doctor.name || "Doctor"}</p>
           </div>
           <div>
-            <p className="text-gray-600">Specialty</p>
-            <p className="font-semibold text-gray-900">{data.doctor.specialty || "General"}</p>
+            <p className="text-muted-foreground">Specialty</p>
+            <p className="font-semibold text-foreground">{data.doctor.specialty || "General"}</p>
           </div>
           <div>
-            <p className="text-gray-600">Appointment Type</p>
-            <p className="font-semibold text-gray-900">{data.appointmentType || "Clinic"}</p>
+            <p className="text-muted-foreground">Appointment Type</p>
+            <p className="font-semibold text-foreground">{data.appointmentType || "Clinic"}</p>
           </div>
           <div>
-            <p className="text-gray-600">Fee</p>
+            <p className="text-muted-foreground">Fee</p>
             <p className="font-semibold text-green-600">{data.doctor.fee || "$0"}</p>
           </div>
         </div>
       </Card>
 
       <Card className="p-6 mb-6 border border-sky-200">
-        <h3 className="font-semibold text-gray-900 mb-4">Select Date & Time</h3>
+        <h3 className="font-semibold text-foreground mb-4">Select Date & Time</h3>
         
         {availableDays.length === 0 || availableHours.length === 0 ? (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
@@ -258,7 +256,7 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
           </div>
         ) : loadingShifts ? (
           <div className="flex items-center justify-center h-40">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : availableDates.length === 0 ? (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
@@ -272,23 +270,23 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
               <div className="flex items-center justify-between gap-2">
                 <button
                   onClick={handlePrevMonth}
-                  className="px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded transition"
+                  className="px-3 py-1 text-sm font-semibold text-muted-foreground hover:bg-muted rounded transition"
                 >
                   ← Prev
                 </button>
-                <div className="font-bold text-lg text-gray-800">
+                <div className="font-bold text-lg text-foreground">
                   {monthNames[currentMonth]} {currentYear}
                 </div>
                 <button
                   onClick={handleNextMonth}
-                  className="px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded transition"
+                  className="px-3 py-1 text-sm font-semibold text-muted-foreground hover:bg-muted rounded transition"
                 >
                   Next →
                 </button>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-gray-600 mb-4">
+              <div className="border border-border rounded-lg p-4">
+                <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-muted-foreground mb-4">
                   {weekDays.map((day) => <div key={day}>{day}</div>)}
                 </div>
                 <div className="grid grid-cols-7 gap-2 text-center text-sm">
@@ -296,7 +294,7 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
                     if (!dayObj) return <div key={`pad-${idx}`} />
                     const dayLabel = dayObj.date instanceof Date ? dayObj.date.getDate() : dayObj.date
                     if (dayObj.isPast) return (
-                      <div key={`past-${idx}`} className="p-2 text-gray-300 cursor-not-allowed">
+                      <div key={`past-${idx}`} className="p-2 text-muted-foreground/40 cursor-not-allowed">
                         {dayLabel}
                       </div>
                     )
@@ -311,10 +309,10 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
                         disabled={!isAvail}
                         className={`p-2 rounded transition relative ${
                           isSelected
-                            ? "bg-blue-600 text-white font-bold shadow-md"
+                            ? "bg-primary text-white font-bold shadow-md"
                             : isAvail
-                              ? "hover:bg-blue-50 text-blue-800 font-semibold border-2 border-blue-300"
-                              : "text-gray-300 cursor-not-allowed"
+                              ? "hover:bg-primary/10 text-primary font-semibold border-2 border-primary/30"
+                              : "text-muted-foreground/30 cursor-not-allowed"
                         }`}
                       >
                         {dayLabel}
@@ -323,28 +321,31 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
                     )
                   })}
                 </div>
-                <div className="mt-4 text-xs text-gray-600 text-center">
-                  <p><span className="text-green-500">●</span> Green dot = Available day</p>
+                <div className="mt-4 text-xs text-muted-foreground text-center">
+                  <p className="flex items-center justify-center gap-1">
+                    <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+                    Green dot = Available day
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Queue Availability Section */}
             <div className="space-y-4">
-              <h4 className="font-semibold text-gray-900">Queue Availability</h4>
+              <h4 className="font-semibold text-foreground">Queue Availability</h4>
               
               {!selectedDate ? (
-                <div className="flex items-center justify-center h-40 text-gray-500 italic border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-center h-40 text-muted-foreground italic border border-border rounded-lg">
                   Select a date to see queue status
                 </div>
               ) : loadingSlots ? (
                 <div className="flex items-center justify-center h-40">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                <div className="border border-border rounded-lg p-4 space-y-3">
                   {selectedDate.shifts.length === 0 ? (
-                    <div className="flex items-center justify-center h-32 text-gray-500 italic">
+                    <div className="flex items-center justify-center h-32 text-muted-foreground italic">
                       No shifts available for this date
                     </div>
                   ) : (() => {
@@ -357,12 +358,12 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
                     return (
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div>
-                          <p className="text-xs text-gray-500">Patients Before You</p>
-                          <p className="text-lg font-semibold text-gray-900">{patientsBefore}</p>
+                          <p className="text-xs text-muted-foreground">Patients Before You</p>
+                          <p className="text-lg font-semibold text-foreground">{patientsBefore}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-gray-500">Time Slot</p>
-                          <p className="text-lg font-semibold text-blue-700">{nextTime || "Fully booked"}</p>
+                          <p className="text-xs text-muted-foreground">Time Slot</p>
+                          <p className="text-lg font-semibold text-primary">{nextTime || "Fully booked"}</p>
                         </div>
                       </div>
                     )
@@ -381,7 +382,7 @@ export default function BookingStep3({ data, onNext, onBack }: any) {
         <Button 
           onClick={handleNext} 
           disabled={!selectedDate || !selectedTime || !selectedShiftId || loadingSlots}
-          className="bg-blue-600 hover:bg-blue-700 px-8 disabled:opacity-50"
+          className="bg-primary hover:bg-primary/90 px-8 disabled:opacity-50"
         >
           Continue
         </Button>

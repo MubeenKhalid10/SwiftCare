@@ -1,8 +1,8 @@
 import { io, Socket } from "socket.io-client";
 import { getAccessToken } from "./auth.service";
-import { API_BASE_URL } from "./api-config";
+import { getApiBaseUrl } from "./api-config";
 
-const SOCKET_URL = API_BASE_URL;
+const SOCKET_URL = getApiBaseUrl();
 
 let socketInstance: Socket | null = null;
 
@@ -26,10 +26,6 @@ function initializeSocket(): Socket {
     if (token) {
       newSocket.auth = { token };
     }
-  });
-
-  newSocket.on("disconnect", (reason) => {
-    console.log("[v0] Socket disconnected:", reason);
   });
 
   socketInstance = newSocket;

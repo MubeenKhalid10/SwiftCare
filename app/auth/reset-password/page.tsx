@@ -97,7 +97,7 @@ function ResetPasswordContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Missing email parameter.</p>
+          <p className="text-muted-foreground mb-4">Missing email parameter.</p>
           <Button onClick={() => router.push('/auth/forgot-password')}>Go to Forgot Password</Button>
         </div>
       </div>
@@ -113,32 +113,32 @@ function ResetPasswordContent() {
             <Lock className="w-12 h-12 text-white" />
           </div>
           <h2 className="text-4xl font-bold text-white mb-4">New Password</h2>
-          <p className="text-blue-100 text-lg">Enter your reset code and choose a new password</p>
+          <p className="text-white/80 text-lg">Enter your reset code and choose a new password</p>
         </div>
       </div>
 
       {/* Right Side */}
-      <div className="w-full lg:w-1/2 bg-white flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 bg-background flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <Link
             href="/auth/forgot-password"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 mb-8 transition-colors"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-8 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </Link>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
-            <p className="text-gray-600">
-              Enter the code sent to <span className="text-blue-600 font-semibold">{email}</span>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Reset Password</h1>
+            <p className="text-muted-foreground">
+              Enter the code sent to <span className="text-primary font-semibold">{email}</span>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* OTP Inputs */}
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-3">
+              <label className="block text-sm font-semibold text-foreground mb-3">
                 Reset Code
               </label>
               <div className="flex justify-center gap-3" onPaste={handlePaste}>
@@ -161,7 +161,7 @@ function ResetPasswordContent() {
 
             {/* New Password */}
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-900 mb-2">
+              <label htmlFor="newPassword" className="block text-sm font-semibold text-foreground mb-2">
                 New Password
               </label>
               <div className="relative">
@@ -177,7 +177,7 @@ function ResetPasswordContent() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -186,7 +186,7 @@ function ResetPasswordContent() {
 
             {/* Confirm Password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-900 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-foreground mb-2">
                 Confirm Password
               </label>
               <Input
@@ -216,7 +216,7 @@ function ResetPasswordContent() {
             </Button>
           </form>
 
-          <p className="text-center text-gray-500 mt-8 text-xs">
+          <p className="text-center text-muted-foreground mt-8 text-xs">
             The code expires in 10 minutes
           </p>
         </div>

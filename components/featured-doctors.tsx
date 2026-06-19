@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Star, Loader2 } from "lucide-react"
+import { Star, Loader2, MapPin } from "lucide-react"
 import { getDoctors } from "@/lib/api"
 import { getInitials } from "@/lib/avatar-utils"
+import { resolveDoctorImage, onDoctorImageError } from "@/lib/image-utils"
 import type { Doctor } from "@/lib/types"
-
-const DOCTOR_FALLBACK_IMAGE = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
 
 export default function FeaturedDoctors() {
   const router = useRouter()
@@ -45,7 +44,7 @@ export default function FeaturedDoctors() {
     return (
       <section className="border-section-top border-section-bottom py-16 bg-gradient-to-b from-primary-50 to-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </section>
     )
@@ -65,13 +64,11 @@ export default function FeaturedDoctors() {
     <section className="border-section-top border-section-bottom py-16 bg-gradient-to-b from-primary-50 to-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-center mb-4">
-          <div className="inline-block bg-blue-100 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
-            Featured
-          </div>
+          <div className="section-intro">Featured</div>
         </div>
 
-        <h2 className="text-4xl font-bold text-center mb-16">
-          Our <span className="text-blue-600">Top Rated Doctors</span>
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+          Our <span className="text-gradient-primary">Top Rated Doctors</span>
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -83,19 +80,18 @@ export default function FeaturedDoctors() {
             >
               <div className="doctor-card-image">
                 <img
-                  src={doctor.image || DOCTOR_FALLBACK_IMAGE}
+                  src={resolveDoctorImage(doctor.image)}
                   alt={doctor.name}
-                  onError={(event) => {
-                    event.currentTarget.src = DOCTOR_FALLBACK_IMAGE
-                  }}
+                  onError={onDoctorImageError}
                 />
               </div>
 
               <div className="doctor-card-content">
                 <h3 className="doctor-card-name">{doctor.name}</h3>
                 <p className="doctor-card-specialty">{doctor.specialty || 'General Practitioner'}</p>
-                <p className="doctor-card-location">
-                  📍 {typeof doctor.location === 'string' ? doctor.location : "Location not specified"}
+                <p className="doctor-card-location flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                  {typeof doctor.location === 'string' ? doctor.location : "Location not specified"}
                 </p>
 
                 <div className="doctor-card-footer">
@@ -127,7 +123,7 @@ export default function FeaturedDoctors() {
         <div className="flex justify-center mt-12">
           <Link
             href="/doctors"
-            className="bg-primary text-white px-8 py-3 rounded-full font-semibold hover:bg-primary-600 transition"
+            className="bg-primary !text-white px-8 py-3 rounded-full font-semibold hover:bg-primary-600 transition"
           >
             View All Doctors
           </Link>

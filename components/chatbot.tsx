@@ -5,7 +5,7 @@ import Link from "next/link"
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config"
+import { buildApiUrl, API_ENDPOINTS } from "@/lib/api-config"
 import { getAccessToken } from "@/lib/auth.service"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
@@ -17,13 +17,14 @@ type Message = {
 }
 
 export function Chatbot() {
-    const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
+    const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth()
+    const isPatient = isAuthenticated && user?.role === 'patient'
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([
         {
             id: "1",
             role: "bot",
-            content: "Hello! I'm Swiftcare's virtual assistant. I can help you with appointments, payments, doctor timings, and basic medical information. How can I assist you today?",
+            content: "Hello! I'm SwiftBot. I can help you with appointments, payments, doctor timings, and basic medical information. How can I assist you today?",
         },
     ])
     const [input, setInput] = useState("")
@@ -62,9 +63,8 @@ export function Chatbot() {
 
         try {
             const token = getAccessToken()
-            console.log('[chatbot] sending message, token present:', !!token)
 
-            let response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHATBOT}`, {
+            let response = await fetch(buildApiUrl(API_ENDPOINTS.CHATBOT), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -78,7 +78,7 @@ export function Chatbot() {
             if (response.status === 401) {
                 console.warn('[chatbot] initial request 401, attempting token refresh')
                 try {
-                    const refreshRes = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`, {
+                    const refreshRes = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.REFRESH), {
                         method: 'POST',
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
@@ -88,11 +88,10 @@ export function Chatbot() {
                         const refreshData = await refreshRes.json().catch(() => ({}))
                         if (refreshData.accessToken) {
                             localStorage.setItem('accessToken', refreshData.accessToken)
-                            console.log('[chatbot] token refreshed, retrying chat request')
                         }
                         // retry original request with new token if available
                         const newToken = getAccessToken()
-                        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHATBOT}`, {
+                        response = await fetch(buildApiUrl(API_ENDPOINTS.CHATBOT), {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
@@ -164,6 +163,10 @@ export function Chatbot() {
         return <div dangerouslySetInnerHTML={{ __html: formatted }} />
     }
 
+    if (isAuthLoading || !isPatient) {
+        return null
+    }
+
     return (
         <>
             {/* Floating Button */}
@@ -187,7 +190,7 @@ export function Chatbot() {
                                 <Bot className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-sm">SwiftCare Assistant</h3>
+                                <h3 className="font-bold text-sm text-white">SwiftBot</h3>
                                 <p className="text-xs text-white/90 flex items-center gap-1">
                                     <span className="w-2 h-2 rounded-full bg-green-400 inline-block animate-pulse"></span>
                                     Online
@@ -274,7 +277,7 @@ export function Chatbot() {
                             </Button>
                         </form>
                         <div className="text-center mt-2">
-                            <span className="text-[10px] text-gray-400 font-medium">
+                            <span className="text-[10px] text-muted-foreground/60 font-medium">
                                 AI can make mistakes. Verify critical medical info.
                             </span>
                         </div>

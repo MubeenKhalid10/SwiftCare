@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import {
   Search,
   Calendar,
-  Heart,
   MessageCircle,
   Phone,
   Video,
@@ -18,16 +17,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import Header from "@/components/header"
-import Footer from "@/components/footer"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { getAppointmentsByPatientId, getDoctors, getPatientById, getQueueState, updateAppointmentStatus, createReview } from "@/lib/api"
 import { toast } from 'sonner';
 import { Appointment, Patient, Doctor } from "@/lib/types"
-import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import { socket } from "@/lib/socket"
 import { applyAppointmentStatusSync, getAppointmentStatusSyncEventName } from "@/lib/utils"
 import { LogoLoader } from "@/components/ui/logo-loader"
+import { resolveDoctorImage, onDoctorImageError } from "@/lib/image-utils"
 
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -235,19 +233,6 @@ export default function AppointmentsPage() {
     return () => clearInterval(pollInterval);
   }, [appointments]);
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "Video Call":
-        return <Video className="w-4 h-4" />
-      case "Audio Call":
-        return <Phone className="w-4 h-4 rotate-90" />
-      case "Chat":
-        return <MessageCircle className="w-4 h-4" />
-      default:
-        return <Calendar className="w-4 h-4" />
-    }
-  }
-
   const filteredAppointments = appointments.filter((apt) => {
     const status = normalizeStatus(apt.status)
     if (activeTab === "upcoming") return isUpcomingStatus(apt.status)
@@ -309,13 +294,13 @@ export default function AppointmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Header />
 
       {/* Page Title */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-8">
+      <div className="bg-gradient-to-r from-icon-bg to-primary/5 border-b border-primary/15 py-8">
         <div className="max-w-7xl mx-auto px-4">
-          <h1 className="text-4xl font-bold text-gray-900">My Appointments</h1>
+          <h1 className="text-4xl font-bold text-foreground">My Appointments</h1>
         </div>
       </div>
 
@@ -336,32 +321,24 @@ export default function AppointmentsPage() {
         <div className="max-w-7xl mx-auto px-4 py-8 flex justify-center">
           <div className="text-center">
             <LogoLoader size={32} className="h-8 w-8 mx-auto mb-2" />
-            <p className="text-gray-600">Loading your appointments...</p>
+            <p className="text-muted-foreground">Loading your appointments...</p>
           </div>
         </div>
       )}
 
       {/* Main Content */}
       {!isLoading && <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Sidebar */}
-          <div className="lg:col-span-1">
-            <PatientSidebar />
-          </div>
-
-          {/* Right Content */}
-          <div className="lg:col-span-3">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-4">
-                  <h2 className="text-2xl font-bold text-gray-900">Appointments</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Appointments</h2>
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                      <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                       <Input placeholder="Search" className="pl-10 w-48" />
                     </div>
                     <Link href="/doctors">
-                      <Button className="bg-blue-600 text-white h-10">
+                      <Button className="bg-primary text-white h-10">
                         <Calendar className="w-4 h-4 mr-2" />
                         Book New
                       </Button>
@@ -379,8 +356,8 @@ export default function AppointmentsPage() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === tab
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            ? "bg-primary text-white"
+                            : "bg-muted text-foreground/80 hover:bg-muted"
                           }`}
                       >
                         {tab.charAt(0).toUpperCase() + tab.slice(1)}{" "}
@@ -401,23 +378,25 @@ export default function AppointmentsPage() {
                     {filteredAppointments.map((apt) => (
                       <div
                         key={apt.id}
-                        className="flex gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 flex-wrap"
+                        className="flex gap-4 p-4 bg-muted rounded-lg hover:bg-muted flex-wrap"
                       >
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={apt.avatar || "/placeholder.svg"} />
+                          <AvatarImage
+                            src={resolveDoctorImage(apt.avatar)}
+                            onError={onDoctorImageError}
+                          />
                           <AvatarFallback>DR</AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1">
                           <div className="flex gap-2 flex-wrap mb-1">
-                            <span className="font-bold text-sm">#{apt.id}</span>
                             <span className="font-medium">{apt.doctorName}</span>
                             <Badge
                               className={
                                 isUpcomingStatus(apt.status)
                                   ? "bg-green-100 text-green-700"
                                   : normalizeStatus(apt.status) === "completed"
-                                    ? "bg-blue-100 text-blue-700"
+                                    ? "bg-icon-bg text-primary"
                                     : "bg-red-100 text-red-700"
                               }
                             >
@@ -425,16 +404,11 @@ export default function AppointmentsPage() {
                             </Badge>
                           </div>
 
-                          <div className="text-xs text-gray-600 flex gap-3 flex-wrap">
+                          <div className="text-xs text-muted-foreground flex gap-3 flex-wrap">
                             <span>{apt.date}</span>
                             <span>{apt.time}</span>
                             <span>{apt.doctorSpecialty}</span>
                             <span className="flex items-center gap-1">
-                              {getTypeIcon(
-                                typeof apt.type === "object" && apt.type !== null
-                                  ? (apt.type as any).type
-                                  : apt.type
-                              )}
                               {typeof apt.type === "object" && apt.type !== null
                                 ? (apt.type as any).type
                                 : apt.type}
@@ -452,7 +426,7 @@ export default function AppointmentsPage() {
                                     }
                                   }}
                                 >
-                                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                  <div className="w-2 h-2 bg-card rounded-full animate-pulse" />
                                   Track Queue
                                 </Button>
                               ) : (
@@ -465,13 +439,13 @@ export default function AppointmentsPage() {
                                   const isTurnPassed = queueMetrics.yourPosition !== null && queueMetrics.yourPosition > 0 && currentServing > queueMetrics.yourPosition;
 
                                   return (
-                                    <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
+                                    <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-primary/30 rounded-2xl flex gap-8 items-center w-fit shadow-sm animate-in zoom-in-95 duration-200">
                                       {isShiftNotStarted ? (
                                         <div className="flex items-center gap-3 px-4">
                                           <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-blue-500 uppercase tracking-widest">Status</span>
-                                            <span className="text-xl font-black text-blue-700 leading-none whitespace-nowrap">Doctor did not start the shift yet</span>
-                                            <span className="text-xs font-medium text-blue-500 mt-1">Queue tracking will activate once the doctor starts the shift from the dashboard.</span>
+                                            <span className="text-[11px] font-bold text-primary uppercase tracking-widest">Status</span>
+                                            <span className="text-xl font-black text-primary leading-none whitespace-nowrap">Doctor did not start the shift yet</span>
+                                            <span className="text-xs font-medium text-primary mt-1">Queue tracking will activate once the doctor starts the shift.</span>
                                           </div>
                                         </div>
                                       ) : isServingNow ? (
@@ -484,24 +458,24 @@ export default function AppointmentsPage() {
                                       ) : isTurnPassed ? (
                                         <div className="flex items-center gap-3 px-4">
                                           <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Status</span>
-                                            <span className="text-xl font-black text-gray-600 leading-none whitespace-nowrap">Turn Passed</span>
+                                            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
+                                            <span className="text-xl font-black text-muted-foreground leading-none whitespace-nowrap">Turn Passed</span>
                                           </div>
                                         </div>
                                       ) : (
                                         <>
                                           <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Currently Serving</span>
-                                            <span className="text-2xl font-black text-blue-700 leading-none">{currentServing}</span>
+                                            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Currently Serving</span>
+                                            <span className="text-2xl font-black text-primary leading-none">{currentServing}</span>
                                           </div>
-                                          <div className="w-px h-8 bg-blue-200" />
+                                          <div className="w-px h-8 bg-primary/20" />
                                           <div className="flex flex-col">
                                             <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Your position</span>
                                             <span className="text-2xl font-black text-indigo-700 leading-none">
                                               {queueMetrics.yourPosition === null ? 'N/A' : queueMetrics.yourPosition}
                                             </span>
                                           </div>
-                                          <div className="w-px h-8 bg-blue-200" />
+                                          <div className="w-px h-8 bg-primary/20" />
                                           <div className="flex flex-col">
                                             <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Est. Wait</span>
                                             <span className="text-2xl font-black text-emerald-700 leading-none">
@@ -511,7 +485,7 @@ export default function AppointmentsPage() {
                                         </>
                                       )}
                                       <button 
-                                        className="ml-4 p-1.5 hover:bg-blue-100 rounded-full text-blue-400 hover:text-blue-600 transition-colors"
+                                        className="ml-4 p-1.5 hover:bg-icon-bg rounded-full text-primary hover:text-primary/80 transition-colors"
                                         onClick={() => {
                                           if (apt.shiftId) {
                                             setTrackedShifts(prev => {
@@ -576,7 +550,6 @@ export default function AppointmentsPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Heart className="w-5 h-5 text-gray-600 cursor-pointer" />
                                 {normalizeStatus(apt.status) === "completed" && (
                             <Button 
                               className="bg-green-600 text-white"
@@ -592,8 +565,6 @@ export default function AppointmentsPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
       </div>}
 
       {/* Review Popup Modal */}
@@ -604,8 +575,8 @@ export default function AppointmentsPage() {
           <Card className="w-full max-w-md shadow-xl border-0">
             <form onSubmit={handleSubmitReview} className="p-6 space-y-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Share Your Experience</h3>
-                <p className="text-gray-600">Your appointment is complete! How was your experience with <span className="font-semibold text-gray-900">{apt?.doctorName || 'the doctor'}</span>?</p>
+                <h3 className="text-xl font-bold text-foreground mb-2">Share Your Experience</h3>
+                <p className="text-muted-foreground">Your appointment is complete! How was your experience with <span className="font-semibold text-foreground">{apt?.doctorName || 'the doctor'}</span>?</p>
               </div>
 
               <div className="flex justify-center gap-2 my-6">
@@ -616,14 +587,14 @@ export default function AppointmentsPage() {
                     onClick={() => setNewRating(s)}
                     className="focus:outline-none transition-transform hover:scale-110"
                   >
-                    <Star className={`w-8 h-8 ${s <= newRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                    <Star className={`w-8 h-8 ${s <= newRating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
                   </button>
                 ))}
               </div>
 
               <textarea
                 placeholder="Share your experience (optional)..."
-                className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm min-h-[100px]"
+                className="w-full p-3 rounded-lg border border-border focus:ring-2 focus:ring-primary/50 focus:outline-none text-sm min-h-[100px]"
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
               />
@@ -646,7 +617,7 @@ export default function AppointmentsPage() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                  className="flex-1 bg-primary text-white hover:bg-primary/90"
                   disabled={isSubmittingReview}
                 >
                   {isSubmittingReview ? <LogoLoader size={16} className="h-4 w-4 mr-2" /> : null}
@@ -659,7 +630,6 @@ export default function AppointmentsPage() {
       )
       })()}
 
-      <Footer />
     </div>
   )
 }

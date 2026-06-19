@@ -3,9 +3,24 @@
  * Handles all notification-related API calls and real-time updates
  */
 
+import type { LucideIcon } from 'lucide-react'
+import {
+  Calendar,
+  CalendarClock,
+  FileText,
+  Bell,
+  Star,
+  MessageSquare,
+  Stethoscope,
+  UserPlus,
+  Clock,
+  FlaskConical,
+  Info,
+  Megaphone,
+} from 'lucide-react'
 import type { Notification } from './types'
 import { getAccessToken } from './auth.service'
-import { API_BASE_URL } from './api-config'
+import { buildApiUrl, API_ENDPOINTS } from './api-config'
 
 interface NotificationResponse {
   page: number
@@ -72,7 +87,7 @@ export async function getNotifications(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}/notifications?${params.toString()}`, {
+  const response = await fetch(buildApiUrl(`${API_ENDPOINTS.NOTIFICATIONS}?${params.toString()}`), {
     method: 'GET',
     headers,
     credentials: 'include'
@@ -95,7 +110,7 @@ export async function getUnreadCount(): Promise<number> {
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+  const response = await fetch(buildApiUrl(`${API_ENDPOINTS.NOTIFICATIONS}/unread-count`), {
     method: 'GET',
     headers,
     credentials: 'include'
@@ -119,7 +134,7 @@ export async function markNotificationAsRead(notificationId: string): Promise<No
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+  const response = await fetch(buildApiUrl(`${API_ENDPOINTS.NOTIFICATIONS}/${notificationId}/read`), {
     method: 'PATCH',
     headers,
     credentials: 'include'
@@ -142,7 +157,7 @@ export async function markAllNotificationsAsRead(): Promise<{ updatedCount: numb
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+  const response = await fetch(buildApiUrl(`${API_ENDPOINTS.NOTIFICATIONS}/read-all`), {
     method: 'PATCH',
     headers,
     credentials: 'include'
@@ -168,7 +183,7 @@ export async function registerDeviceToken(
     headers['Authorization'] = `Bearer ${accessToken}`
   }
 
-  const response = await fetch(`${API_BASE_URL}/notifications/devices`, {
+  const response = await fetch(buildApiUrl(`${API_ENDPOINTS.NOTIFICATIONS}/devices`), {
     method: 'POST',
     headers,
     body: JSON.stringify({ token, platform }),
@@ -182,25 +197,25 @@ export async function registerDeviceToken(
 /**
  * Get notification message based on type
  */
-export function getNotificationIcon(type: string): string {
-  const icons: Record<string, string> = {
-    appointment_created: '📅',
-    appointment_status_changed: '📝',
-    appointment_cancelled: '❌',
-    appointment_completed: '✅',
-    appointment_reminder: '🔔',
-    queue_turn_now: '🟢',
-    queue_turn_approaching: '🟡',
-    queue_progress: '📊',
-    feedback_moderation: '⭐',
-    feedback_response: '💬',
-    new_doctor: '🩺',
-    new_patient: '🧑',
-    shift_late: '⏰',
-    system_test: '🧪',
-    system: 'ℹ️'
+export function getNotificationIcon(type: string): LucideIcon {
+  const icons: Record<string, LucideIcon> = {
+    appointment_created: Calendar,
+    appointment_status_changed: FileText,
+    appointment_cancelled: FileText,
+    appointment_completed: CalendarClock,
+    appointment_reminder: Bell,
+    queue_turn_now: Bell,
+    queue_turn_approaching: Clock,
+    queue_progress: CalendarClock,
+    feedback_moderation: Star,
+    feedback_response: MessageSquare,
+    new_doctor: Stethoscope,
+    new_patient: UserPlus,
+    shift_late: Clock,
+    system_test: FlaskConical,
+    system: Info,
   }
-  return icons[type] || '📢'
+  return icons[type] || Megaphone
 }
 
 /**
@@ -227,7 +242,7 @@ export function getNotificationStyle(type: string): {
     appointment_completed: { bgColor: 'bg-emerald-50', textColor: 'text-emerald-900', borderColor: 'border-emerald-200' },
     appointment_cancelled: { bgColor: 'bg-red-50', textColor: 'text-red-900', borderColor: 'border-red-200' }
   }
-  return styles[type] || { bgColor: 'bg-gray-50', textColor: 'text-gray-900', borderColor: 'border-gray-200' }
+  return styles[type] || { bgColor: 'bg-muted', textColor: 'text-foreground', borderColor: 'border-border' }
 }
 
 export function getNotificationRoute(type: string): string | null {
@@ -244,7 +259,7 @@ export function getNotificationRoute(type: string): string | null {
       return '/patient/appointments'
     case 'queue_progress':
     case 'shift_late':
-      return '/doctor/dashboard'
+      return '/doctor/shifts'
     case 'new_doctor':
     case 'new_patient':
       return '/notifications'

@@ -18,13 +18,14 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   
-  const { login } = useAuth()
+  const { login, getUser } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!email || !password) {
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail || !password) {
       toast.error('Please enter email and password')
       return
     }
@@ -32,27 +33,25 @@ export default function AdminLoginPage() {
     setIsLoading(true)
     
     try {
-      const result = await login({ email, password })
+      const result = await login({ email: normalizedEmail, password })
       
-      if (result.success) {
-        const stored = localStorage.getItem('swiftcare_auth')
-        if (stored) {
-          const { user } = JSON.parse(stored)
-          if (user.role === 'admin') {
-            toast.success('Welcome Admin!')
-            router.push('/admin/dashboard')
-          } else {
-            toast.error('Access denied. Admin credentials required.')
-            setIsLoading(false)
-          }
-        }
-      } else {
+      if (!result.success) {
         toast.error(result.error || 'Invalid admin credentials')
-        setIsLoading(false)
+        return
       }
+
+      const role = getUser()?.role
+      if (role === 'admin') {
+        toast.success('Welcome Admin!')
+        router.push('/admin/dashboard')
+        return
+      }
+
+      toast.error('Access denied. Admin credentials required.')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       toast.error(errorMessage)
+    } finally {
       setIsLoading(false)
     }
   }
@@ -60,18 +59,18 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        <div className="bg-card rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
               <Shield className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin Login</h1>
-            <p className="text-gray-600 mt-2">SwiftCare Administration Panel</p>
+            <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
+            <p className="text-muted-foreground mt-2">SwiftCare Administration Panel</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-foreground mb-2">
                 Admin Email
               </label>
               <Input
@@ -80,13 +79,13 @@ export default function AdminLoginPage() {
                 placeholder="admin@swiftcare.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-3 border border-border rounded-lg"
                 disabled={isLoading}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-foreground mb-2">
                 Password
               </label>
               <div className="relative">
@@ -96,13 +95,13 @@ export default function AdminLoginPage() {
                   placeholder="Enter admin password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg pr-10"
+                  className="w-full px-4 py-3 border border-border rounded-lg pr-10"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground/80"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -111,7 +110,7 @@ export default function AdminLoginPage() {
 
             <Button 
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -125,8 +124,8 @@ export default function AdminLoginPage() {
             </Button>
           </form>
 
-          <p className="text-center text-gray-600 mt-6 text-sm">
-            <Link href="/" className="text-blue-600 hover:text-blue-700 font-semibold">
+          <p className="text-center text-muted-foreground mt-6 text-sm">
+            <Link href="/" className="text-primary hover:text-primary/80 font-semibold">
               Back to Home
             </Link>
           </p>

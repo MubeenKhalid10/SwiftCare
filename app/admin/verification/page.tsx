@@ -9,8 +9,10 @@ import { toast } from "sonner"
 import { DoctorVerificationModal } from "@/components/admin/doctor-verification-modal"
 import AdminLayout from "@/components/admin/admin-layout"
 import { LogoLoader } from "@/components/ui/logo-loader"
+import { useRequireAuth } from "@/hooks/use-require-auth"
 
 function AdminVerificationPageContent() {
+    const { isLoading: authLoading } = useRequireAuth({ role: 'admin', loginPath: '/admin/login' })
     const [doctors, setDoctors] = useState<Doctor[]>([])
     const [facilities, setFacilities] = useState<Facility[]>([])
     const [loading, setLoading] = useState(true)
@@ -262,25 +264,33 @@ function AdminVerificationPageContent() {
             case 'submitted':
                 return <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold flex items-center gap-1 w-fit animate-pulse"><AlertCircle className="w-3 h-3" /> Action Required</span>
             default:
-                return <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold w-fit">Unknown</span>
+                return <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-bold w-fit">Unknown</span>
         }
+    }
+
+    if (authLoading) {
+        return (
+            <div className="flex justify-center py-20">
+                <LogoLoader size={32} />
+            </div>
+        )
     }
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Doctor Verification</h1>
-                <p className="text-gray-500 mt-1">Review and manage doctor applications</p>
+                <h1 className="text-3xl font-bold text-foreground">Doctor Verification</h1>
+                <p className="text-muted-foreground mt-1">Review and manage doctor applications</p>
             </div>
 
             {/* Tabs */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="flex border-b border-gray-200">
+            <div className="bg-card rounded-lg border border-border overflow-hidden">
+                <div className="flex border-b border-border">
                     <button
                         onClick={() => setActiveTab('action-required')}
                         className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'action-required'
-                                ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
-                                : 'text-gray-600 border-b-transparent hover:bg-gray-50'
+                                ? 'text-primary border-b-primary bg-icon-bg/50'
+                                : 'text-muted-foreground border-b-transparent hover:bg-muted'
                             }`}
                     >
                         <div className="flex items-center justify-center gap-2">
@@ -296,8 +306,8 @@ function AdminVerificationPageContent() {
                     <button
                         onClick={() => setActiveTab('approved')}
                         className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'approved'
-                                ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
-                                : 'text-gray-600 border-b-transparent hover:bg-gray-50'
+                                ? 'text-primary border-b-primary bg-icon-bg/50'
+                                : 'text-muted-foreground border-b-transparent hover:bg-muted'
                             }`}
                     >
                         <div className="flex items-center justify-center gap-2">
@@ -313,8 +323,8 @@ function AdminVerificationPageContent() {
                     <button
                         onClick={() => setActiveTab('rejected')}
                         className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'rejected'
-                                ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
-                                : 'text-gray-600 border-b-transparent hover:bg-gray-50'
+                                ? 'text-primary border-b-primary bg-icon-bg/50'
+                                : 'text-muted-foreground border-b-transparent hover:bg-muted'
                             }`}
                     >
                         <div className="flex items-center justify-center gap-2">
@@ -330,8 +340,8 @@ function AdminVerificationPageContent() {
                     <button
                         onClick={() => setActiveTab('all')}
                         className={`flex-1 px-6 py-4 text-center font-semibold transition-colors border-b-2 ${activeTab === 'all'
-                                ? 'text-blue-600 border-b-blue-600 bg-blue-50/50'
-                                : 'text-gray-600 border-b-transparent hover:bg-gray-50'
+                                ? 'text-primary border-b-primary bg-icon-bg/50'
+                                : 'text-muted-foreground border-b-transparent hover:bg-muted'
                             }`}
                     >
                         <div className="flex items-center justify-center gap-2">
@@ -347,9 +357,9 @@ function AdminVerificationPageContent() {
                 </div>
 
                 {/* Search Bar */}
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
+                <div className="p-4 border-b border-border bg-muted">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                         <input
                             type="text"
                             placeholder="Search by doctor name or email..."
@@ -362,41 +372,41 @@ function AdminVerificationPageContent() {
             </div>
 
             {/* Main Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden">
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
                         <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                 ) : filteredDoctors.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                        <ShieldCheck className="w-12 h-12 text-gray-300 mb-2" />
+                    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                        <ShieldCheck className="w-12 h-12 text-muted-foreground mb-2" />
                         <p className="text-lg font-medium">No doctors found.</p>
                         <p className="text-sm">{activeTab === 'all' ? 'No doctors in the system yet.' : 'No doctors in this category.'}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className="bg-gray-50 border-b border-gray-100">
+                            <thead className="bg-muted border-b border-border/50">
                                 <tr>
-                                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">Doctor Name</th>
-                                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">Email</th>
-                                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">Specialization</th>
-                                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">Status</th>
-                                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">Actions</th>
+                                    <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Doctor Name</th>
+                                    <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Email</th>
+                                    <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Specialization</th>
+                                    <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Status</th>
+                                    <th className="px-6 py-4 text-sm font-semibold text-muted-foreground">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-border/50">
                                 {filteredDoctors.map((doc) => (
-                                    <tr key={doc._id || doc.id} className="hover:bg-gray-50/50 transition-colors">
+                                    <tr key={doc._id || doc.id} className="hover:bg-muted/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900">{doc.name}</div>
-                                            <div className="text-sm text-gray-500">ID: {String(doc._id || doc.id).slice(-8)}</div>
+                                            <div className="font-medium text-foreground">{doc.name}</div>
+                                            <div className="text-sm text-muted-foreground">ID: {String(doc._id || doc.id).slice(-8)}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-900">{doc.credentials?.email || doc.email}</div>
+                                            <div className="text-sm text-foreground">{doc.credentials?.email || doc.email}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-700">{doc.specialization || 'N/A'}</div>
+                                            <div className="text-sm text-foreground/80">{doc.specialization || 'N/A'}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             {getStatusBadge(doc.accountStatus?.verificationStatus)}
@@ -412,7 +422,7 @@ function AdminVerificationPageContent() {
                                             ) : (
                                                 <button
                                                     onClick={() => setSelectedDoctor(doc)}
-                                                    className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                                                    className="flex items-center gap-1 px-3 py-1.5 border border-border text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"
                                                 >
                                                     View Details
                                                 </button>

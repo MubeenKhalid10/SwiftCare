@@ -7,7 +7,7 @@ import AdminLayout from '@/components/admin/admin-layout'
 import { useAuth } from '@/lib/auth-context'
 import { getAppointments, deleteAppointment, getPatients } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type { Appointment } from '@/lib/types'
 import { getAppointmentDisplayName } from '@/lib/utils'
 import { LogoLoader } from '@/components/ui/logo-loader'
@@ -15,7 +15,6 @@ import { LogoLoader } from '@/components/ui/logo-loader'
 export default function AppointmentsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,9 +74,9 @@ export default function AppointmentsPage() {
         setIsSubmitting(true)
         await deleteAppointment(id)
         setAppointments(appointments.filter(a => String(a.id) !== String(id)))
-        toast({ description: 'Appointment deleted successfully' })
+        toast.success('Appointment deleted successfully')
       } catch (err) {
-        toast({ description: 'Failed to delete appointment', variant: 'destructive' })
+        toast.error('Failed to delete appointment')
         console.error(err)
       } finally {
         setIsSubmitting(false)
@@ -114,7 +113,7 @@ export default function AppointmentsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Appointments</h1>
-            <p className="text-gray-600">Dashboard / Appointments</p>
+            <p className="text-muted-foreground">Dashboard / Appointments</p>
           </div>
         </div>
 
@@ -122,24 +121,24 @@ export default function AppointmentsPage() {
           <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
         )}
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <div className="p-6 border-b border-gray-200">
+        <div className="bg-card border border-border rounded-lg overflow-x-auto">
+          <div className="p-6 border-b border-border">
             <h2 className="text-xl font-bold">Appointment List</h2>
           </div>
 
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Doctor Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Patient Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date & Time</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">ID</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Doctor Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Patient Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Date & Time</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Status</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Actions</th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {appointments.map((apt, index) => {
                 const safeId =
                   apt?.id !== undefined && apt?.id !== null
@@ -147,7 +146,7 @@ export default function AppointmentsPage() {
                     : '---'
 
                 return (
-                  <tr key={apt?.id ?? index} className="hover:bg-gray-50">
+                  <tr key={apt?.id ?? index} className="hover:bg-muted">
                     <td className="px-6 py-4 text-sm font-medium">
                       #APT{safeId}
                     </td>
@@ -163,7 +162,7 @@ export default function AppointmentsPage() {
                     <td className="px-6 py-4 text-sm">
                       <div>
                         <p>{apt?.date ?? 'N/A'}</p>
-                        <p className="text-gray-500 text-xs">{apt?.time ?? ''}</p>
+                        <p className="text-muted-foreground text-xs">{apt?.time ?? ''}</p>
                       </div>
                     </td>
 
@@ -201,10 +200,10 @@ export default function AppointmentsPage() {
           </table>
 
           {appointments.length === 0 && !error && (
-            <div className="text-center py-8 text-gray-600">No appointments found</div>
+            <div className="text-center py-8 text-muted-foreground">No appointments found</div>
           )}
 
-          <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-600">
+          <div className="px-6 py-4 border-t border-border flex justify-between items-center text-sm text-muted-foreground">
             <span>Showing {appointments.length} entries</span>
           </div>
         </div>

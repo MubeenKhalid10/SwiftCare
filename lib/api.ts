@@ -1,6 +1,6 @@
-import type { Doctor, Patient, Review, Appointment, LoginCredentials, RegisterData, User, DashboardStats, DoctorInsights, QueueState, Shift, Notification, Facility } from "./types"
+import type { Doctor, Patient, Review, Appointment, DashboardStats, DoctorInsights, QueueState, Shift, Notification, Facility } from "./types"
 import { getAccessToken, refreshAccessToken } from "./auth.service"
-import { API_BASE_URL } from "./api-config"
+import { buildApiUrl, API_ENDPOINTS } from "./api-config"
 
 // Helper to transform MongoDB _id to id
 function transformMongoDocument<T extends { _id?: string; id?: string | number }>(doc: T): T {
@@ -95,14 +95,11 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`
-      console.log(`[v0] Authorization token attached (length: ${token.length})`)
     } else {
       console.warn(`[v0] No access token available for: ${endpoint}`)
     }
 
-    console.log(`[v0] API call: ${endpoint}`)
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(buildApiUrl(endpoint), {
       ...options,
       headers,
       credentials: "include", // CRITICAL: Send cookies with request
@@ -111,7 +108,6 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
     // Handle 401 - token expired, try to refresh and retry
     if (response.status === 401 && retry) {
       try {
-        console.log(`[v0] Token expired (401), refreshing...`)
         const newToken = await refreshAccessToken()
         const retryHeaders: HeadersInit = {
           "Content-Type": "application/json",
@@ -119,7 +115,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
           ...options?.headers,
         }
 
-        const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const retryResponse = await fetch(buildApiUrl(endpoint), {
           ...options,
           headers: retryHeaders,
           credentials: "include",
@@ -130,7 +126,6 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
         }
 
         const data = await retryResponse.json()
-        console.log(`[v0] Retry successful after token refresh`)
         return data
       } catch (err) {
         if (err instanceof Error && (err.message === "Unauthorized" || err.message === "No refresh token" || err.message === "Authentication failed. Please login again.")) {
@@ -151,6 +146,17 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, retry = true
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       const errorMessage = errorData.message || errorData.error || `API Error: ${response.status} ${response.statusText}`
+
+      // /queue/next uses a 409 response to signal the queue has ended.
+      // Treat it as a normal terminal state instead of an exception.
+      if (
+        endpoint === '/queue/next' &&
+        response.status === 409 &&
+        typeof errorMessage === 'string' &&
+        errorMessage.toLowerCase().includes('no more patients in queue')
+      ) {
+        return errorData as T
+      }
       
       // Only log non-validation errors to console
       if (!isExpectedValidationError(errorMessage)) {
@@ -418,10 +424,10 @@ export async function updatePatient(id: string, patient: Partial<Patient>): Prom
   } as Patient;
 }
 
-export async function toggleFavoriteDoctor(doctorId: string): Promise<any> {
-  return fetchAPI<any>('/users/toggle-favorite', {
+export async function toggleFavoriteDoctor(patientId: string, doctorId: string): Promise<any> {
+  return fetchAPI<any>('/api/user/toggle-favorite', {
     method: 'POST',
-    body: JSON.stringify({ doctorId })
+    body: JSON.stringify({ patientId, doctorId })
   })
 }
 
@@ -568,7 +574,7 @@ export async function deleteAppointment(id: string): Promise<void> {
       headers.Authorization = `Bearer ${token}`
     }
 
-    return fetch(`${API_BASE_URL}${endpoint}`, {
+    return fetch(buildApiUrl(endpoint), {
       method: "DELETE",
       headers,
       credentials: "include",
@@ -644,11 +650,39 @@ export async function getDoctorShiftsForBooking(doctorId: string): Promise<Shift
 }
 
 export async function getDoctorShifts(doctorId: string): Promise<Shift[]> {
-  try {
-    return await fetchAPI<Shift[]>(`/shifts/upcoming?doctorId=${doctorId}`)
-  } catch (err) {
+  const parseShifts = (data: unknown): Shift[] => {
+    if (Array.isArray(data)) return data as Shift[]
+    if (data && typeof data === 'object') {
+      const record = data as Record<string, unknown>
+      const items = record.items ?? record.shifts
+      if (Array.isArray(items)) return items as Shift[]
+    }
     return []
   }
+
+  const endpoints = [
+    `/shifts/doctor/${doctorId}`,
+    `/shifts/upcoming?doctorId=${doctorId}`,
+  ]
+
+  for (const endpoint of endpoints) {
+    try {
+      const data = await fetchAPI<unknown>(endpoint)
+      const shifts = parseShifts(data)
+      if (shifts.length > 0) return shifts
+    } catch {
+      // try next endpoint
+    }
+  }
+
+  try {
+    const active = await getActiveShift(doctorId)
+    if (active) return [active]
+  } catch {
+    // ignore
+  }
+
+  return []
 }
 
 // ============ PAYMENT API ============
@@ -1056,8 +1090,9 @@ export async function getDoctorInsights(doctorId: string): Promise<DoctorInsight
       return aptDate.getMonth() === currentMonth && aptDate.getFullYear() === currentYear
     })
 
-    const monthlyRevenue = monthlyAppointments
-      .filter(apt => apt.status === 'Completed')
+    const monthlyCompletedAppointments = monthlyAppointments.filter(apt => apt.status === 'Completed')
+
+    const monthlyRevenue = monthlyCompletedAppointments
       .reduce((sum, apt) => {
         const fee = doctor?.fee ? parseInt(doctor.fee.replace(/[^0-9]/g, '')) : 0
         return sum + fee
@@ -1108,9 +1143,9 @@ export async function getDoctorInsights(doctorId: string): Promise<DoctorInsight
       },
       monthlyReport: {
         totalAppointments: monthlyAppointments.length,
-        completedAppointments: monthlyAppointments.filter(apt => apt.status === 'Completed').length,
+        completedAppointments: monthlyCompletedAppointments.length,
         totalRevenue: monthlyRevenue,
-        averageRevenuePerAppointment: monthlyAppointments.length > 0 ? monthlyRevenue / monthlyAppointments.length : 0
+        averageRevenuePerAppointment: monthlyCompletedAppointments.length > 0 ? monthlyRevenue / monthlyCompletedAppointments.length : 0
       },
       statistics: {
         totalPatientsSeen: uniquePatients,
@@ -1165,7 +1200,7 @@ export async function getFacilities(page = 1, limit = 20): Promise<{ items: Faci
 
 export async function getFacilityById(id: string): Promise<Facility | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/facilities/${id}`, {
+    const response = await fetch(buildApiUrl(`${API_ENDPOINTS.FACILITIES}/${id}`), {
       credentials: 'include',
     })
 
@@ -1236,5 +1271,80 @@ export async function deleteFacility(id: string): Promise<void> {
   } catch (err) {
     console.error("[v0] Error deleting facility:", err instanceof Error ? err.message : err)
     throw err
+  }
+}
+
+export interface PlatformStats {
+  totalDoctors: number
+  availableTodayCount: number
+  platformRating: number
+  totalReviews: number
+  totalPatients: number
+  featuredDoctor: Doctor | null
+}
+
+function parseDoctorPatientCount(value?: string | number | null): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (!value) return 0
+  const parsed = Number.parseInt(String(value).replace(/[^0-9]/g, ''), 10)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function isDoctorAvailableToday(doctor: Doctor): boolean {
+  const days = doctor.schedule?.availableDays || doctor.availableDays || []
+  if (!days.length) return false
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+  return days.some((day) => {
+    const normalized = String(day).trim().toLowerCase()
+    return normalized === today || today.startsWith(normalized) || normalized.startsWith(today.slice(0, 3))
+  })
+}
+
+function pickFeaturedDoctor(doctors: Doctor[]): Doctor | null {
+  if (!doctors.length) return null
+
+  const withReviews = doctors.filter((doctor) => (doctor.reviewCount || 0) > 0)
+  const pool = withReviews.length > 0 ? withReviews : doctors
+
+  return [...pool].sort((a, b) => {
+    const ratingDiff = (b.averageRating || 0) - (a.averageRating || 0)
+    if (ratingDiff !== 0) return ratingDiff
+    return (b.reviewCount || 0) - (a.reviewCount || 0)
+  })[0]
+}
+
+export async function getPlatformStats(): Promise<PlatformStats> {
+  try {
+    const doctors = await getDoctors()
+    const totalReviews = doctors.reduce((sum, doctor) => sum + (doctor.reviewCount || 0), 0)
+    const weightedRatingSum = doctors.reduce(
+      (sum, doctor) => sum + (doctor.averageRating || 0) * (doctor.reviewCount || 0),
+      0
+    )
+    const platformRating = totalReviews > 0 ? weightedRatingSum / totalReviews : 0
+    const totalPatients = doctors.reduce(
+      (sum, doctor) => sum + parseDoctorPatientCount((doctor as Doctor & { patients?: string | number }).patients),
+      0
+    )
+
+    return {
+      totalDoctors: doctors.length,
+      availableTodayCount: doctors.filter(isDoctorAvailableToday).length,
+      platformRating,
+      totalReviews,
+      totalPatients,
+      featuredDoctor: pickFeaturedDoctor(doctors),
+    }
+  } catch (err) {
+    console.error('[v0] Error fetching platform stats:', err)
+    return {
+      totalDoctors: 0,
+      availableTodayCount: 0,
+      platformRating: 0,
+      totalReviews: 0,
+      totalPatients: 0,
+      featuredDoctor: null,
+    }
   }
 }

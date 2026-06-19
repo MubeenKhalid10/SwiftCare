@@ -8,9 +8,10 @@ import { useAuth } from '@/lib/auth-context'
 import { getDoctors, getDoctorByEmail, updateDoctor, deleteDoctor, createDoctor, getAppointments, getReviews } from '@/lib/api'
 import { DoctorFormModal, type DoctorFormData } from '@/components/admin/doctor-form-modal'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type { Doctor } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
+import { resolveDoctorImage, onDoctorImageError } from '@/lib/image-utils'
 
 function normalizeDoctor(raw: any, totalAppointments?: number, computedRating?: number): Doctor {
   const locationObject = typeof raw?.location === 'object' ? raw.location : undefined
@@ -104,7 +105,6 @@ function normalizeAvailableHours(value: string): string[] {
 export default function DoctorsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const { toast } = useToast()
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -184,9 +184,9 @@ export default function DoctorsPage() {
       setIsSubmitting(true)
       await deleteDoctor(id)
       setDoctors(doctors.filter(d => String(d.id) !== String(id)))
-      toast({ description: 'Doctor deleted from the database.' })
+      toast.success('Doctor deleted from the database.')
     } catch (err) {
-      toast({ description: 'Failed to delete doctor', variant: 'destructive' })
+      toast.error('Failed to delete doctor')
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -239,12 +239,12 @@ export default function DoctorsPage() {
         const updated = await updateDoctor(String(selectedDoctor.id), payload)
         const normalizedUpdated = normalizeDoctor(updated)
         setDoctors(doctors.map((d) => String(d.id) === String(selectedDoctor.id) ? normalizedUpdated : d))
-        toast({ description: 'Doctor updated successfully' })
+        toast.success('Doctor updated successfully')
       } else {
         const normalizedEmail = data.email.trim().toLowerCase()
         const existingDoctor = await getDoctorByEmail(normalizedEmail)
         if (existingDoctor) {
-          toast({ description: 'A doctor with this email already exists', variant: 'destructive' })
+          toast.error('A doctor with this email already exists')
           setIsSubmitting(false)
           return
         }
@@ -286,11 +286,11 @@ export default function DoctorsPage() {
 
         const newDoctor = await createDoctor(newDoctorPayload as Omit<Doctor, 'id'>)
         setDoctors([...doctors, normalizeDoctor(newDoctor)])
-        toast({ description: 'Doctor created successfully as unregistered information only' })
+        toast.success('Doctor created successfully as unregistered information only')
       }
       setIsFormOpen(false)
     } catch (err) {
-      toast({ description: 'Failed to save doctor', variant: 'destructive' })
+      toast.error('Failed to save doctor')
       console.error(err)
     } finally {
       setIsSubmitting(false)
@@ -313,7 +313,7 @@ export default function DoctorsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Doctors</h1>
-            <p className="text-gray-600">Dashboard / Doctors</p>
+            <p className="text-muted-foreground">Dashboard / Doctors</p>
           </div>
           <Button onClick={handleAddDoctor} className="gap-2">
             <Plus className="w-4 h-4" />
@@ -332,13 +332,12 @@ export default function DoctorsPage() {
               className="doctor-card"
             >
               <div className="h-32 flex items-center justify-center bg-gradient-to-br from-icon-bg to-primary/5">
-                {doctor.image ? (
-                  <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary-600 text-white text-2xl font-bold">
-                    {(doctor.name || 'Doctor').split(' ').map(n => n[0]).join('')}
-                  </div>
-                )}
+                <img
+                  src={resolveDoctorImage(doctor.image)}
+                  alt={doctor.name}
+                  className="w-full h-full object-cover"
+                  onError={onDoctorImageError}
+                />
               </div>
               
               <div className="doctor-card-content text-center">
@@ -369,7 +368,7 @@ export default function DoctorsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -397,7 +396,7 @@ export default function DoctorsPage() {
         </div>
         
         {doctors.length === 0 && !error && (
-          <div className="text-center py-12 text-gray-600">No doctors found</div>
+          <div className="text-center py-12 text-muted-foreground">No doctors found</div>
         )}
 
         <DoctorFormModal

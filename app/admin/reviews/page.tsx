@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { useRequireAuth } from '@/hooks/use-require-auth'
+import { toast } from 'sonner'
+import { Trash2, Star } from 'lucide-react'
 import AdminLayout from '@/components/admin/admin-layout'
 import { getReviews, deleteReview, getPatients, getDoctors } from '@/lib/api'
-import { API_BASE_URL as API_URL } from '@/lib/api-config'
 import type { Review, Patient, Doctor } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function ReviewsPage() {
+  const { isLoading: authLoading } = useRequireAuth({ role: 'admin', loginPath: '/admin/login' })
   const router = useRouter()
   const [reviews, setReviews] = useState<Review[]>([])
   const [patients, setPatients] = useState<Record<string, Patient>>({})
@@ -65,11 +67,21 @@ export default function ReviewsPage() {
       await deleteReview(id)
       setReviews(reviews.filter(r => String(r.id) !== String(id)))
     } catch (err) {
-      alert("Failed to delete review")
+      toast.error('Failed to delete review')
       console.error(err)
     } finally {
       setIsDeleting(null)
     }
+  }
+
+  if (authLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center py-12">
+          <LogoLoader size={32} />
+        </div>
+      </AdminLayout>
+    )
   }
 
   if (isLoading) {
@@ -93,24 +105,24 @@ export default function ReviewsPage() {
       <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold">Reviews</h1>
-          <p className="text-gray-600">Dashboard / Reviews</p>
+          <p className="text-muted-foreground">Dashboard / Reviews</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+        <div className="bg-card border border-border rounded-lg overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Patient Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Doctor Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Rating</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Description</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Patient Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Doctor Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Rating</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Description</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Date</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {reviews.map((review) => (
-                <tr key={review.id} className="hover:bg-gray-50">
+                <tr key={review.id} className="hover:bg-muted">
                   <td className="px-6 py-4 text-sm font-medium">
                     {patients[review.patientId]?.name ?? 'Unknown'}
                   </td>
@@ -118,9 +130,13 @@ export default function ReviewsPage() {
                     {doctors[review.doctorId]?.name ?? 'Unknown'}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <span className="text-yellow-400">{'★'.repeat(review.rating)}</span>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: review.rating }).map((_, index) => (
+                        <Star key={index} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{review.comment}</td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">{review.comment}</td>
                   <td className="px-6 py-4 text-sm">{new Date(review.createdAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-sm">
                     <button 
@@ -135,7 +151,7 @@ export default function ReviewsPage() {
               ))}
             </tbody>
           </table>
-          <div className="px-6 py-4 border-t border-gray-200 text-right text-sm text-gray-600">
+          <div className="px-6 py-4 border-t border-border text-right text-sm text-muted-foreground">
             Showing 1 to {reviews.length} of {reviews.length} entries
           </div>
         </div>

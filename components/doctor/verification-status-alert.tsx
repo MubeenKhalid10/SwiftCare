@@ -94,7 +94,7 @@ export function VerificationStatusAlert({
         <CheckCircle className="h-5 w-5 text-green-600" />
         <AlertTitle className="font-semibold text-lg ml-2 text-green-900">Verification Approved</AlertTitle>
         <AlertDescription className="mt-2 ml-2 flex items-center justify-between">
-          <span>🎉 Congratulations! Your verification has been approved. You now have full access to the SWIFTCARE portal and your profile is visible to patients.</span>
+          <span>Congratulations! Your verification has been approved. You now have full access to the SWIFTCARE portal and your profile is visible to patients.</span>
           <Button 
             onClick={handleDismiss}
             size="sm" 

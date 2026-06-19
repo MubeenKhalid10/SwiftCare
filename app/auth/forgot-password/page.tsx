@@ -46,44 +46,46 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Gradient Background */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 items-center justify-center p-8">
-        <div className="text-center">
-          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+      {/* Left Side - Brand Panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary to-primary-600 items-center justify-center p-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="text-center relative z-10">
+          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/30">
             <KeyRound className="w-12 h-12 text-white" />
           </div>
           <h2 className="text-4xl font-bold text-white mb-4">Forgot Password?</h2>
-          <p className="text-blue-100 text-lg">No worries, we&apos;ll help you reset it</p>
+          <p className="text-white/80 text-lg">No worries, we&apos;ll help you reset it</p>
         </div>
       </div>
 
       {/* Right Side */}
-      <div className="w-full lg:w-1/2 bg-white flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 bg-background flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <Link
             href="/auth/login"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 mb-8 transition-colors"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-8 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Login
           </Link>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Reset Password</h1>
+            <p className="text-muted-foreground">
               Enter your email address and we&apos;ll send you a code to reset your password
             </p>
           </div>
 
           {/* Role Selection */}
-          <div className="flex gap-4 mb-6">
+          <div className="flex gap-3 mb-6 p-1 bg-muted rounded-xl">
             <button
               type="button"
               onClick={() => setRole('patient')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${
+              className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
                 role === 'patient'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Patient
@@ -91,19 +93,19 @@ export default function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => setRole('doctor')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${
+              className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
                 role === 'doctor'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Doctor
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-foreground mb-2">
                 Email Address
               </label>
               <Input
@@ -112,14 +114,13 @@ export default function ForgotPasswordPage() {
                 placeholder="Enter your registered email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isLoading}
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              className="w-full bg-primary hover:bg-primary-600 text-white font-semibold py-3 rounded-lg transition-all"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -133,9 +134,9 @@ export default function ForgotPasswordPage() {
             </Button>
           </form>
 
-          <p className="text-center text-gray-600 mt-8 text-sm">
+          <p className="text-center text-muted-foreground mt-8 text-sm">
             Remember your password?{' '}
-            <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-semibold">
+            <Link href="/auth/login" className="text-primary hover:text-primary-600 font-semibold transition-colors">
               Sign in
             </Link>
           </p>

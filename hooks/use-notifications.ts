@@ -29,14 +29,11 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
   } = config
 
   useEffect(() => {
-    // Connect with current access token
     connectSocket()
 
-    // Listen for new notifications
     const onNewNotification = (notification: Notification) => {
       const type = notification.type
 
-      // Show toast if enabled
       if (showToasts) {
         const toastConfig = {
           description: notification.body,
@@ -50,7 +47,7 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
             break
 
           case 'queue_turn_now':
-            toast.success('🟢 ' + notification.title, {
+            toast.success(notification.title, {
               ...toastConfig,
               duration: 5000
             })
@@ -58,12 +55,12 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
             break
 
           case 'queue_turn_approaching':
-            toast.warning('🟡 ' + notification.title, toastConfig)
+            toast.warning(notification.title, toastConfig)
             onQueueApproaching?.(notification)
             break
 
           case 'feedback_moderation':
-            toast.info('⭐ ' + notification.title, toastConfig)
+            toast.info(notification.title, toastConfig)
             onReviewSubmitted?.(notification)
             break
 
@@ -84,11 +81,11 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
             break
 
           case 'queue_progress':
-            toast.info('📊 ' + notification.title, toastConfig)
+            toast.info(notification.title, toastConfig)
             break
 
           case 'feedback_response':
-            toast.info('💬 ' + notification.title, toastConfig)
+            toast.info(notification.title, toastConfig)
             break
 
           case 'new_doctor':
@@ -97,14 +94,14 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
             break
 
           case 'shift_late':
-            toast.warning('⏰ ' + notification.title, {
+            toast.warning(notification.title, {
               ...toastConfig,
               duration: 9000,
             })
             break
 
           case 'system_test':
-            toast.info('🧪 ' + notification.title, toastConfig)
+            toast.info(notification.title, toastConfig)
             break
 
           default:
@@ -114,7 +111,6 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
 
       onNotification?.(notification)
 
-      // Call appropriate handler
       switch (type) {
         case 'appointment_reminder':
           onAppointmentReminder?.(notification)
@@ -139,9 +135,6 @@ export function useNotifications(config: NotificationHandlerConfig = {}) {
   }, [showToasts, onNotification, onAppointmentReminder, onQueueTurnNow, onQueueApproaching, onReviewSubmitted])
 }
 
-/**
- * Get appropriate toast duration based on notification type
- */
 function getToastDuration(type: string): number {
   const durations: Record<string, number> = {
     appointment_reminder: 8000,

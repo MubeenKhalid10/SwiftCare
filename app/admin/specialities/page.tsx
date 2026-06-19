@@ -106,9 +106,9 @@ export default function SpecialitiesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Specialities</h1>
-            <p className="text-gray-600">Dashboard / Specialities</p>
+            <p className="text-muted-foreground">Dashboard / Specialities</p>
           </div>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+          <div className="rounded-lg border border-primary/30 bg-icon-bg px-4 py-2 text-sm font-medium text-primary">
             {groupedSpecialties.length} total specialities
           </div>
         </div>
@@ -128,62 +128,62 @@ export default function SpecialitiesPage() {
                 onClick={() => setSelectedSpecialty(specialty.label)}
                 className={`rounded-xl border p-5 text-left transition-all ${
                   isActive
-                    ? 'border-blue-600 bg-blue-50 shadow-sm'
-                    : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+                    ? 'border-primary bg-icon-bg shadow-sm'
+                    : 'border-border bg-card hover:border-primary/30 hover:shadow-sm'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-icon-bg text-primary">
                     <Stethoscope className="h-5 w-5" />
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground/80">
                     <Users className="h-3.5 w-3.5" />
                     {specialty.count}
                   </span>
                 </div>
-                <p className="mt-4 text-lg font-semibold text-gray-900">{specialty.label}</p>
-                <p className="text-sm text-gray-600">{specialty.count} doctor{specialty.count !== 1 ? 's' : ''} registered</p>
+                <p className="mt-4 text-lg font-semibold text-foreground">{specialty.label}</p>
+                <p className="text-sm text-muted-foreground">{specialty.count} doctor{specialty.count !== 1 ? 's' : ''} registered</p>
               </button>
             )
           })}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="bg-card border border-border rounded-lg overflow-x-auto">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-xl font-bold">Doctors in {selectedSpecialty || 'Speciality'}</h2>
-            <span className="text-sm text-gray-600">{selectedDoctors.length} entries</span>
+            <span className="text-sm text-muted-foreground">{selectedDoctors.length} entries</span>
           </div>
 
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Doctor Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Speciality</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Registered Email</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Doctor Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Speciality</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-foreground/80">Registered Email</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {selectedDoctors.map((doctor) => (
-                <tr key={String(doctor.id)} className="hover:bg-gray-50">
+                <tr key={String(doctor.id)} className="hover:bg-muted">
                   <td className="px-6 py-4 text-sm font-medium">{doctor.name || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                    <span className="inline-flex items-center rounded-full bg-icon-bg px-2.5 py-1 text-xs font-semibold text-primary">
                       {doctor.specialtyLabel}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{doctor.registeredEmail}</td>
+                  <td className="px-6 py-4 text-sm text-foreground/80">{doctor.registeredEmail}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           {selectedDoctors.length === 0 && (
-            <div className="px-6 py-8 text-center text-gray-600">No doctors found for this speciality</div>
+            <div className="px-6 py-8 text-center text-muted-foreground">No doctors found for this speciality</div>
           )}
         </div>
 
         {groupedSpecialties.length === 0 && !error && (
-          <div className="text-center py-12 text-gray-600">No speciality data available</div>
+          <div className="text-center py-12 text-muted-foreground">No speciality data available</div>
         )}
       </div>
     </AdminLayout>

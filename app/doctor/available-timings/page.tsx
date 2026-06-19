@@ -2,13 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Header } from '@/components/header';
-import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { DoctorSidebar } from '@/components/doctor/doctor-sidebar';
-import { useAuth } from '@/lib/auth-context';
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { getBookableShifts, getDoctorById, updateDoctor } from '@/lib/api';
 import type { Shift } from '@/lib/types';
 import { toast } from 'sonner';
@@ -34,7 +32,7 @@ function formatDateLabel(value: string | Date): string {
 }
 
 export default function AvailableTimings() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useRequireAuth({ role: 'doctor' });
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [consultationFee, setConsultationFee] = useState('');
@@ -165,14 +163,24 @@ export default function AvailableTimings() {
   }, [availableDays, availableHours]);
 
 
+  if (authLoading) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen flex items-center justify-center bg-muted">
+          <LogoLoader size={32} />
+        </div>
+      </>
+    );
+  }
+
   if (isLoading) {
     return (
       <>
         <Header />
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="min-h-screen flex items-center justify-center bg-muted">
           <LogoLoader size={32} className="h-8 w-8" />
         </div>
-        <Footer />
       </>
     );
   }
@@ -180,32 +188,29 @@ export default function AvailableTimings() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50">
-        <div className="flex">
-          <DoctorSidebar />
-          <div className="flex-1">
-            <div className="p-8">
+      <div className="min-h-screen bg-muted">
+        <div className="max-w-7xl mx-auto p-8">
               <div className="mb-8">
-                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <span className="w-2 h-2 rounded-full bg-primary"></span>
                   <span>Doctor</span>
                   <span>&gt;</span>
-                  <span>Available Timings</span>
+                  <span>Availability</span>
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900">Clinic Availability</h1>
-                <p className="text-gray-500 mt-2">Your appointment schedule and consultation fees</p>
+                <h1 className="text-4xl font-bold text-foreground">Clinic Availability</h1>
+                <p className="text-muted-foreground mt-2">Your appointment schedule and consultation fees</p>
               </div>
 
-              <Card className="mb-8 border border-[#0073CF] shadow-sm bg-white">
-                <div className="p-6 text-gray-900">
+              <Card className="mb-8 border border-[#0073CF] shadow-sm bg-card">
+                <div className="p-6 text-foreground">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarDays className="w-4 h-4" />
                         <span>Shift Generation</span>
                       </div>
                       <h2 className="text-2xl font-bold">Generate the next 30 days of shifts</h2>
-                      <p className="text-gray-600 max-w-2xl">
+                      <p className="text-muted-foreground max-w-2xl">
                         {hasFull30DayCoverage
                           ? `Your shifts are already generated for ${generatedCoverageDays} days${generationCoveredThrough ? `, through ${generationCoveredThrough}` : ''}.`
                           : generatedCoverageDays > 0
@@ -217,7 +222,7 @@ export default function AvailableTimings() {
                       <Button
                         onClick={handleGenerateNextShifts}
                         disabled={isGeneratingShifts || isRefreshingShifts || hasFull30DayCoverage}
-                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${hasFull30DayCoverage ? 'bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-200 hover:bg-gray-100' : 'bg-[#0073CF] text-white hover:bg-[#0062B0]'}`}
+                        className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${hasFull30DayCoverage ? 'bg-muted text-muted-foreground cursor-not-allowed border border-border hover:bg-muted/70' : 'bg-primary text-white hover:bg-primary/90'}`}
                       >
                         {isGeneratingShifts ? (
                           <span className="flex items-center gap-2">
@@ -231,7 +236,7 @@ export default function AvailableTimings() {
                         )}
                       </Button>
                       {hasFull30DayCoverage && generationCoveredThrough && (
-                        <p className="text-xs text-gray-500 text-right">
+                        <p className="text-xs text-muted-foreground text-right">
                           Covered through {generationCoveredThrough}
                         </p>
                       )}
@@ -241,14 +246,14 @@ export default function AvailableTimings() {
               </Card>
 
               {/* Consultation Fee Card */}
-              <Card className="mb-8 border border-[#0073CF] shadow-sm bg-white">
+              <Card className="mb-8 border border-[#0073CF] shadow-sm bg-card">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm font-medium mb-2">Consultation Fee</p>
+                      <p className="text-muted-foreground text-sm font-medium mb-2">Consultation Fee</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-gray-900">Rs. {consultationFee}</span>
-                        <span className="text-gray-500 text-sm">per appointment</span>
+                        <span className="text-3xl font-bold text-foreground">Rs. {consultationFee}</span>
+                        <span className="text-muted-foreground text-sm">per appointment</span>
                       </div>
                     </div>
                     <div className="w-16 h-16 bg-[#0073CF]/10 rounded-full flex items-center justify-center">
@@ -261,11 +266,11 @@ export default function AvailableTimings() {
               {/* Available Days and Hours */}
               <Card className="border border-[#0073CF] shadow-sm">
                 <div className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Schedule</h2>
+                  <h2 className="text-2xl font-bold text-foreground mb-6">Your Schedule</h2>
 
                   {availableDays.length === 0 ? (
                     <div className="text-center py-12">
-                      <p className="text-gray-500 text-lg">No schedule slots configured yet.</p>
+                      <p className="text-muted-foreground text-lg">No schedule slots configured yet.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -276,13 +281,13 @@ export default function AvailableTimings() {
                             key={day}
                             className={`rounded-lg p-5 transition-all ${
                               isAvailable
-                                ? 'bg-white border border-[#0073CF] shadow-sm hover:shadow-md'
-                                : 'bg-gray-50 border border-gray-200'
+                                ? 'bg-card border border-[#0073CF] shadow-sm hover:shadow-md'
+                                : 'bg-muted border border-border'
                             }`}
                           >
                             <div className="flex items-center gap-3 mb-3">
-                              <div className={`h-2.5 w-2.5 rounded-full ${isAvailable ? 'bg-[#0073CF]' : 'bg-gray-300'}`} />
-                              <h3 className={`text-lg font-bold ${isAvailable ? 'text-gray-900' : 'text-gray-500'}`}>
+                              <div className={`h-2.5 w-2.5 rounded-full ${isAvailable ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                              <h3 className={`text-lg font-bold ${isAvailable ? 'text-foreground' : 'text-muted-foreground'}`}>
                                 {day}
                               </h3>
                             </div>
@@ -297,7 +302,7 @@ export default function AvailableTimings() {
                                   {(hoursByDay[day] || []).map((hour: string, idx: number) => (
                                     <Badge
                                       key={idx}
-                                      className="bg-white text-gray-700 border border-[#0073CF] font-semibold text-xs px-2 py-1"
+                                      className="bg-card text-foreground/80 border border-[#0073CF] font-semibold text-xs px-2 py-1"
                                     >
                                       {hour}
                                     </Badge>
@@ -305,8 +310,8 @@ export default function AvailableTimings() {
                                 </div>
                               </div>
                             ) : (
-                              <div className="bg-gray-200 rounded-lg p-3 text-center">
-                                <p className="text-gray-600 font-semibold text-sm">Not Available</p>
+                              <div className="bg-muted rounded-lg p-3 text-center">
+                                <p className="text-muted-foreground font-semibold text-sm">Not Available</p>
                               </div>
                             )}
                           </div>
@@ -316,11 +321,8 @@ export default function AvailableTimings() {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
         </div>
       </div>
-      <Footer />
     </>
   );
 }

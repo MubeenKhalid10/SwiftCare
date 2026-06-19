@@ -2,15 +2,14 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Image from "next/image"
 import { ArrowLeft, MapPin, Phone, Mail, Users, Star } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/header"
-import Footer from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogoLoader } from "@/components/ui/logo-loader"
 import { getFacilityById, getDoctors } from "@/lib/api"
+import { resolveDoctorImage, onDoctorImageError, resolveFacilityImage, onFacilityImageError } from "@/lib/image-utils"
 import type { Facility, Doctor } from "@/lib/types"
 
 function FacilityDetailContent() {
@@ -111,7 +110,6 @@ function FacilityDetailContent() {
         <main className="flex-1 flex justify-center items-center">
           <LogoLoader size={32} className="h-8 w-8" />
         </main>
-        <Footer />
       </div>
     )
   }
@@ -121,7 +119,7 @@ function FacilityDetailContent() {
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 container mx-auto px-4 py-8">
-          <Link href="/hospitals" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-6">
+          <Link href="/hospitals" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 mb-6">
             <ArrowLeft className="w-5 h-5" />
             Back to Facilities
           </Link>
@@ -129,7 +127,6 @@ function FacilityDetailContent() {
             <p className="text-red-500 text-lg">{error || "Facility not found"}</p>
           </div>
         </main>
-        <Footer />
       </div>
     )
   }
@@ -141,7 +138,7 @@ function FacilityDetailContent() {
       <main className="flex-1">
         {/* Back Button */}
         <div className="container mx-auto px-4 py-6">
-          <Link href="/hospitals" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800">
+          <Link href="/hospitals" className="inline-flex items-center gap-2 text-primary hover:text-primary/80">
             <ArrowLeft className="w-5 h-5" />
             Back to Facilities
           </Link>
@@ -149,16 +146,12 @@ function FacilityDetailContent() {
 
         {/* Hero Section */}
         <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-12 relative">
-          {facility.image && (
-            <img
-              src={facility.image}
-              alt={facility.name}
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          )}
+          <img
+            src={resolveFacilityImage(facility.image)}
+            alt={facility.name}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={onFacilityImageError}
+          />
           <div className="absolute inset-0 bg-black/40"></div>
           <div className="container mx-auto px-4 relative z-10">
             <h1 className="text-4xl font-bold">{facility.name}</h1>
@@ -172,15 +165,15 @@ function FacilityDetailContent() {
             <div className="md:col-span-2">
               {/* Location Information */}
               {facility.location && (
-                <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-6">Location Information</h2>
+                <div className="bg-card rounded-lg shadow-md p-6 mb-8">
+                  <h2 className="text-2xl font-semibold text-foreground mb-6">Location Information</h2>
 
                   {facility.location.label && (
                     <div className="flex items-start gap-4 mb-4">
-                      <MapPin className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                      <MapPin className="w-6 h-6 text-primary mt-1 flex-shrink-0" />
                       <div>
-                        <p className="text-sm text-gray-600 font-medium">Address</p>
-                        <p className="text-gray-800">{facility.location.label}</p>
+                        <p className="text-sm text-muted-foreground font-medium">Address</p>
+                        <p className="text-foreground">{facility.location.label}</p>
                       </div>
                     </div>
                   )}
@@ -189,39 +182,37 @@ function FacilityDetailContent() {
 
               {/* About Section */}
               {facility.about && (
-                <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-4">About</h2>
-                  <p className="text-gray-700 leading-relaxed">{facility.about}</p>
+                <div className="bg-card rounded-lg shadow-md p-6 mb-8">
+                  <h2 className="text-2xl font-semibold text-foreground mb-4">About</h2>
+                  <p className="text-foreground/80 leading-relaxed">{facility.about}</p>
                 </div>
               )}
 
               {/* Affiliated Doctors */}
               {doctors.length > 0 && (
-                <div className="bg-white rounded-lg shadow-md p-6">
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-6">Affiliated Doctors</h2>
+                <div className="bg-card rounded-lg shadow-md p-6">
+                  <h2 className="text-2xl font-semibold text-foreground mb-6">Affiliated Doctors</h2>
 
                   <div className="grid gap-6 grid-cols-1">
                     {doctors.map((doctor) => (
                       <Card
                         key={doctor.id}
-                        className="doctor-card cursor-pointer hover:border-blue-300 transition-all"
+                        className="doctor-card cursor-pointer hover:border-primary/40 transition-all"
                         onClick={() => router.push(`/doctor-profile?id=${doctor.id}`)}
                       >
                         <div className="relative flex flex-col sm:flex-row">
                           <div className="doctor-card-image w-full sm:w-48 h-48 sm:h-auto shrink-0 relative">
                             <img
-                              src={doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+                              src={resolveDoctorImage(doctor.image)}
                               alt={doctor.name}
-                              onError={(event) => {
-                                event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
-                              }}
+                              onError={onDoctorImageError}
                               className="w-full h-full object-cover rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none absolute inset-0"
                             />
                             <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-                              <div className="bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1 w-fit">
+                              <div className="bg-white/90 backdrop-blur-sm text-foreground text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1 w-fit">
                                 {(doctor.averageRating || 0).toFixed(1)}
                                 <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> 
-                                <span className="text-[10px] text-gray-500 font-normal">({doctor.reviewCount || 0})</span>
+                                <span className="text-[10px] text-muted-foreground font-normal">({doctor.reviewCount || 0})</span>
                               </div>
                               <div className={`text-[10px] font-bold px-2 py-1 rounded-full shadow-sm w-fit ${isDoctorRegistered(doctor) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                 {isDoctorRegistered(doctor) ? 'Registered' : 'Not Registered'}
@@ -229,9 +220,9 @@ function FacilityDetailContent() {
                             </div>
                           </div>
                           <CardContent className="doctor-card-content flex-1 p-4 flex flex-col">
-                            <h3 className="doctor-card-name text-lg font-bold text-gray-900 mb-1">Dr. {doctor.name}</h3>
-                            <p className="doctor-card-specialty text-sm text-gray-600 mb-2">{doctor.specialty}</p>
-                            <p className="doctor-card-location text-sm text-gray-500 flex items-center gap-1 mb-3">
+                            <h3 className="doctor-card-name text-lg font-bold text-foreground mb-1">Dr. {doctor.name}</h3>
+                            <p className="doctor-card-specialty text-sm text-muted-foreground mb-2">{doctor.specialty}</p>
+                            <p className="doctor-card-location text-sm text-muted-foreground flex items-center gap-1 mb-3">
                               <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                               <span>{typeof doctor.location === 'string' ? doctor.location : doctor.location?.label || doctor.location?.clinicName || 'Location not provided'} • {doctor.experience}</span>
                             </p>
@@ -251,8 +242,8 @@ function FacilityDetailContent() {
 
                             <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-auto">
                               <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Consultation</p>
-                                <p className="text-lg font-bold text-gray-900">{doctor.fee || 'Contact'}</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Consultation</p>
+                                <p className="text-lg font-bold text-foreground">{doctor.fee || 'Contact'}</p>
                               </div>
                               <Link href={`/doctor-profile?id=${doctor.id}`} onClick={(e) => e.stopPropagation()}>
                                 <Button size="sm" className="bg-primary text-white hover:bg-primary-600 h-9">
@@ -269,8 +260,8 @@ function FacilityDetailContent() {
               )}
 
               {doctors.length === 0 && facility.doctorList && facility.doctorList.length === 0 && (
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
-                  <p className="text-gray-600">No affiliated doctors information available</p>
+                <div className="bg-muted rounded-lg p-6 text-center">
+                  <p className="text-muted-foreground">No affiliated doctors information available</p>
                 </div>
               )}
             </div>
@@ -278,16 +269,16 @@ function FacilityDetailContent() {
             {/* Sidebar */}
             <div className="md:col-span-1">
               {/* Quick Info Card */}
-              <div className="bg-white rounded-lg shadow-md p-6 sticky top-20">
-                <h3 className="text-xl font-semibold text-gray-800 mb-6">Quick Info</h3>
+              <div className="bg-card rounded-lg shadow-md p-6 sticky top-20">
+                <h3 className="text-xl font-semibold text-foreground mb-6">Quick Info</h3>
 
                 <div className="space-y-4">
                   {facility.doctorList && (
-                    <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
-                      <Users className="w-5 h-5 text-blue-600" />
+                    <div className="flex items-center gap-3 pb-4 border-b border-border">
+                      <Users className="w-5 h-5 text-primary" />
                       <div>
-                        <p className="text-sm text-gray-600">Affiliated Doctors</p>
-                        <p className="text-lg font-semibold text-gray-800">
+                        <p className="text-sm text-muted-foreground">Affiliated Doctors</p>
+                        <p className="text-lg font-semibold text-foreground">
                           {Array.isArray(facility.doctorList) ? facility.doctorList.length : 0}
                         </p>
                       </div>
@@ -300,7 +291,7 @@ function FacilityDetailContent() {
                       const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
                       window.open(mapsUrl, '_blank');
                     }}
-                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors font-medium"
                   >
                     Get Directions
                   </button>
@@ -311,7 +302,6 @@ function FacilityDetailContent() {
         </section>
       </main>
 
-      <Footer />
     </div>
   )
 }
@@ -321,14 +311,7 @@ export default function FacilityDetailPage() {
     <Suspense
       fallback={
         <div className="flex justify-center items-center min-h-screen">
-          <Image
-            src="/assets/Logo.png"
-            alt="SwiftCare"
-            width={64}
-            height={64}
-            className="h-16 w-16 animate-pulse rounded-xl object-contain"
-            priority
-          />
+          <LogoLoader size={32} className="h-8 w-8" />
         </div>
       }
     >

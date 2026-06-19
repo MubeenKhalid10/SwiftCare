@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Mail, MapPin, ShieldCheck, UserCircle2 } from 'lucide-react'
 import { LogoLoader } from '@/components/ui/logo-loader'
+import { resolvePatientImage, onPatientImageError } from '@/lib/image-utils'
 
 type ProfileFormState = {
   name: string
@@ -88,30 +89,34 @@ export default function AdminProfilePage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Profile</h1>
-          <p className="text-gray-600">Profile</p>
+          <p className="text-muted-foreground">Profile</p>
         </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <Avatar className="w-24 h-24 ring-4 ring-blue-100">
-              <AvatarImage src={user?.avatar} alt={user?.name || 'Admin'} />
-              <AvatarFallback className="bg-blue-600 text-white text-xl font-bold">{initials}</AvatarFallback>
+            <Avatar className="w-24 h-24 ring-4 ring-primary/15">
+              <AvatarImage
+                src={resolvePatientImage(user?.avatar)}
+                alt={user?.name || 'Admin'}
+                onError={onPatientImageError}
+              />
+              <AvatarFallback className="bg-primary text-white text-xl font-bold">{initials}</AvatarFallback>
             </Avatar>
 
             <div className="flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-bold text-gray-900">{user?.name || 'Admin User'}</h2>
-                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Admin</Badge>
+                <h2 className="text-2xl font-bold text-foreground">{user?.name || 'Admin User'}</h2>
+                <Badge className="bg-icon-bg text-primary hover:bg-icon-bg">Admin</Badge>
               </div>
-              <p className="text-gray-600 flex items-center gap-2"><Mail className="w-4 h-4" />{user?.email || 'admin@swiftcare.com'}</p>
-              <p className="text-gray-600 flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Platform administrator</p>
-              <p className="text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" />SwiftCare Admin Portal</p>
-              <p className="text-gray-600 max-w-2xl">{formData.about}</p>
+              <p className="text-muted-foreground flex items-center gap-2"><Mail className="w-4 h-4" />{user?.email || 'admin@swiftcare.com'}</p>
+              <p className="text-muted-foreground flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Platform administrator</p>
+              <p className="text-muted-foreground flex items-center gap-2"><MapPin className="w-4 h-4" />SwiftCare Admin Portal</p>
+              <p className="text-muted-foreground max-w-2xl">{formData.about}</p>
             </div>
           </div>
 
-          <div className="flex gap-4 border-b border-gray-200 mb-6">
+          <div className="flex gap-4 border-b border-border mb-6">
             <button className="px-4 py-2 text-cyan-500 border-b-2 border-cyan-500 font-medium">About</button>
           </div>
 
@@ -119,28 +124,28 @@ export default function AdminProfilePage() {
             <h3 className="text-xl font-bold">Details</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-gray-600 text-sm">Name</p>
+                <p className="text-muted-foreground text-sm">Name</p>
                 <p className="font-medium">{user?.name || 'Admin User'}</p>
               </div>
               <div>
-                <p className="text-gray-600 text-sm">Email ID</p>
+                <p className="text-muted-foreground text-sm">Email ID</p>
                 <p className="font-medium">{user?.email || 'admin@swiftcare.com'}</p>
               </div>
               <div>
-                <p className="text-gray-600 text-sm">Role</p>
+                <p className="text-muted-foreground text-sm">Role</p>
                 <p className="font-medium capitalize">{user?.role || 'admin'}</p>
               </div>
               <div>
               <div className="col-span-2">
-                <p className="text-gray-600 text-sm">About</p>
+                <p className="text-muted-foreground text-sm">About</p>
                 <p className="font-medium">{formData.about}</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+          <div className="rounded-lg border border-dashed border-border bg-muted p-4">
             <div className="flex items-start gap-3">
-              <UserCircle2 className="w-5 h-5 text-gray-500 mt-0.5" />
+              <UserCircle2 className="w-5 h-5 text-muted-foreground mt-0.5" />
             </div>
           </div>
         </div>

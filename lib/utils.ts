@@ -68,6 +68,38 @@ export function toggleFavouriteDoctor(doctorId: string | number, patientId?: str
   return !exists
 }
 
+export async function syncFavouritesFromBackend(patientId: string | number): Promise<void> {
+  try {
+    const { getPatientById } = await import('@/lib/api')
+    const patient = await getPatientById(String(patientId))
+    const favorites = (patient as { favorites?: Array<string | number> }).favorites
+    if (Array.isArray(favorites)) {
+      setFavouriteDoctorIds(favorites, patientId)
+    }
+  } catch {
+    // Keep local cache if sync fails
+  }
+}
+
+export async function toggleFavouriteDoctorWithSync(
+  doctorId: string | number,
+  patientId?: string | number
+): Promise<boolean> {
+  const nextIsFavourite = toggleFavouriteDoctor(doctorId, patientId)
+
+  if (patientId) {
+    try {
+      const { toggleFavoriteDoctor } = await import('@/lib/api')
+      await toggleFavoriteDoctor(String(patientId), String(doctorId))
+    } catch (error) {
+      toggleFavouriteDoctor(doctorId, patientId)
+      throw error
+    }
+  }
+
+  return nextIsFavourite
+}
+
 export function getAppointmentDisplayName(appointment: { patientName?: string; bookingFor?: string } | null | undefined): string {
   const explicitName = String(appointment?.patientName || '').trim()
   if (explicitName && explicitName.toLowerCase() !== 'self') return explicitName

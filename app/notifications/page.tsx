@@ -2,36 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import { Header } from '@/components/header'
-import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { DoctorSidebar } from '@/components/doctor/doctor-sidebar'
-import { PatientSidebar } from '@/components/patient/patient-sidebar'
-import { useAuth } from '@/lib/auth-context'
-import { 
-  getNotifications, 
+import { useRequireAuth } from '@/hooks/use-require-auth'
+import {
+  getNotifications,
   getUnreadCount,
-  markNotificationAsRead, 
+  markNotificationAsRead,
   markAllNotificationsAsRead,
   getNotificationIcon,
   getNotificationStyle,
   getNotificationRoute,
-  NOTIFICATION_FILTER_OPTIONS,
 } from '@/lib/notification.service'
 import type { Notification } from '@/lib/types'
-import { Bell, Trash2, Check, Filter } from 'lucide-react'
+import { Bell, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { socket, connectSocket } from '@/lib/socket'
 import { LogoLoader } from '@/components/ui/logo-loader'
 import { useRouter } from 'next/navigation'
 
 export default function NotificationsPage() {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isLoading: authLoading } = useRequireAuth()
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<string>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
@@ -39,35 +34,31 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     if (!socket.connected) connectSocket()
-    
-    // Listen for new notifications
+
     const onNewNotification = (notification: Notification) => {
       setNotifications(prev => [notification, ...prev])
       setUnreadCount(prev => prev + 1)
     }
-    
+
     socket.on('notification:new', onNewNotification)
     return () => { socket.off('notification:new', onNewNotification) }
   }, [])
 
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      fetchNotifications()
-    }
-  }, [isAuthenticated, user?.id, filter, page])
+    if (authLoading || !user?.id) return
+    fetchNotifications()
+  }, [authLoading, user?.id, page])
 
   const fetchNotifications = async () => {
     try {
       setLoading(true)
-      const unreadOnly = filter === 'unread'
-      const filterType = filter !== 'all' && filter !== 'unread' ? filter : undefined
-      const response = await getNotifications(page, 20, unreadOnly, filterType)
+      const response = await getNotifications(page, 20)
       setNotifications(response.items)
       setTotalPages(response.totalPages)
       setTotal(response.total)
       const unread = await getUnreadCount().catch(() => 0)
       setUnreadCount(unread)
-    } catch (err) {
+    } catch {
       toast.error('Failed to load notifications')
     } finally {
       setLoading(false)
@@ -81,7 +72,7 @@ export default function NotificationsPage() {
         prev.map(n => String(n.id || n._id) === String(notificationId) ? { ...n, read: true, readAt: new Date().toISOString() } : n)
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
-    } catch (err) {
+    } catch {
       toast.error('Failed to mark notification as read')
     }
   }
@@ -92,12 +83,10 @@ export default function NotificationsPage() {
       setNotifications(prev => prev.map(n => ({ ...n, read: true, readAt: new Date().toISOString() })))
       setUnreadCount(0)
       toast.success('All notifications marked as read')
-    } catch (err) {
+    } catch {
       toast.error('Failed to mark all as read')
     }
   }
-
-  const notificationTypes = NOTIFICATION_FILTER_OPTIONS
 
   const handleNotificationClick = async (notification: Notification) => {
     const notificationId = String(notification.id || notification._id || '')
@@ -111,142 +100,119 @@ export default function NotificationsPage() {
     }
   }
 
-  const SidebarComponent = user?.role === 'doctor' ? DoctorSidebar : PatientSidebar
+  if (authLoading) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-muted flex items-center justify-center">
+          <LogoLoader size={32} />
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50">
-        <div className="flex">
-          {user && <SidebarComponent />}
-          <div className="flex-1">
-            <div className="p-6">
+      <div className="min-h-screen bg-muted">
+        <div className="p-6 max-w-5xl mx-auto w-full">
               <div className="mb-6">
-                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <span className="w-2 h-2 rounded-full bg-primary"></span>
                   <span>{user?.role === 'doctor' ? 'Doctor' : 'Patient'}</span>
                   <span>&gt;</span>
                   <span>Notifications</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-                  {unreadCount > 0 && (
-                    <Badge className="bg-red-500 text-white text-lg px-3 py-1">
-                      {unreadCount} unread
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <Card>
-                <div className="p-6">
-                  {/* Header with filters and actions */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-2">
-                      <Filter className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-700">Filter by type:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {notificationTypes.map(type => (
-                        <Button
-                          key={type.value}
-                          variant={filter === type.value ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => { setFilter(type.value); setPage(1) }}
-                        >
-                          {type.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  {unreadCount > 0 && (
-                    <div className="flex gap-2 mb-6 pb-6 border-b">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <h1 className="text-3xl font-bold text-foreground">Notifications</h1>
+                  <div className="flex items-center gap-3">
+                    {unreadCount > 0 && (
+                      <Badge className="bg-red-500 text-white text-base px-3 py-1">
+                        {unreadCount} unread
+                      </Badge>
+                    )}
+                    {unreadCount > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        className="text-primary border-primary/30 hover:bg-icon-bg"
                         onClick={handleMarkAllAsRead}
                       >
                         <Check className="w-4 h-4 mr-1" />
                         Mark All as Read
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                  {/* Notifications List */}
+              <Card>
+                <div className="p-6">
                   {loading ? (
                     <div className="flex justify-center items-center py-20">
                       <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="text-center py-16">
-                      <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-lg font-medium text-gray-600 mb-2">No notifications yet</p>
-                      <p className="text-sm text-gray-500">
-                        {filter === 'all' 
-                          ? "You're all caught up! We'll notify you when something important happens."
-                          : `No ${filter.replace(/_/g, ' ')} notifications found.`
-                        }
+                      <Bell className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-lg font-medium text-muted-foreground mb-2">No notifications yet</p>
+                      <p className="text-sm text-muted-foreground">
+                        You&apos;re all caught up! We&apos;ll notify you when something important happens.
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {notifications.map((notification) => {
                         const style = getNotificationStyle(notification.type)
-                        const icon = getNotificationIcon(notification.type)
-                        const isRecent = notification.createdAt ? 
+                        const Icon = getNotificationIcon(notification.type)
+                        const isRecent = notification.createdAt ?
                           (new Date().getTime() - new Date(notification.createdAt).getTime()) < 60000 : false
 
                         return (
                           <div
                             key={notification.id || notification._id || `${notification.type}-${notification.createdAt}`}
                             className={`p-4 border rounded-lg transition-colors cursor-pointer hover:shadow-sm ${
-                              notification.read ? 'bg-white' : style.bgColor + ' border-2 border-current'
+                              notification.read ? 'bg-card' : style.bgColor + ' border-2 border-current'
                             } ${style.borderColor}`}
                             onClick={() => handleNotificationClick(notification)}
                           >
                             <div className="flex items-start gap-4">
-                              {/* Icon */}
-                              <div className="text-2xl flex-shrink-0 pt-1">{icon}</div>
+                              <div className="flex-shrink-0 pt-1">
+                                <Icon className="h-5 w-5 text-primary" />
+                              </div>
 
-                              {/* Content */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                   <div className="flex items-center gap-2 flex-1">
-                                    <h3 className={`font-semibold ${notification.read ? 'text-gray-700' : style.textColor}`}>
+                                    <h3 className={`font-semibold ${notification.read ? 'text-foreground/80' : style.textColor}`}>
                                       {notification.title}
                                     </h3>
                                     {!notification.read && (
-                                      <span className="inline-block w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></span>
+                                      <span className="inline-block w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
                                     )}
                                     {isRecent && (
                                       <Badge className="bg-red-500 text-white text-xs ml-auto">NEW</Badge>
                                     )}
                                   </div>
                                 </div>
-                                
-                                <p className={`text-sm mb-2 ${notification.read ? 'text-gray-600' : style.textColor}`}>
+
+                                <p className={`text-sm mb-2 ${notification.read ? 'text-muted-foreground' : style.textColor}`}>
                                   {notification.body}
                                 </p>
 
-                                {/* Metadata */}
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className={notification.read ? 'text-gray-500' : 'text-gray-600'}>
-                                    {notification.createdAt ? 
+                                  <span className="text-muted-foreground">
+                                    {notification.createdAt ?
                                       new Date(notification.createdAt).toLocaleString() : 'just now'
                                     }
                                   </span>
-                                  
-                                  {/* Action Badge */}
+
                                   <Badge variant="outline" className="text-xs">
                                     {notification.type.replace(/_/g, ' ')}
                                   </Badge>
                                 </div>
                               </div>
 
-                              {/* Quick Action */}
                               {!notification.read && (
                                 <Button
                                   variant="ghost"
@@ -254,8 +220,8 @@ export default function NotificationsPage() {
                                   className="flex-shrink-0"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                      const notificationId = String(notification.id || notification._id || '')
-                                      if (notificationId) handleMarkAsRead(notificationId)
+                                    const notificationId = String(notification.id || notification._id || '')
+                                    if (notificationId) handleMarkAsRead(notificationId)
                                   }}
                                 >
                                   <Check className="w-4 h-4" />
@@ -268,10 +234,9 @@ export default function NotificationsPage() {
                     </div>
                   )}
 
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between mt-6 pt-6 border-t">
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Showing {(page - 1) * 20 + 1} to {Math.min(page * 20, total)} of {total} notifications
                       </p>
                       <div className="flex gap-2">
@@ -296,11 +261,8 @@ export default function NotificationsPage() {
                   )}
                 </div>
               </Card>
-            </div>
-          </div>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

@@ -3,18 +3,19 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Star, Loader2 } from "lucide-react"
+import { Star, Loader2, CreditCard, Building2, Lock, MapPin } from "lucide-react"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { toast } from "sonner"
-import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config"
+import { buildApiUrl, API_ENDPOINTS } from "@/lib/api-config"
+import { resolveDoctorImage, onDoctorImageError } from "@/lib/image-utils"
 
 // Initialize Stripe outside component to avoid recreating the object
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")
 
 const PAYMENT_METHODS = [
-  { id: "card", name: "Credit Card", icon: "💳" },
-  { id: "clinic", name: "Pay at Clinic", icon: "🏥" },
+  { id: "card", name: "Credit Card", icon: CreditCard },
+  { id: "clinic", name: "Pay at Clinic", icon: Building2 },
 ]
 
 function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any) => void; onBack: () => void }) {
@@ -49,7 +50,7 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
 
     try {
       // 1. Create Payment Intent on the backend
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PAYMENT_INTENT}`, {
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.PAYMENT_INTENT), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Ensure amount is minimum acceptable for Stripe or use the calculated totalAmount
@@ -68,7 +69,7 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
         payment_method: {
           card: cardElement,
           billing_details: {
-            name: data.basicInfo?.name || data.patientName || "Swiftcare Patient",
+            name: data.basicInfo?.patientName || data.patientName || "Swiftcare Patient",
             email: data.basicInfo?.email || "patient@example.com",
           },
         },
@@ -99,11 +100,11 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
         {[1, 2, 3, 4].map((step) => (
           <div key={step} className="flex items-center gap-2">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${step <= 3 ? "bg-teal-500 text-white" : "bg-gray-300 text-gray-600"}`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${step <= 3 ? "bg-primary text-white" : "bg-muted text-white"}`}
             >
               {step}
             </div>
-            {step < 4 && <div className={`w-6 h-0.5 ${step < 3 ? "bg-teal-500" : "bg-gray-300"}`}></div>}
+            {step < 4 && <div className={`w-6 h-0.5 ${step < 3 ? "bg-primary" : "bg-muted"}`}></div>}
           </div>
         ))}
       </div>
@@ -111,14 +112,12 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
       {/* Doctor Card */}
       <Card className="p-6 mb-6 border border-sky-200">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-300 to-blue-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/30 to-icon-bg flex-shrink-0 flex items-center justify-center overflow-hidden">
             <img
-              src={data.doctor.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"}
+              src={resolveDoctorImage(data.doctor.image)}
               alt={data.doctor.name}
               className="w-full h-full object-cover"
-              onError={(event) => {
-                event.currentTarget.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnUTUtHIOXMYhSIEt1TrurPOA44FbZfS2esyNLzUeFgA&s"
-              }}
+              onError={onDoctorImageError}
             />
           </div>
           <div>
@@ -131,7 +130,10 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
               )}
             </div>
             <p className="text-primary text-sm">{data.doctor.specialty || "Specialist"}</p>
-            <p className="text-gray-600 text-sm mt-1">📍 {data.doctor.address || "Location TBD"}</p>
+            <p className="text-muted-foreground text-sm mt-1 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+              {data.doctor.address || "Location TBD"}
+            </p>
           </div>
         </div>
       </Card>
@@ -141,28 +143,33 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
           {/* Payment Form */}
           <div className="md:col-span-2">
             <Card className="p-6 border border-sky-200">
-              <h3 className="font-semibold text-gray-900 mb-6">Payment Options</h3>
+              <h3 className="font-semibold text-foreground mb-6">Payment Options</h3>
 
               {/* Payment Methods */}
               <div className="flex gap-4 mb-8">
-                {PAYMENT_METHODS.map((method) => (
-                  <button
-                    type="button"
-                    key={method.id}
-                    onClick={() => setSelectedMethod(method.id)}
-                    className={`flex-1 p-4 border-2 rounded-lg transition text-center ${selectedMethod === method.id ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                      }`}
-                  >
-                    <div className="text-2xl mb-2">{method.icon}</div>
-                    <p className="text-sm font-semibold text-gray-900">{method.name}</p>
-                  </button>
-                ))}
+                {PAYMENT_METHODS.map((method) => {
+                  const Icon = method.icon
+                  return (
+                    <button
+                      type="button"
+                      key={method.id}
+                      onClick={() => setSelectedMethod(method.id)}
+                      className={`flex-1 p-4 border-2 rounded-lg transition text-center ${selectedMethod === method.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                        }`}
+                    >
+                      <div className="flex justify-center mb-2">
+                        <Icon className="w-6 h-6 text-primary" />
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">{method.name}</p>
+                    </button>
+                  )
+                })}
               </div>
 
               {/* Card Form */}
               {selectedMethod === "card" && (
                 <div className="space-y-4">
-                  <div className="p-4 border border-gray-300 rounded-lg bg-white">
+                  <div className="p-4 border border-border rounded-lg bg-card">
                     <CardElement
                       options={{
                         style: {
@@ -180,18 +187,19 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
                       }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
-                    🔒 Payments are securely processed by Stripe.
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
+                    <Lock className="w-3 h-3 flex-shrink-0" />
+                    Payments are securely processed by Stripe.
                   </p>
                 </div>
               )}
               {selectedMethod === "clinic" && (
-                <div className="p-8 text-center border border-gray-300 rounded-xl bg-blue-50">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">🏥</span>
+                <div className="p-8 text-center border border-border rounded-xl bg-primary/5">
+                  <div className="w-12 h-12 bg-icon-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Building2 className="w-6 h-6 text-primary" />
                   </div>
-                  <h4 className="font-bold text-gray-900 mb-2">Pay on Clinic</h4>
-                  <p className="text-gray-600 text-sm">You can pay the consultation fee at the reception when you arrive for your appointment.</p>
+                  <h4 className="font-bold text-foreground mb-2">Pay on Clinic</h4>
+                  <p className="text-muted-foreground text-sm">You can pay the consultation fee at the reception when you arrive for your appointment.</p>
                 </div>
               )}
             </Card>
@@ -200,40 +208,40 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
           {/* Booking Summary */}
           <div>
             <Card className="p-6 h-full flex flex-col border border-sky-200">
-              <h3 className="font-semibold text-gray-900 mb-4">Booking Info</h3>
+              <h3 className="font-semibold text-foreground mb-4">Booking Info</h3>
 
               <div className="space-y-3 mb-6 text-sm flex-1">
                 <div>
-                  <p className="text-gray-600">Doctor</p>
+                  <p className="text-muted-foreground">Doctor</p>
                   <p className="font-semibold">{data.doctor.name || "Doctor"}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Specialty</p>
+                  <p className="text-muted-foreground">Specialty</p>
                   <p className="font-semibold">{data.doctor.specialty || "General"}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Date & Time</p>
-                  <p className="font-semibold">{data.dateTime ? `${data.dateTime.time} ${data.dateTime.period}, ${data.dateTime.fullDate}` : "Not selected"}</p>
+                  <p className="text-muted-foreground">Time & Date</p>
+                  <p className="font-semibold">{data.dateTime ? `${data.dateTime.time} , ${data.dateTime.fullDate}` : "Not selected"}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Appointment Type</p>
+                  <p className="text-muted-foreground">Appointment Type</p>
                   <p className="font-semibold">{data.appointmentType || "Clinic"}</p>
                 </div>
               </div>
 
               <hr className="my-4" />
 
-              <h3 className="font-semibold text-gray-900 mb-4">Payment Info</h3>
+              <h3 className="font-semibold text-foreground mb-4">Payment Info</h3>
               <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Consultation Fee</span>
-                  <span className="font-semibold text-blue-600">{data.doctor.fee || "RS. 0"}</span>
+                  <span className="text-muted-foreground">Consultation Fee</span>
+                  <span className="font-semibold text-primary">{data.doctor.fee || "RS. 0"}</span>
                 </div>
               </div>
 
-              <div className="bg-blue-600 text-white rounded-lg p-4 flex items-center justify-between">
-                <span className="font-semibold text-sm">Amount to Pay</span>
-                <span className="text-lg font-bold">RS. {totalAmount}</span>
+              <div className="bg-primary text-white rounded-lg p-4 flex items-center justify-between">
+                <span className="font-semibold text-sm text-white">Amount to Pay</span>
+                <span className="text-lg font-bold text-white">RS. {totalAmount}</span>
               </div>
             </Card>
           </div>
@@ -244,7 +252,7 @@ function CheckoutForm({ data, onNext, onBack }: { data: any; onNext: (data: any)
           <Button type="button" variant="outline" onClick={onBack} disabled={isProcessing} className="px-8 bg-transparent">
             Back
           </Button>
-          <Button type="submit" disabled={isProcessing || (selectedMethod === 'card' && !stripe)} className="bg-blue-600 hover:bg-blue-700 px-8">
+          <Button type="submit" disabled={isProcessing || (selectedMethod === 'card' && !stripe)} className="bg-primary hover:bg-primary/90 px-8">
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -2,20 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { Header } from '@/components/header'
-import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MapPin, Phone, Mail, Calendar, Award, BookOpen } from 'lucide-react'
-import { DoctorSidebar } from '@/components/doctor/doctor-sidebar'
+import { MapPin, Phone, Mail, Calendar, Award, BookOpen, Circle } from 'lucide-react'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { useAuth } from '@/lib/auth-context'
 import { getDoctorById, updateDoctor } from '@/lib/api'
-import { API_BASE_URL } from '@/lib/api-config'
+import { getApiBaseUrl } from '@/lib/api-config'
 import { toast } from 'sonner'
 import type { Doctor } from '@/lib/types'
 import { LogoLoader } from '@/components/ui/logo-loader'
 
 export default function DoctorProfileSettings() {
-  const { user, updateUser } = useAuth()
+  const { user, isLoading: authLoading } = useRequireAuth({ role: 'doctor' })
+  const { updateUser } = useAuth()
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -34,13 +34,13 @@ export default function DoctorProfileSettings() {
     about: ''
   })
 
-  const readOnlyInputClass = 'bg-gray-50 text-gray-600 border-gray-200 cursor-not-allowed'
-  const editableInputClass = 'bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-500'
+  const readOnlyInputClass = 'bg-muted text-muted-foreground border-border cursor-not-allowed'
+  const editableInputClass = 'bg-card border-primary/30 focus:border-primary focus:ring-primary/50'
 
   const resolveDoctorImage = (image?: string | null) => {
     if (!image) return null
     if (image.startsWith('http')) return image
-    return `${API_BASE_URL}${image.startsWith('/') ? '' : '/'}${image}`
+    return `${getApiBaseUrl()}${image.startsWith('/') ? '' : '/'}${image}`
   }
 
   useEffect(() => {
@@ -163,6 +163,17 @@ export default function DoctorProfileSettings() {
     }
   }
 
+  if (authLoading) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <LogoLoader size={32} />
+        </div>
+      </>
+    )
+  }
+
   if (isLoading) {
     return (
       <>
@@ -170,7 +181,6 @@ export default function DoctorProfileSettings() {
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
           <LogoLoader size={32} className="h-8 w-8" />
         </div>
-        <Footer />
       </>
     )
   }
@@ -180,37 +190,29 @@ export default function DoctorProfileSettings() {
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
         {/* Breadcrumb */}
-        <div className="bg-white border-b">
+        <div className="bg-card border-b">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-2 text-sm">
-            <span className="text-blue-600">●</span>
-            <span className="text-gray-600">Doctor</span>
-            <span className="text-gray-600">›</span>
-            <span className="text-gray-900 font-medium">Profile Settings</span>
+            <Circle className="w-2 h-2 fill-primary text-primary" />
+            <span className="text-muted-foreground">Doctor</span>
+            <span className="text-muted-foreground">›</span>
+            <span className="text-foreground font-medium">Profile Settings</span>
           </div>
         </div>
 
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Doctor Profile</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-8">Doctor Profile</h1>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Sidebar */}
-            <div className="lg:col-span-1">
-              <DoctorSidebar />
-            </div>
-
-            {/* Main Content */}
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-lg shadow p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-8">Profile Settings</h2>
+          <div className="bg-card rounded-lg shadow p-8">
+                <h2 className="text-2xl font-bold text-foreground mb-8">Profile Settings</h2>
 
                 {/* Profile Photo Section */}
                 <div className="mb-8 pb-8 border-b">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4">Profile Photo</h3>
+                  <h3 className="font-semibold text-lg text-foreground mb-4">Profile Photo</h3>
                   <div className="flex items-center gap-6">
                     <div className="flex-shrink-0">
                       {profileImage ? (
-                        <img src={profileImage} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-blue-600" />
+                        <img src={profileImage} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-primary" />
                       ) : (
                         <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-3xl font-bold">
                           {doctor?.name?.[0]?.toUpperCase() || 'D'}
@@ -228,7 +230,7 @@ export default function DoctorProfileSettings() {
                         />
                         <Button
                           variant="outline"
-                          className="bg-blue-50 border-blue-200 hover:bg-blue-100"
+                          className="bg-icon-bg border-primary/30 hover:bg-icon-bg"
                           disabled={isUploading}
                           onClick={() => document.getElementById('doctor-avatar-upload')?.click()}
                         >
@@ -236,7 +238,7 @@ export default function DoctorProfileSettings() {
                           {isUploading ? 'Uploading...' : 'Upload Photo'}
                         </Button>
                       </div>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         JPG, PNG or WebP (Max 5MB). This image will be displayed on your patient and admin portals.
                       </p>
                     </div>
@@ -245,11 +247,11 @@ export default function DoctorProfileSettings() {
 
                 {/* Basic Information Section */}
                 <div className="mb-8 pb-8 border-b">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4">Basic Information</h3>
-                  <p className="text-sm text-gray-600 mb-4">Information from your signup and verification form</p>
+                  <h3 className="font-semibold text-lg text-foreground mb-4">Basic Information</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Information from your signup and verification form</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Full Name</label>
                       <Input
                         type="text"
                         name="name"
@@ -258,10 +260,10 @@ export default function DoctorProfileSettings() {
                         className={editableInputClass}
                         placeholder="Your full name"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Updates your profile across the platform</p>
+                      <p className="text-xs text-muted-foreground mt-1">Updates your profile across the platform</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Email</label>
                       <Input
                         type="email"
                         value={doctor?.credentials?.email || user?.email || ''}
@@ -269,10 +271,10 @@ export default function DoctorProfileSettings() {
                         className={readOnlyInputClass}
                         placeholder="Your email"
                       />
-                      <p className="text-xs text-gray-500 mt-1">From signup (read-only)</p>
+                      <p className="text-xs text-muted-foreground mt-1">From signup (read-only)</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Contact Number</label>
                       <Input
                         type="tel"
                         name="contactNo"
@@ -281,10 +283,10 @@ export default function DoctorProfileSettings() {
                         className={editableInputClass}
                         placeholder="Your contact number"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Visible to patients on your profile</p>
+                      <p className="text-xs text-muted-foreground mt-1">Visible to patients on your profile</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Specialization</label>
                       <Input
                         type="text"
                         value={doctor?.specialization || ''}
@@ -292,10 +294,10 @@ export default function DoctorProfileSettings() {
                         className={readOnlyInputClass}
                         placeholder="Your specialization"
                       />
-                      <p className="text-xs text-gray-500 mt-1">From verification form (read-only)</p>
+                      <p className="text-xs text-muted-foreground mt-1">From verification form (read-only)</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Age</label>
                       <Input
                         type="text"
                         value={doctor?.age != null ? String(doctor.age) : ''}
@@ -305,7 +307,7 @@ export default function DoctorProfileSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Gender</label>
                       <Input
                         type="text"
                         value={doctor?.gender || ''}
@@ -319,14 +321,14 @@ export default function DoctorProfileSettings() {
 
                 {/* Professional Information Section */}
                 <div className="mb-8 pb-8 border-b">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+                    <Award className="w-5 h-5 text-primary" />
                     Professional Information
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4">Verification details (read-only)</p>
+                  <p className="text-sm text-muted-foreground mb-4">Verification details (read-only)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Degree</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Degree</label>
                       <Input
                         type="text"
                         value={doctor?.professionalInfo?.degree || ''}
@@ -336,7 +338,7 @@ export default function DoctorProfileSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Registration Number</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Registration Number</label>
                       <Input
                         type="text"
                         value={doctor?.professionalInfo?.registrationNumber || ''}
@@ -346,7 +348,7 @@ export default function DoctorProfileSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Years of Experience</label>
                       <Input
                         type="number"
                         name="experience"
@@ -362,7 +364,7 @@ export default function DoctorProfileSettings() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Consultation Fee (RS.)</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Consultation Fee (RS.)</label>
                       <Input
                         type="number"
                         name="consultationFee"
@@ -382,11 +384,11 @@ export default function DoctorProfileSettings() {
 
                 {/* Identification Section */}
                 <div className="mb-8 pb-8 border-b">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4">Identification</h3>
-                  <p className="text-sm text-gray-600 mb-4">Verification details (read-only)</p>
+                  <h3 className="font-semibold text-lg text-foreground mb-4">Identification</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Verification details (read-only)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">CNIC Number</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">CNIC Number</label>
                       <Input
                         type="text"
                         value={doctor?.identification?.idNumber || ''}
@@ -400,14 +402,14 @@ export default function DoctorProfileSettings() {
 
                 {/* Location & Schedule Section */}
                 <div className="mb-8 pb-8 border-b">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary" />
                     Location & Schedule
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4">Clinic information from verification form (read-only)</p>
+                  <p className="text-sm text-muted-foreground mb-4">Clinic information from verification form (read-only)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Location</label>
                       <Input
                         type="text"
                         value={typeof doctor?.location === 'string' ? doctor.location : doctor?.location?.label || ''}
@@ -417,7 +419,7 @@ export default function DoctorProfileSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Available Days</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Available Days</label>
                       <Input
                         type="text"
                         value={doctor?.schedule?.availableDays?.join(', ') || ''}
@@ -427,7 +429,7 @@ export default function DoctorProfileSettings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Available Hours</label>
+                      <label className="block text-sm font-medium text-foreground/80 mb-2">Available Hours</label>
                       <Input
                         type="text"
                         value={doctor?.schedule?.availableHours?.join(', ') || ''}
@@ -441,24 +443,24 @@ export default function DoctorProfileSettings() {
 
                 {/* About Section */}
                 <div className="mb-8 pb-8 border-b">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4">About</h3>
+                  <h3 className="font-semibold text-lg text-foreground mb-4">About</h3>
                   <textarea
                     name="about"
                     value={formData.about}
                     onChange={handleChange}
                     rows={5}
-                    className={`w-full rounded-lg border px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 ${editableInputClass}`}
+                    className={`w-full rounded-lg border px-4 py-3 text-sm text-foreground/80 focus:outline-none focus:ring-2 ${editableInputClass}`}
                     placeholder="Write a short bio about your experience, approach, and specialties."
                   ></textarea>
                 </div>
 
                 {/* Verification Status */}
                 <div className="mb-8">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-4">Verification Status</h3>
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                    <span className="text-sm text-gray-700">
-                      Status: <span className="font-semibold text-blue-600 capitalize">{doctor?.accountStatus?.verificationStatus || 'pending'}</span>
+                  <h3 className="font-semibold text-lg text-foreground mb-4">Verification Status</h3>
+                  <div className="flex items-center gap-3 p-4 bg-icon-bg rounded-lg border border-primary/30">
+                    <div className="w-3 h-3 rounded-full bg-primary"></div>
+                    <span className="text-sm text-foreground/80">
+                      Status: <span className="font-semibold text-primary capitalize">{doctor?.accountStatus?.verificationStatus || 'pending'}</span>
                     </span>
                   </div>
                 </div>
@@ -470,7 +472,7 @@ export default function DoctorProfileSettings() {
                   )}
                   <Button variant="outline">Back</Button>
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-primary hover:bg-primary/90 text-white"
                     onClick={handleSave}
                     disabled={isSaving || Boolean(errors.experience || errors.consultationFee)}
                   >
@@ -478,11 +480,8 @@ export default function DoctorProfileSettings() {
                   </Button>
                 </div>
               </div>
-            </div>
-          </div>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

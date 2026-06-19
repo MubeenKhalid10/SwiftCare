@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Header from '@/components/header'
 import Footer from '@/components/footer'
-import { Plus } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 const FAQs = [
   {
@@ -68,46 +68,48 @@ export default function FAQPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-white">
+      <main className="min-h-screen bg-background text-foreground">
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-icon-bg to-white py-16 px-4">
+        <section className="bg-gradient-to-b from-icon-bg to-background py-16 px-4 border-b border-border/40">
           <div className="max-w-7xl mx-auto text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-3 h-3 bg-primary rounded-full"></div>
-              <span className="text-gray-600 text-sm">FAQ</span>
-            </div>
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">FAQ</h1>
+            <div className="section-intro mx-auto mb-4">Support</div>
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+              Frequently Asked <span className="text-gradient-primary">Questions</span>
+            </h1>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              Everything you need to know about using SwiftCare.
+            </p>
           </div>
         </section>
 
         {/* FAQ Section */}
         <section className="py-16 px-4">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-4xl font-bold text-center text-gray-900 mb-12">
-              Frequently Asked Questions
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {FAQs.map((faq) => (
                 <div
                   key={faq.id}
-                  className="border border-gray-200 rounded-lg bg-white hover:shadow-md transition-shadow"
+                  className={`border rounded-xl bg-card transition-all duration-200 ${
+                    expandedId === faq.id
+                      ? 'border-primary/40 shadow-sm shadow-primary/10'
+                      : 'border-border/70 hover:border-primary/25 hover:shadow-sm'
+                  }`}
                 >
                   <button
                     onClick={() => toggleExpand(faq.id)}
-                    className="w-full flex items-center justify-between p-6 text-left"
+                    className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/30 transition-colors rounded-xl"
                   >
-                    <span className="font-semibold text-gray-900 text-sm md:text-base">
+                    <span className={`font-semibold text-sm md:text-base transition-colors ${expandedId === faq.id ? 'text-primary' : 'text-foreground'}`}>
                       {faq.question}
                     </span>
-                    <Plus
-                      className={`w-6 h-6 text-gray-400 flex-shrink-0 transition-transform ${
-                        expandedId === faq.id ? 'rotate-45' : ''
+                    <ChevronDown
+                      className={`w-5 h-5 flex-shrink-0 ml-3 transition-all duration-300 ${
+                        expandedId === faq.id ? 'rotate-180 text-primary' : 'text-muted-foreground'
                       }`}
                     />
                   </button>
                   {expandedId === faq.id && (
-                    <div className="px-6 pb-6 border-t border-gray-200 text-gray-600 text-sm">
+                    <div className="px-5 pb-5 border-t border-border/50 pt-4 text-muted-foreground text-sm leading-relaxed">
                       {faq.answer}
                     </div>
                   )}

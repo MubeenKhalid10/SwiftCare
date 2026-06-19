@@ -1,16 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Heart, Bone, Brain, Baby, Activity, Wind } from "lucide-react"
+import { Heart, Bone, Brain, Baby, Activity, Wind, Stethoscope } from "lucide-react"
 
 const categories = [
-  { icon: Heart, label: "Cardiologist", color: "bg-primary/10" },
-  { icon: Bone, label: "Orthopedics", color: "bg-primary/10" },
-  { icon: Brain, label: "Neurologist", color: "bg-purple-100" },
-  { icon: Baby, label: "Pediatrics", color: "bg-pink-100" },
-  { icon: Activity, label: "Psychiatrics", color: "bg-orange-100" },
-  { icon: Wind, label: "Endocrinologist", color: "bg-green-100" },
-  { icon: Heart, label: "Dermatologist", color: "bg-red-100" },
+  { icon: Heart, label: "Cardiologist" },
+  { icon: Bone, label: "Orthopedics" },
+  { icon: Brain, label: "Neurologist" },
+  { icon: Baby, label: "Pediatrics" },
+  { icon: Activity, label: "Psychiatrics" },
+  { icon: Wind, label: "Endocrinologist" },
+  { icon: Stethoscope, label: "Dermatologist" },
 ]
 
 export default function ServiceCategories() {
@@ -23,24 +23,23 @@ export default function ServiceCategories() {
   return (
     <section className="border-section-top border-section-bottom py-16 bg-gradient-to-b from-background to-primary-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-center mb-12">
-          <div className="inline-block bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-semibold">
-            Our Services
-          </div>
+        <div className="flex justify-center mb-4">
+          <div className="section-intro">Our Services</div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-6">
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+          Browse by <span className="text-gradient-primary">Specialty</span>
+        </h2>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-6">
           {categories.map((category, idx) => {
             const Icon = category.icon
             return (
-              <div key={idx} className="flex flex-col items-center">
-                <div
-                  onClick={() => handleCategoryClick(category.label)}
-                  className={`${category.color} w-20 h-20 lg:w-24 lg:h-24 rounded-full flex items-center justify-center mb-4 cursor-pointer hover:shadow-lg transition`}
-                >
-                  <Icon className="w-10 h-10 text-gray-700" />
+              <div key={idx} className="flex flex-col items-center group cursor-pointer" onClick={() => handleCategoryClick(category.label)}>
+                <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-icon-bg flex items-center justify-center mb-4 border-2 border-primary/15 transition-all duration-300 group-hover:bg-primary group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20 group-hover:-translate-y-2">
+                  <Icon className="w-9 h-9 text-primary transition-colors duration-300 group-hover:text-white" />
                 </div>
-                <p className="text-sm lg:text-base font-medium text-gray-700 text-center">
+                <p className="text-sm lg:text-base font-medium text-foreground text-center group-hover:text-primary transition-colors duration-200">
                   {category.label}
                 </p>
               </div>

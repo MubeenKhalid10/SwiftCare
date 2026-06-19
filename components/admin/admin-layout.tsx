@@ -8,7 +8,7 @@ import { getNotifications } from '@/lib/notification.service'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Bell, Menu, ChevronDown, LogOut } from 'lucide-react'
+import { Bell, Menu, ChevronDown, LogOut, LayoutDashboard, ClipboardList, Calendar, Building2, Stethoscope, UserRound, Users, Star, User, type LucideIcon } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { resolvePatientImage, onPatientImageError } from '@/lib/image-utils'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -79,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-20'} border-r-2 border-primary/30 bg-gradient-to-b from-primary-700 to-primary-900 text-white transition-all duration-300 overflow-y-auto shadow-[0_20px_60px_rgba(1,101,252,0.3)]`}>
         <div className="p-6">
-          <Link href="/admin/dashboard" className="text-2xl font-bold tracking-[0.2em]">
+          <Link href="/admin/dashboard" className="text-2xl font-bold tracking-[0.2em] text-white">
             SWIFTCARE
           </Link>
         </div>
@@ -89,16 +90,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-white/50">Main</p>
           </div>
 
-          <NavLink href="/admin/dashboard" icon="📊" label="Dashboard" open={sidebarOpen} />
-          <NavLink href="/admin/verification" icon="📋" label="Verification Requests" open={sidebarOpen} badgeCount={actionCount} />
-          <NavLink href="/admin/appointments" icon="📅" label="Appointments" open={sidebarOpen} />
-          <NavLink href="/admin/hospitals" icon="🏥" label="Hospitals" open={sidebarOpen} />
-          <NavLink href="/admin/specialities" icon="⚕️" label="Specialities" open={sidebarOpen} />
-          <NavLink href="/admin/doctors" icon="👨‍⚕️" label="Doctors" open={sidebarOpen} />
-          <NavLink href="/admin/patients" icon="🧑" label="Patients" open={sidebarOpen} />
-          <NavLink href="/admin/reviews" icon="⭐" label="Reviews" open={sidebarOpen} />
-          <NavLink href="/admin/notifications" icon="🔔" label="Notifications" open={sidebarOpen} />
-          <NavLink href="/admin/profile" icon="👤" label="Profile" open={sidebarOpen} />
+          <NavLink href="/admin/dashboard" icon={LayoutDashboard} label="Dashboard" open={sidebarOpen} />
+          <NavLink href="/admin/verification" icon={ClipboardList} label="Verification Requests" open={sidebarOpen} badgeCount={actionCount} />
+          <NavLink href="/admin/appointments" icon={Calendar} label="Appointments" open={sidebarOpen} />
+          <NavLink href="/admin/hospitals" icon={Building2} label="Hospitals" open={sidebarOpen} />
+          <NavLink href="/admin/specialities" icon={Stethoscope} label="Specialities" open={sidebarOpen} />
+          <NavLink href="/admin/doctors" icon={UserRound} label="Doctors" open={sidebarOpen} />
+          <NavLink href="/admin/patients" icon={Users} label="Patients" open={sidebarOpen} />
+          <NavLink href="/admin/reviews" icon={Star} label="Reviews" open={sidebarOpen} />
+          <NavLink href="/admin/notifications" icon={Bell} label="Notifications" open={sidebarOpen} />
+          <NavLink href="/admin/profile" icon={User} label="Profile" open={sidebarOpen} />
 
           <div className="px-4 mt-8">
             <Link href="/logout" className="flex w-full items-center gap-3 rounded-xl px-4 py-2 text-red-300 transition hover:bg-white/5 hover:text-red-200">
@@ -139,7 +140,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-xl p-2 transition hover:bg-slate-100 dark:hover:bg-white/10">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.avatar} alt={user?.name} />
+                    <AvatarImage
+                      src={resolvePatientImage(user?.avatar)}
+                      alt={user?.name}
+                      onError={onPatientImageError}
+                    />
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary-600 text-white">{adminInitials}</AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{user?.name || 'Admin'}</span>
@@ -176,13 +181,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   )
 }
 
-function NavLink({ href, icon, label, open, badgeCount = 0 }: { href: string; icon: string; label: string; open: boolean; badgeCount?: number }) {
+function NavLink({ href, icon: Icon, label, open, badgeCount = 0 }: { href: string; icon: LucideIcon; label: string; open: boolean; badgeCount?: number }) {
   return (
     <Link
       href={href}
       className="relative flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-white/10"
     >
-      <span className="text-lg">{icon}</span>
+      <Icon className="w-5 h-5" />
       {open && <span className="text-sm">{label}</span>}
       {badgeCount > 0 && (
         <span className="absolute right-4 top-3 inline-flex items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold leading-none text-white">{badgeCount}</span>

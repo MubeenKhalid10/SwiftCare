@@ -1,6 +1,5 @@
 'use client'
 
-import { MapPin } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { buildClinicMapEmbedUrl, buildExternalMapsUrl, buildMapboxStaticMapUrl } from '@/lib/location'
 
@@ -16,14 +15,6 @@ export function ClinicLocationMap({ label, coordinates }: ClinicLocationMapProps
 
   return (
     <Card className="overflow-hidden border border-slate-200 shadow-sm">
-      <div className="bg-slate-950 text-white p-4 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-white/60">Clinic Location</p>
-          <h3 className="text-lg font-semibold">{label || 'Clinic location'}</h3>
-        </div>
-        <MapPin className="w-5 h-5 text-blue-300" />
-      </div>
-
       {embedUrl ? (
         <iframe
           src={embedUrl}
@@ -52,12 +43,12 @@ export function ClinicLocationMap({ label, coordinates }: ClinicLocationMapProps
       )}
 
       {externalMapsUrl ? (
-        <div className="border-t border-slate-200 bg-white p-4">
+        <div className="border-t border-slate-200 bg-card p-4">
           <a
             href={externalMapsUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center text-sm font-medium text-blue-700 hover:text-blue-800"
+            className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80"
           >
             Open in Google Maps
           </a>

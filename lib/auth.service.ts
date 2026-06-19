@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './api-config';
+import { buildApiUrl, API_ENDPOINTS } from './api-config';
 const ACCESS_TOKEN_KEY = "accessToken";
 const AUTH_STORAGE_KEY = "swiftcare_auth";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -74,35 +74,8 @@ export interface SignupResponse {
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
   try {
     const normalizedEmail = email.trim();
-    console.log("[v0] Login attempt for:", normalizedEmail);
 
-    // Temporary hardcoded admin login
-    if (normalizedEmail === "admin@swiftcare.com" && password === "admin123") {
-      const adminData: AuthResponse = {
-        accessToken: `mock-admin-token-${Date.now()}`,
-        role: "admin",
-        userId: "admin-id-001",
-        user: {
-          id: "admin-id-001",
-          name: "System Admin",
-          email: "admin@swiftcare.com",
-          role: "admin",
-        },
-      };
-
-      if (isBrowser()) {
-        localStorage.setItem(ACCESS_TOKEN_KEY, adminData.accessToken);
-        writeStoredAuth({
-          user: adminData.user,
-          expiresAt: Date.now() + SESSION_TTL_MS,
-        });
-      }
-
-      console.log("[v0] Hardcoded admin login successful");
-      return adminData;
-    }
-
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.LOGIN), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: normalizedEmail, password }),
@@ -120,7 +93,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
         }
       }
 
-      console.error("[v0] Login failed with status:", res.status, parsed || raw);
+      if (process.env.NODE_ENV === 'development') console.error("[auth] Login failed:", res.status, parsed || raw);
 
       // Special handling for unverified email
       if (res.status === 403 && parsed.error === "Email not verified") {
@@ -138,7 +111,6 @@ export const login = async (email: string, password: string): Promise<AuthRespon
     }
 
     const data = await res.json();
-    console.log("[v0] Login successful, role:", data.role);
 
     // Store access token for Authorization header
     if (data.accessToken && isBrowser()) {
@@ -148,8 +120,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 
     return data;
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Network error - backend may be unavailable";
-    console.error("[v0] Login error:", errorMessage);
+    const errorMessage = err instanceof Error ? err.message : "Network error — backend may be unavailable";
     throw err instanceof Error ? err : new Error(errorMessage);
   }
 };
@@ -174,9 +145,7 @@ export const register = async (payload: {
   clinicName?: string;
 }): Promise<SignupResponse> => {
   try {
-    console.log("[v0] Signup attempt for:", payload.email, "as", payload.roleHint);
-
-    const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+    const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.REGISTER), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -202,7 +171,6 @@ export const register = async (payload: {
     }
 
     const data = await res.json();
-    console.log("[v0] Signup successful – OTP sent to", data.email);
 
     // No tokens are returned at this stage – user must verify OTP first
     return data;
@@ -220,7 +188,7 @@ export const verifyEmailOtp = async (
   roleHint: "patient" | "doctor",
   otp: string
 ): Promise<AuthResponse> => {
-  const res = await fetch(`${API_BASE_URL}/auth/verify-email-otp`, {
+  const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.VERIFY_EMAIL_OTP), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, roleHint, otp }),
@@ -246,15 +214,13 @@ export const verifyEmailOtp = async (
 /* ── Resend OTP (re-triggers signup endpoint) ── */
 
 export const resendSignupOtp = async (
-  name: string,
   email: string,
-  password: string,
   roleHint: "patient" | "doctor"
 ): Promise<SignupResponse> => {
-  const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+  const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.RESEND_SIGNUP_OTP), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password, roleHint }),
+    body: JSON.stringify({ email, roleHint }),
     credentials: "include",
   });
 
@@ -272,7 +238,7 @@ export const forgotPassword = async (
   email: string,
   roleHint: "patient" | "doctor"
 ): Promise<{ message: string }> => {
-  const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+  const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.FORGOT_PASSWORD), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, roleHint }),
@@ -295,7 +261,7 @@ export const resetPassword = async (
   otp: string,
   newPassword: string
 ): Promise<{ message: string }> => {
-  const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+  const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.RESET_PASSWORD), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, roleHint, otp, newPassword }),
@@ -329,7 +295,7 @@ export const uploadProfileImage = async (
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/user/upload-image`, {
+  const res = await fetch(buildApiUrl(API_ENDPOINTS.USER.UPLOAD_IMAGE), {
     method: "POST",
     body: formData,
     headers,
@@ -346,10 +312,7 @@ export const uploadProfileImage = async (
 
 export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"): Promise<AuthResponse> => {
   try {
-    console.log("[v0] Google auth attempt as", roleHint);
-    console.log("[v0] Sending idToken to backend at:", `${API_BASE_URL}/auth/google`);
-
-    const res = await fetch(`${API_BASE_URL}/auth/google`, {
+    const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.GOOGLE), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken, roleHint }),
@@ -364,7 +327,6 @@ export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"
     }
 
     const data = await res.json();
-    console.log("[v0] Google auth successful");
 
     // Store access token for Authorization header
     if (data.accessToken && isBrowser()) {
@@ -383,10 +345,8 @@ export const googleAuth = async (idToken: string, roleHint: "patient" | "doctor"
 
 export const refreshAccessToken = async (): Promise<string> => {
   try {
-    console.log("[v0] Attempting to refresh access token");
-
     // Backend stores refresh token in HTTPONLY cookie, send credentials: 'include'
-    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    const res = await fetch(buildApiUrl(API_ENDPOINTS.AUTH.REFRESH), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include", // This sends the refreshToken cookie
@@ -409,7 +369,6 @@ export const refreshAccessToken = async (): Promise<string> => {
     }
 
     const data = await res.json();
-    console.log("[v0] Token refresh successful");
 
     // Update access token if provided (backend may also send via cookie)
     if (data.accessToken && isBrowser()) {
@@ -427,9 +386,7 @@ export const refreshAccessToken = async (): Promise<string> => {
 
 export const logout = async (): Promise<void> => {
   try {
-    console.log("[v0] Logging out");
-
-    await fetch(`${API_BASE_URL}/auth/logout`, {
+    await fetch(buildApiUrl(API_ENDPOINTS.AUTH.LOGOUT), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -443,7 +400,6 @@ export const logout = async (): Promise<void> => {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }
-  console.log("[v0] All auth tokens cleared");
 };
 
 /* ── Get Access Token (Session Persistence) ── */
@@ -451,9 +407,6 @@ export const getAccessToken = (): string | null => {
   if (!isBrowser()) return null;
   if (!ensureSessionExpiry()) return null;
   const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-  if (token) {
-    console.log("[v0] Access token found in localStorage");
-  }
   return token;
 };
 
@@ -465,13 +418,11 @@ export const hasValidSession = (): boolean => {
   const authData = localStorage.getItem(AUTH_STORAGE_KEY);
 
   if (!token || !authData) {
-    console.log("[v0] No valid session found");
     return false;
   }
 
   try {
     JSON.parse(authData);
-    console.log("[v0] Valid session found");
     return true;
   } catch {
     return false;
@@ -483,6 +434,5 @@ export const clearAuthData = (): void => {
   if (!isBrowser()) return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(AUTH_STORAGE_KEY);
-  console.log("[v0] Auth data cleared");
 };
 

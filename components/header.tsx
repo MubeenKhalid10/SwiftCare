@@ -2,8 +2,25 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Menu, Bell, MessageSquare, LogOut, User, Calendar, Stethoscope } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import {
+  Menu,
+  LogOut,
+  Calendar,
+  Stethoscope,
+  Home,
+  Info,
+  Building2,
+  ChevronDown,
+  Star,
+  ClipboardList,
+  Settings,
+  Bell,
+  Shield,
+  ScrollText,
+  User,
+  type LucideIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,261 +29,440 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
-import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/api"
-import type { Notification } from "@/lib/types"
+import { cn } from "@/lib/utils"
+import {
+  resolveDoctorImage,
+  resolvePatientImage,
+  onDoctorImageError,
+  onPatientImageError,
+} from "@/lib/image-utils"
+
+const NAV_LINKS = [
+  { href: "/", label: "Home", icon: Home, match: (p: string) => p === "/" },
+  { href: "/about", label: "About", icon: Info, match: (p: string) => p.startsWith("/about") },
+  { href: "/doctors", label: "Doctors", icon: Stethoscope, match: (p: string) => p.startsWith("/doctors") || p.startsWith("/doctor-profile") || p.startsWith("/booking") },
+  { href: "/hospitals", label: "Hospitals", icon: Building2, match: (p: string) => p.startsWith("/hospitals") },
+] as const
+
+function NavLink({
+  href,
+  label,
+  isActive,
+  onClick,
+  className,
+}: {
+  href: string
+  label: string
+  isActive: boolean
+  onClick?: () => void
+  className?: string
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "px-3 py-2 text-sm font-medium transition-colors duration-200",
+        isActive
+          ? "text-primary"
+          : "text-foreground/70 hover:text-primary",
+        className
+      )}
+    >
+      {label}
+    </Link>
+  )
+}
+
+const PATIENT_MENU_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/patient/appointments", label: "My Appointments", icon: Calendar },
+  { href: "/patient/favourites", label: "Favourites", icon: Star },
+  { href: "/patient/medical-records", label: "Medical Records", icon: ClipboardList },
+  { href: "/patient/settings", label: "Settings", icon: Settings },
+  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/privacy-policy", label: "Privacy Policy", icon: Shield },
+  { href: "/terms-and-conditions", label: "Terms and Conditions", icon: ScrollText },
+]
+
+const DOCTOR_NAV_LINKS = [
+  { href: "/doctor/dashboard", label: "Dashboard", match: (p: string) => p.startsWith("/doctor/dashboard") },
+  { href: "/doctor/shifts", label: "Shifts", match: (p: string) => p.startsWith("/doctor/shifts") },
+  { href: "/doctor/availability", label: "Availability", match: (p: string) => p.startsWith("/doctor/availability") || p.startsWith("/doctor/available-timings") },
+  { href: "/doctor/patients", label: "Patients", match: (p: string) => p.startsWith("/doctor/patients") || p.startsWith("/doctor/my-patients") },
+] as const
+
+const DOCTOR_MENU_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/doctor/reviews", label: "Reviews", icon: Star },
+  { href: "/doctor/profile-settings", label: "Profile", icon: User },
+  { href: "/notifications", label: "Notifications", icon: Bell },
+]
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   const handleLogout = () => {
     logout()
-    router.push('/')
+    router.push("/")
+    setMobileMenuOpen(false)
   }
 
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const patientInitials =
+    user?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "PT"
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-       getUnreadNotificationCount().then(setUnreadCount).catch(() => setUnreadCount(0))
-       getNotifications(false).then(res => setNotifications(res.items)).catch(() => setNotifications([]))
-    }
-  }, [isAuthenticated, user])
+  const doctorInitials =
+    user?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "DR"
 
-  const getDashboardLink = () => {
-    if (!user) return '/auth/login'
-    switch (user.role) {
-      case 'doctor':
-        return '/doctor/dashboard'
-      case 'admin':
-        return '/admin/dashboard'
-      default:
-        return '/patient/appointments'
-    }
-  }
+  const isDoctor = isAuthenticated && user?.role === "doctor"
+  const isPatient = isAuthenticated && user?.role === "patient"
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-white/80 backdrop-blur-lg shadow-md shadow-primary/8 dark:bg-slate-950/80">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center space-x-3 transition-transform duration-300 hover:-translate-y-0.5">
+    <header
+      className={cn(
+        "sticky top-0 z-50 border-b transition-all duration-300",
+        scrolled
+          ? "border-border/80 bg-card/95 shadow-lg shadow-primary/5 backdrop-blur-xl"
+          : "border-border/50 bg-background/80 backdrop-blur-lg"
+      )}
+    >
+      <div
+        className={cn(
+          "mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 transition-all duration-300",
+          scrolled ? "py-2.5" : "py-3.5"
+        )}
+      >
+        {/* Logo — left */}
+        {isDoctor ? (
+          <div className="flex shrink-0 items-center gap-2.5 cursor-default" aria-label="SwiftCare">
+            <Image
+              src="/assets/Logo(1).png"
+              alt="SwiftCare"
+              width={44}
+              height={44}
+              className={cn("w-auto object-contain transition-all", scrolled ? "h-9" : "h-10")}
+              priority
+            />
+            <div className="hidden flex-col sm:flex">
+              <Image
+                src="/assets/Logo(2).png"
+                alt="SwiftCare"
+                width={120}
+                height={28}
+                className={cn("w-auto object-contain transition-all", scrolled ? "h-6" : "h-7")}
+                priority
+              />
+              <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                Smarter care. Shorter waits
+              </span>
+            </div>
+          </div>
+        ) : (
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
           <Image
             src="/assets/Logo(1).png"
             alt="SwiftCare"
-            width={50}
-            height={50}
-            className="h-10 w-auto object-contain sm:block"
+            width={44}
+            height={44}
+            className={cn("w-auto object-contain transition-all", scrolled ? "h-9" : "h-10")}
             priority
           />
-           <Image
-            src="/assets/Logo(2).png"
-            alt="SwiftCare"
-            width={50}
-            height={50}
-            className="hidden h-7 w-auto object-contain sm:block"
-            priority
-          />
+          <div className="hidden flex-col sm:flex">
+            <Image
+              src="/assets/Logo(2).png"
+              alt="SwiftCare"
+              width={120}
+              height={28}
+              className={cn("w-auto object-contain transition-all", scrolled ? "h-6" : "h-7")}
+              priority
+            />
+            <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+              Smarter care. Shorter waits
+            </span>
+          </div>
         </Link>
-
-        {(!isAuthenticated || user?.role === 'admin') && (
-          <nav className="hidden flex-1 items-center md:grid md:grid-cols-3">
-            <div />
-            <div className="flex items-center justify-center gap-7 text-sm text-foreground/70 -translate-x-10 dark:text-slate-300">
-              <Link href="/" className="transition hover:text-foreground dark:hover:text-white">
-                Home
-              </Link>
-              <Link href="/about" className="transition hover:text-foreground dark:hover:text-white">
-                About
-              </Link>
-              <Link href="/faq" className="transition hover:text-foreground dark:hover:text-white">
-                FAQ
-              </Link>
-              <Link href="/doctors" className="transition hover:text-foreground dark:hover:text-white">
-                Doctors
-              </Link>
-              <Link href="/hospitals" className="transition hover:text-foreground dark:hover:text-white">
-                Hospitals
-              </Link>
-              <Link href="/contact-us" className="transition hover:text-foreground dark:hover:text-white">
-                Contact
-              </Link>
-            </div>
-            <div className="ml-auto flex items-center justify-end gap-2">
-              {!isAuthenticated ? (
-                <>
-                  <Link href="/auth/login">
-                    <Button
-                      size="sm"
-                      className="rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
-                    >
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button size="sm" variant="outline" className="rounded-full px-5">
-                      Register
-                    </Button>
-                  </Link>
-                  <Link href="/admin/login">
-                    <Button size="sm" variant="outline" className="rounded-full px-5">
-                      Admin Login
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <Link href={getDashboardLink()} className="font-medium text-primary transition hover:text-primary-600">
-                  Dashboard
-                </Link>
-              )}
-            </div>
-          </nav>
         )}
 
-        <div className="flex items-center space-x-4">
-          {isAuthenticated ? (
-            <>
-              <div className="hidden md:flex items-center space-x-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="relative rounded-lg p-2 text-foreground/60 outline-none transition hover:bg-muted hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
-                      <Bell className="w-5 h-5" />
-                      {unreadCount > 0 && (
-                          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-r from-primary to-primary-600 text-[10px] font-bold text-white shadow-md shadow-primary/30">
-                              {unreadCount > 9 ? '9+' : unreadCount}
-                          </span>
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80 rounded-2xl border border-border bg-white/95 p-0 shadow-lg shadow-primary/10 backdrop-blur-xl dark:bg-slate-900/95">
-                      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                         <span className="font-semibold tracking-tight text-foreground dark:text-white">Notifications</span>
-                         {unreadCount > 0 && (
-                             <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary hover:bg-transparent hover:text-primary-600" onClick={async (e) => {
-                                 e.preventDefault();
-                                 try {
-                                     await markAllNotificationsAsRead();
-                                     setUnreadCount(0);
-                                     setNotifications(prev => prev.map(n => ({...n, read: true})));
-                                 } catch (err) {
-                                     console.error(err)
-                                 }
-                             }}>Mark all as read</Button>
-                         )}
-                      </div>
-                        <div className="max-h-96 overflow-y-auto">
-                         {notifications.length === 0 ? (
-                           <div className="p-8 text-center text-sm text-muted-foreground dark:text-slate-400">No new notifications</div>
-                         ) : (
-                             notifications.map((n, i) => (
-                                 <div key={n._id || n.id || i} className="group">
-                              <div className={`flex cursor-pointer flex-col items-start p-4 transition hover:bg-muted dark:hover:bg-white/5 ${!n.read ? 'bg-icon-bg dark:bg-primary/10' : ''}`} onClick={async () => {
-                                        if (!n.read) {
-                                            try {
-                                                await markNotificationAsRead(String(n._id || n.id));
-                                                setUnreadCount(prev => Math.max(0, prev - 1));
-                                                setNotifications(prev => prev.map(notif => (notif._id === n._id || notif.id === n.id) ? {...notif, read: true} : notif));
-                                            } catch (err) {
-                                                console.error(err)
-                                            }
-                                        }
-                                    }}>
-                                        <div className="flex w-full justify-between gap-2">
-                                            <div className={`text-sm font-semibold ${!n.read ? 'text-foreground dark:text-white' : 'text-foreground/70 dark:text-slate-200'}`}>{n.title}</div>
-                                            {!n.read && <div className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-primary"></div>}
-                                        </div>
-                                        <div className={`mt-1 line-clamp-2 text-xs ${!n.read ? 'text-foreground/70 dark:text-slate-300' : 'text-muted-foreground dark:text-slate-400'}`}>{n.body}</div>
-                                        <div className="mt-2 text-[10px] font-medium text-muted-foreground">{n.createdAt ? new Date(n.createdAt).toLocaleString() : 'Just now'}</div>
-                                    </div>
-                                    {i < notifications.length - 1 && <DropdownMenuSeparator className="m-0" />}
-                                 </div>
-                             ))
-                         )}
-                      </div>
-                      <DropdownMenuSeparator className="m-0" />
-                      <DropdownMenuItem asChild>
-                        <Link href="/notifications" className="cursor-pointer justify-center py-3 text-center font-medium text-primary hover:text-primary-600">
-                          View All Notifications
-                        </Link>
-                      </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+        {/* Desktop nav — right */}
+        <div className="hidden items-center gap-1 lg:flex">
+          <nav className="flex items-center gap-1">
+            {isDoctor
+              ? DOCTOR_NAV_LINKS.map(({ href, label, match }) => (
+                  <NavLink key={href} href={href} label={label} isActive={match(pathname)} />
+                ))
+              : NAV_LINKS.map(({ href, label, match }) => (
+                  <NavLink key={href} href={href} label={label} isActive={match(pathname)} />
+                ))}
+          </nav>
 
+          <div className="ml-4 flex items-center gap-2 border-l border-border/60 pl-4">
+            {isPatient ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center space-x-2 rounded-full p-1 pr-3 transition hover:bg-muted dark:hover:bg-white/10">
-                    <Avatar className="h-8 w-8 border border-border">
-                      <AvatarImage src={user?.avatar || "/placeholder.svg"} />
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30 hover:bg-muted/50"
+                  >
+                    <Avatar className="h-7 w-7 border border-border">
+                      <AvatarImage
+                        src={resolvePatientImage(user.avatar)}
+                        onError={onPatientImageError}
+                      />
                       <AvatarFallback className="bg-icon-bg text-xs font-bold text-primary">
-                        {user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                        {patientInitials}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden text-sm font-medium text-foreground/80 md:block dark:text-slate-200">
-                      {user?.name}
-                    </span>
+                    <span>Profile</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-border bg-white/95 shadow-lg shadow-primary/10 backdrop-blur-xl dark:bg-slate-900/95">
-                  <div className="px-3 py-2">
-                    <p className="text-sm font-medium text-foreground dark:text-white">{user?.name}</p>
-                    <p className="text-xs text-muted-foreground dark:text-slate-400">{user?.email}</p>
-                    <p className="mt-1 text-xs capitalize text-primary">{user?.role}</p>
+                <DropdownMenuContent align="end" className="w-64 rounded-xl border border-border bg-card shadow-xl">
+                  <div className="px-3 py-3 border-b border-border/50">
+                    <p className="text-sm font-semibold text-foreground">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
+                  {PATIENT_MENU_LINKS.map((item) => (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link href={item.href} className="cursor-pointer">
+                        <item.icon className="mr-2 h-4 w-4 text-primary" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                  </DropdownMenuItem>
-                  {user?.role === 'patient' && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/patient/appointments" className="cursor-pointer">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          My Appointments
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/doctors" className="cursor-pointer">
-                          <Stethoscope className="w-4 h-4 mr-2" />
-                          Find Doctors
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {user?.role === 'doctor' && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/doctor/appointments" className="cursor-pointer">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          Appointments
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/doctor/my-patients" className="cursor-pointer">
-                          <User className="w-4 h-4 mr-2" />
-                          My Patients
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
-                    <LogOut className="w-4 h-4 mr-2" />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </>
-          ) : (
-            <Button className="md:hidden bg-transparent" variant="outline" asChild>
-              <Link href="/auth/login">Login</Link>
-            </Button>
-          )}
-          <Button className="md:hidden" variant="ghost" size="icon">
-            <Menu className="w-5 h-5" />
-          </Button>
+            ) : isDoctor ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30 hover:bg-muted/50"
+                  >
+                    <Avatar className="h-7 w-7 border border-border">
+                      <AvatarImage
+                        src={resolveDoctorImage(user.avatar)}
+                        onError={onDoctorImageError}
+                      />
+                      <AvatarFallback className="bg-icon-bg text-xs font-bold text-primary">
+                        {doctorInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>Profile</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 rounded-xl border border-border bg-card shadow-xl">
+                  <div className="px-3 py-3 border-b border-border/50">
+                    <p className="text-sm font-semibold text-foreground">Dr {user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="mt-1 text-xs text-primary">Doctor</p>
+                  </div>
+                  {DOCTOR_MENU_LINKS.map((item) => (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link href={item.href} className="cursor-pointer">
+                        <item.icon className="mr-2 h-4 w-4 text-primary" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : isAuthenticated ? (
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive hover:text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            ) : (
+              <>
+                <Link href="/auth/login">
+                  <Button variant="ghost" size="sm" className="font-medium">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/auth/register">
+                  <Button size="sm" className="bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90">
+                    Register
+                  </Button>
+                </Link>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Mobile menu */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="rounded-full lg:hidden" aria-label="Open menu">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[min(100vw-2rem,320px)] border-l border-border bg-background p-0">
+            <SheetHeader className="border-b border-border bg-gradient-to-br from-icon-bg/50 to-background px-5 pb-4 pt-5">
+              <SheetTitle className="flex items-center gap-2 text-left text-foreground">
+                <Image src="/assets/Logo(1).png" alt="" width={32} height={32} className="h-8 w-auto" />
+                <div>
+                  <span className="font-bold">SwiftCare</span>
+                  <p className="text-xs font-normal text-muted-foreground">Menu</p>
+                </div>
+              </SheetTitle>
+            </SheetHeader>
+
+            <nav className="flex flex-col gap-0.5 p-3">
+              {isDoctor
+                ? DOCTOR_NAV_LINKS.map(({ href, label, match }) => (
+                    <NavLink
+                      key={href}
+                      href={href}
+                      label={label}
+                      isActive={match(pathname)}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="rounded-lg px-3 py-3"
+                    />
+                  ))
+                : NAV_LINKS.map(({ href, label, match }) => (
+                    <NavLink
+                      key={href}
+                      href={href}
+                      label={label}
+                      isActive={match(pathname)}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="rounded-lg px-3 py-3"
+                    />
+                  ))}
+            </nav>
+
+            <div className="border-t border-border p-4">
+              {isPatient ? (
+                <div className="flex flex-col gap-2">
+                  <div className="mb-2 flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-3">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarImage
+                        src={resolvePatientImage(user.avatar)}
+                        onError={onPatientImageError}
+                      />
+                      <AvatarFallback className="bg-icon-bg text-sm font-bold text-primary">
+                        {patientInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
+                      <p className="text-xs text-primary">Patient</p>
+                    </div>
+                  </div>
+                  {PATIENT_MENU_LINKS.map((item) => (
+                    <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" className="mb-1 w-full justify-start rounded-xl">
+                        <item.icon className="mr-2 h-4 w-4 text-primary" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+                  <Button
+                    variant="outline"
+                    onClick={handleLogout}
+                    className="w-full rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </div>
+              ) : isDoctor ? (
+                <div className="flex flex-col gap-2">
+                  <div className="mb-2 flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-3">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarImage
+                        src={resolveDoctorImage(user.avatar)}
+                        onError={onDoctorImageError}
+                      />
+                      <AvatarFallback className="bg-icon-bg text-sm font-bold text-primary">
+                        {doctorInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">Dr {user.name}</p>
+                      <p className="text-xs text-primary">Doctor</p>
+                    </div>
+                  </div>
+                  {DOCTOR_MENU_LINKS.map((item) => (
+                    <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" className="mb-1 w-full justify-start rounded-xl">
+                        <item.icon className="mr-2 h-4 w-4 text-primary" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+                  <Button
+                    variant="outline"
+                    onClick={handleLogout}
+                    className="w-full rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </div>
+              ) : isAuthenticated ? (
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  className="w-full rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Link href="/auth/register" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90">Register</Button>
+                  </Link>
+                  <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full rounded-xl">
+                      Login
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   )

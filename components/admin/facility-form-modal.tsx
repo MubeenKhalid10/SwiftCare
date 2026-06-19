@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { geocodeAddressWithMapbox } from '@/lib/location'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import type { Facility } from '@/lib/types'
+import { resolveFacilityImage, onFacilityImageError } from '@/lib/image-utils'
 
 export interface FacilityFormData {
   name: string
@@ -63,7 +64,6 @@ export function FacilityFormModal({
   initialData,
   isLoading = false,
 }: FacilityFormModalProps) {
-  const { toast } = useToast()
   const [formData, setFormData] = useState<FacilityFormData>(buildFormFromFacility(initialData))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isFetchingCoordinates, setIsFetchingCoordinates] = useState(false)
@@ -96,7 +96,7 @@ export function FacilityFormModal({
     const trimmedLocation = formData.locationLabel.trim()
     if (!trimmedLocation) {
       setErrors(prev => ({ ...prev, locationLabel: 'Location/Address is required' }))
-      toast({ description: 'Enter a location first', variant: 'destructive' })
+      toast.error('Enter a location first')
       return
     }
 
@@ -105,7 +105,7 @@ export function FacilityFormModal({
       const resolvedLocation = await geocodeAddressWithMapbox(trimmedLocation)
 
       if (!resolvedLocation || !Array.isArray(resolvedLocation.coordinates) || resolvedLocation.coordinates.length < 2) {
-        toast({ description: 'Unable to fetch coordinates for this location', variant: 'destructive' })
+        toast.error('Unable to fetch coordinates for this location')
         return
       }
 
@@ -121,10 +121,10 @@ export function FacilityFormModal({
         return next
       })
 
-      toast({ description: 'Coordinates fetched successfully' })
+      toast.success('Coordinates fetched successfully')
     } catch (error) {
       console.error('Error fetching coordinates:', error)
-      toast({ description: 'Failed to fetch coordinates', variant: 'destructive' })
+      toast.error('Failed to fetch coordinates')
     } finally {
       setIsFetchingCoordinates(false)
     }
@@ -203,7 +203,7 @@ export function FacilityFormModal({
               </Button>
             </div>
             {errors.locationLabel && <p className="text-red-500 text-sm mt-1">{errors.locationLabel}</p>}
-            <p className="text-xs text-gray-500 mt-1">Use fetch button to geocode this address before saving.</p>
+            <p className="text-xs text-muted-foreground mt-1">Use fetch button to geocode this address before saving.</p>
             {formData.locationCoordinates && (
               <p className="text-xs text-green-700 mt-1">
                 Coordinates: {formData.locationCoordinates[1].toFixed(6)}, {formData.locationCoordinates[0].toFixed(6)}
@@ -220,19 +220,17 @@ export function FacilityFormModal({
               value={formData.image || ''}
               onChange={handleChange}
             />
-            <p className="text-xs text-gray-500 mt-1">Paste a direct image URL (JPG, PNG, WebP)</p>
-            {formData.image && (
-              <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 max-w-xs">
-                <img 
-                  src={formData.image} 
-                  alt="Preview" 
+            <p className="text-xs text-muted-foreground mt-1">Paste a direct image URL (JPG, PNG, WebP)</p>
+            {formData.image ? (
+              <div className="mt-2 rounded-lg overflow-hidden border border-border max-w-xs">
+                <img
+                  src={resolveFacilityImage(formData.image)}
+                  alt="Preview"
                   className="w-full h-32 object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"%3E%3Crect fill="%23e5e7eb" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%238b5cf6"%3EImage not found%3C/text%3E%3C/svg%3E'
-                  }}
+                  onError={onFacilityImageError}
                 />
               </div>
-            )}
+            ) : null}
           </div>
 
           <div>
@@ -258,7 +256,7 @@ export function FacilityFormModal({
               value={formData.doctorIds || ''}
               onChange={handleChange}
             />
-            <p className="text-xs text-gray-500 mt-1">Paste MongoDB doctor IDs separated by commas</p>
+            <p className="text-xs text-muted-foreground mt-1">Paste MongoDB doctor IDs separated by commas</p>
           </div>
 
           <div className="flex gap-2 justify-end pt-4 border-t">

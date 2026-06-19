@@ -2,23 +2,23 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { DoctorSidebar } from "@/components/doctor/doctor-sidebar"
-import { useAuth } from "@/lib/auth-context"
+import { useRequireAuth } from "@/hooks/use-require-auth"
 import { getAppointmentsByDoctorId, getPatients, updateAppointmentStatus, nextQueuePatient, getQueueState } from "@/lib/api"
 import type { Appointment } from "@/lib/types"
-import { Calendar, Search, CheckCircle, XCircle, Clock, Zap } from "lucide-react"
+import { Calendar, Search, CheckCircle, XCircle, Zap } from "lucide-react"
 import { toast } from "sonner"
 import { socket, connectSocket } from "@/lib/socket"
 import { getAppointmentDisplayName, applyAppointmentStatusSync, upsertAppointmentStatusSync } from "@/lib/utils"
 import { LogoLoader } from "@/components/ui/logo-loader"
+import { resolvePatientImage, onPatientImageError } from "@/lib/image-utils"
 
 export default function DoctorAppointments() {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useRequireAuth({ role: 'doctor' })
   const [filter, setFilter] = useState("upcoming")
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,7 +29,6 @@ export default function DoctorAppointments() {
   const [expandedPatientInfo, setExpandedPatientInfo] = useState<Record<string, boolean>>({})
 
   const getAppointmentKey = (apt: Appointment | any): string => String(apt?.id || apt?._id || '')
-const FALLBACK_AVATAR = 'data:image/jpeg;base64,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';
 
   // Helper to normalize backend status values
   const normalizeStatus = (s?: string) => {
@@ -309,29 +308,37 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
     return servingQueueNum === aptQueueNum && isInProgress && aptQueueNum > 0
   }
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LogoLoader size={32} />
+      </div>
+    )
+  }
+
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <div className="flex">
           <DoctorSidebar />
           <div className="flex-1">
             <div className="p-6">
               <div className="mb-6">
-                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <span className="w-2 h-2 rounded-full bg-primary"></span>
                   <span>Doctor</span>
                   <span>&gt;</span>
                   <span>Appointments</span>
                 </div>
-                <h1 className="text-3xl font-bold text-gray-900">Appointments</h1>
+                <h1 className="text-3xl font-bold text-foreground">Appointments</h1>
               </div>
 
               <Card>
                 <div className="p-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <h2 className="text-xl font-bold">Manage Bookings</h2>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md border border-border/50">
                       <Search className="w-4 h-4" />
                       <input
                         type="text"
@@ -366,8 +373,8 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                       <LogoLoader size={32} className="h-8 w-8" />
                     </div>
                   ) : sortedAppointments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                      <Calendar className="w-12 h-12 text-gray-300 mb-3" />
+                    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                      <Calendar className="w-12 h-12 text-muted-foreground mb-3" />
                       <p className="text-lg font-medium">No appointments found.</p>
                       <p className="text-sm">When patients book, they will appear here.</p>
                     </div>
@@ -379,9 +386,9 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                         
                         return (
                           <div key={dateKey}>
-                            <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-200">
-                              <Calendar className="w-5 h-5 text-blue-600" />
-                              <h3 className="text-lg font-bold text-gray-900">{dateLabel}</h3>
+                            <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-primary/30">
+                              <Calendar className="w-5 h-5 text-primary" />
+                              <h3 className="text-lg font-bold text-foreground">{dateLabel}</h3>
                               <Badge variant="outline" className="ml-auto">{aptsForDate.length} appointment{aptsForDate.length !== 1 ? 's' : ''}</Badge>
                             </div>
                             <div className="space-y-4 ml-8">
@@ -401,22 +408,20 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                         const isExpanded = Boolean(expandedPatientInfo[appointmentKey])
 
                         return (
-                          <div key={appointmentKey} className="flex flex-col md:flex-row md:items-center justify-between p-5 border rounded-xl hover:shadow-md transition-shadow bg-white" style={{ borderColor: isCurrentlyServing(apt) ? '#22c55e' : '#e5e7eb', backgroundColor: isCurrentlyServing(apt) ? '#f0fdf4' : 'white' }}>
+                          <div key={appointmentKey} className="flex flex-col md:flex-row md:items-center justify-between p-5 border rounded-xl hover:shadow-md transition-shadow bg-card" style={{ borderColor: isCurrentlyServing(apt) ? '#22c55e' : '#e5e7eb', backgroundColor: isCurrentlyServing(apt) ? '#f0fdf4' : 'white' }}>
                             <div className="flex items-start md:items-center gap-4 mb-4 md:mb-0 flex-1">
                               <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
   <img
-    src={(apt as any)?.patientAvatar || apt?.avatar || FALLBACK_AVATAR}
+    src={resolvePatientImage((apt as any)?.patientAvatar || apt?.avatar, patientGender)}
     alt={apt?.patientName}
     className="w-full h-full object-cover rounded-full"
-    onError={(e) => {
-      e.currentTarget.src = FALLBACK_AVATAR;
-    }}
+    onError={(e) => onPatientImageError(e, patientGender)}
   />
 </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-bold text-gray-900 text-lg">{patientName}</p>
-                                  <span className="text-xs text-gray-400">ID: {appointmentKey.substring(0, 8)}</span>
+                                  <p className="font-bold text-foreground text-lg">{patientName}</p>
+                                  <span className="text-xs text-muted-foreground">ID: {appointmentKey.substring(0, 8)}</span>
                                   {isCurrentlyServing(apt) && (
                                     <Badge className="bg-green-500 text-white flex items-center gap-1">
                                       <Zap className="w-3 h-3" />
@@ -424,28 +429,28 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                     </Badge>
                                   )}
                                   {(typeof apt.queueNumber === 'number' && apt.queueNumber > 0) && (
-                                    <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
+                                    <Badge variant="outline" className="bg-icon-bg border-primary/30 text-primary">
                                       Queue #{apt.queueNumber}
                                     </Badge>
                                   )}
-                                          <Badge className={normalizeStatus(apt.status) === 'pending' ? 'bg-yellow-100 text-yellow-800' : normalizeStatus(apt.status) === 'in_progress' ? 'bg-green-100 text-green-800' : normalizeStatus(apt.status) === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}>
+                                          <Badge className={normalizeStatus(apt.status) === 'pending' ? 'bg-yellow-100 text-yellow-800' : normalizeStatus(apt.status) === 'in_progress' ? 'bg-green-100 text-green-800' : normalizeStatus(apt.status) === 'completed' ? 'bg-icon-bg text-blue-800' : 'bg-red-100 text-red-800'}>
                                             {normalizeStatus(apt.status) === 'pending' ? 'Pending' : normalizeStatus(apt.status) === 'in_progress' ? 'In Progress' : normalizeStatus(apt.status) === 'completed' ? 'Completed' : 'Cancelled'}
                                           </Badge>
                                 </div>
-                                <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                                  <div className="flex items-center gap-1 font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                                  <div className="flex items-center gap-1 font-medium bg-icon-bg text-primary px-2 py-0.5 rounded-md">
                                     <Calendar className="w-3.5 h-3.5" />
                                             <span>{apt.time}</span>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
                                   <span>Patient: <b>{patientName}</b></span>
                                   <span>•</span>
                                   <span>Problem: <b>{apt.problem || 'None specified'}</b></span>
                                 </div>
                                 <button
                                   type="button"
-                                  className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                                  className="mt-2 text-xs font-semibold text-primary hover:text-primary/80"
                                   onClick={() =>
                                     setExpandedPatientInfo(prev => ({
                                       ...prev,
@@ -456,7 +461,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                   {isExpanded ? 'Hide patient details' : 'View patient details'}
                                 </button>
                                 {isExpanded && (
-                                  <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-gray-700">
+                                  <div className="mt-3 rounded-lg border border-primary/20 bg-icon-bg/60 p-3 text-xs text-foreground/80">
                                     <div className="flex flex-wrap items-center gap-3">
                                       <span>Age: <b>{patientAge ?? 'N/A'}</b></span>
                                       <span>•</span>
@@ -499,20 +504,20 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                               {normalizeStatus(apt.status) === 'in_progress' && (
                                 <div className="w-full flex flex-col gap-3">
                                   <div className="w-full">
-                                    <label className="text-sm font-medium text-gray-700 mb-2 block">Consultation Notes</label>
+                                    <label className="text-sm font-medium text-foreground/80 mb-2 block">Consultation Notes</label>
                                     <textarea
                                       placeholder="Enter consultation notes for this appointment..."
                                       maxLength={500}
                                       value={consultationNotes[appointmentKey] || (apt as any).consultationNotes || ""}
                                       onChange={(e) => setConsultationNotes(prev => ({ ...prev, [appointmentKey]: e.target.value }))}
-                                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                                      className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none text-sm"
                                       rows={3}
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">{(consultationNotes[appointmentKey] || '').length}/500 characters</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{(consultationNotes[appointmentKey] || '').length}/500 characters</p>
                                   </div>
                                   <Button
                                     size="sm"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
+                                    className="bg-primary hover:bg-primary/90 text-white w-full md:w-auto"
                                     onClick={() => handleUpdateStatus(appointmentKey, "Completed")}
                                     disabled={actionLoading === appointmentKey}
                                   >
@@ -522,7 +527,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                               )}
 
                               {apt.status === "Completed" && (
-                                <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-200 pointer-events-none px-3 py-1">
+                                <Badge className="bg-muted text-muted-foreground hover:bg-muted pointer-events-none px-3 py-1">
                                   <CheckCircle className="w-3 h-3 mr-1" /> Completed
                                 </Badge>
                               )}
@@ -533,7 +538,7 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
                                 </Badge>
                               )}
                                       {normalizeStatus(apt.status) === "completed" && (
-                                        <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-200 pointer-events-none px-3 py-1">
+                                        <Badge className="bg-muted text-muted-foreground hover:bg-muted pointer-events-none px-3 py-1">
                                           <CheckCircle className="w-3 h-3 mr-1" /> Completed
                                         </Badge>
                                       )}
@@ -559,7 +564,6 @@ const FALLBACK_AVATAR = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCE
           </div>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

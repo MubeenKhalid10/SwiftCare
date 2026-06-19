@@ -1,4 +1,4 @@
-// API Response Types based on the backend at https://swiftcare.up.railway.app
+// API response types for the SwiftCare backend (see NEXT_PUBLIC_API_URL in .env.local)
 
 export interface Doctor {
   _id?: string
@@ -94,6 +94,7 @@ export interface Patient {
   lastVisit?: string
   paid?: string
   image?: string
+  favorites?: Array<string | number>
 }
 
 export interface Review {

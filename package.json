@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --hostname localhost --port 3000",
+    "dev": "node scripts/clean-dev-lock.mjs && next dev --hostname localhost --port 3001",
+    "dev:fresh": "node scripts/clean-dev-lock.mjs && next dev --hostname localhost --port 3001",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start --hostname localhost --port 3001",
+    "google:setup": "node scripts/google-oauth-setup.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

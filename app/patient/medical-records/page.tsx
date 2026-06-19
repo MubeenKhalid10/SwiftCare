@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LogoLoader } from "@/components/ui/logo-loader"
+import { resolveDoctorImage, onDoctorImageError } from "@/lib/image-utils"
 import {
   Table,
   TableBody,
@@ -17,16 +18,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import Header from "@/components/header"
-import Footer from "@/components/footer"
 import Link from "next/link"
-import { PatientSidebar } from "@/components/patient/patient-sidebar"
 import { RecordDetailModal } from "@/components/patient/record-detail-modal"
-import { useAuth } from "@/lib/auth-context"
+import { useRequireAuth } from "@/hooks/use-require-auth"
 import { Doctor } from "@/lib/types"
 import { getAppointmentsByPatientId, getDoctors } from "@/lib/api"
 
 function MedicalRecordsContent() {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useRequireAuth({ role: 'patient' })
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("medical")
   const [doctors, setDoctors] = useState<Record<string, Doctor>>({})
@@ -118,6 +117,9 @@ function MedicalRecordsContent() {
         comments,
         doctor: doctor?.name || apt.doctorName || "Unknown Doctor",
         avatar: doctor?.image || "/default-doctor.jpg",
+        location: typeof doctor?.location === 'string'
+          ? doctor.location
+          : doctor?.location?.label || doctor?.hospitalAffiliation || "Clinic visit",
         appointmentId: apt.id || apt._id,
         problem: apt.reasonForVisit || apt.problem || "Checkup",
         status: formatStatus(apt.status),
@@ -138,33 +140,34 @@ function MedicalRecordsContent() {
     setIsModalOpen(true)
   }
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-card flex items-center justify-center">
+        <LogoLoader size={32} />
+      </div>
+    )
+  }
+
   return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-card">
       <Header />
 
       {/* Page Title */}
         <div className="bg-gradient-to-r from-icon-bg to-icon-bg/50 border-b border-border py-8">
         <div className="max-w-7xl mx-auto px-4">
-          <h1 className="text-4xl font-bold text-gray-900">Medical Records</h1>
+          <h1 className="text-4xl font-bold text-foreground">Visit History</h1>
+          <p className="text-muted-foreground mt-2">Summaries from your completed and cancelled appointments — not uploaded medical files.</p>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Reusable Sidebar */}
-          <div className="lg:col-span-1">
-            <PatientSidebar />
-          </div>
-
-          {/* Right Content */}
-          <div className="lg:col-span-3">
             <Card>
               <CardHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsList className="grid w-full grid">
-                    <TabsTrigger value="medical">Medical Records</TabsTrigger>
+                    <TabsTrigger value="medical">Visit History</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardHeader>
@@ -173,7 +176,7 @@ function MedicalRecordsContent() {
                 {/* Search and Refresh */}
                 <div className="flex gap-3 mb-6">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Search"
                       className="pl-10"
@@ -204,7 +207,6 @@ function MedicalRecordsContent() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>ID</TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Record For</TableHead>
@@ -216,31 +218,31 @@ function MedicalRecordsContent() {
                       <TableBody>
                         {filteredRecords.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                               No medical records found
                             </TableCell>
                           </TableRow>
                         ) : (
                           filteredRecords.map((record) => (
-                            <TableRow key={record.id} className="cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => handleViewDetails(record)}>
-                              <TableCell className="text-blue-600 font-medium">
-                                {record.id}
-                              </TableCell>
+                            <TableRow key={record.id} className="cursor-pointer hover:bg-muted transition-colors" onClick={() => handleViewDetails(record)}>
                               <TableCell>{record.name}</TableCell>
                               <TableCell>{record.date}</TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   <Avatar className="w-8 h-8">
-                                    <AvatarImage src={record.avatar} />
+                                    <AvatarImage
+                                      src={resolveDoctorImage(record.avatar)}
+                                      onError={onDoctorImageError}
+                                    />
                                     <AvatarFallback>DR</AvatarFallback>
                                   </Avatar>
                                   <div>
                                     <p className="text-sm font-medium">{record.recordFor}</p>
-                                    {record.problem && <p className="text-xs text-gray-500">{record.problem}</p>}
+                                    {record.problem && <p className="text-xs text-muted-foreground">{record.problem}</p>}
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-gray-600 max-w-xs truncate">
+                              <TableCell className="text-muted-foreground max-w-xs truncate">
                                 {record.comments}
                               </TableCell>
                               <TableCell className="text-sm">{record.doctor}</TableCell>
@@ -259,11 +261,8 @@ function MedicalRecordsContent() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
       </div>
 
-      <Footer />
     </div>
   )
 }

@@ -3,7 +3,8 @@
 import React, { useState } from "react"
 import { FileText, X, Check, XCircle, MapPin, Clock, DollarSign, Users, Award, Phone, Building2, Loader2, AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { API_BASE_URL } from "@/lib/api-config"
+import { buildApiUrl } from "@/lib/api-config"
+import { resolveFacilityImage, onFacilityImageError } from '@/lib/image-utils'
 import type { Facility } from "@/lib/types"
 
 interface DoctorVerificationModalProps {
@@ -52,10 +53,10 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
     } : undefined
 
     const renderDocumentLink = (title: string, path: string | undefined | null) => {
-        if (!path) return <span className="text-gray-400 text-sm italic">Not provided</span>
+        if (!path) return <span className="text-muted-foreground text-sm italic">Not provided</span>
         return (
             <a
-                href={`${API_BASE_URL}${path}`}
+                href={buildApiUrl(path)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-sm text-primary hover:underline mt-1"
@@ -68,11 +69,11 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
     const renderAffiliationBadge = () => {
         if (!affiliation || affiliation.type === 'na' || !affiliation.type) {
             return (
-                <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <Building2 className="w-5 h-5 text-gray-400" />
+                <div className="flex items-center gap-2 p-3 bg-muted border border-border rounded-lg">
+                    <Building2 className="w-5 h-5 text-muted-foreground" />
                     <div>
-                        <p className="text-sm font-medium text-gray-700">No Hospital Affiliation</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Doctor operates from a personal clinic.</p>
+                        <p className="text-sm font-medium text-foreground/80">No Hospital Affiliation</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Doctor operates from a personal clinic.</p>
                     </div>
                 </div>
             )
@@ -82,21 +83,24 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
             return (
                 <div className="space-y-3">
                     {currentFacility && (
-                        <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex items-start gap-3 p-3 bg-icon-bg border border-primary/30 rounded-lg">
+                            <Building2 className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
                                 <p className="text-sm font-medium text-blue-800">Current Hospital Affiliation</p>
                                 <p className="text-sm font-bold text-blue-900 mt-0.5">{currentFacility.name || 'N/A'}</p>
                                 {currentFacility.location?.label && (
-                                    <p className="text-xs text-blue-700 mt-0.5 flex items-center gap-1">
+                                    <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                                         <MapPin className="w-3 h-3" /> {currentFacility.location.label}
                                     </p>
                                 )}
-                                {currentFacility.image && (
-                                    <div className="mt-3 overflow-hidden rounded-md border border-blue-200 max-w-xs">
-                                        <img src={currentFacility.image} alt={currentFacility.name || 'Current hospital'} className="h-28 w-full object-cover" />
-                                    </div>
-                                )}
+                                <div className="mt-3 overflow-hidden rounded-md border border-primary/30 max-w-xs">
+                                    <img
+                                        src={resolveFacilityImage(currentFacility.image)}
+                                        alt={currentFacility.name || 'Current hospital'}
+                                        className="h-28 w-full object-cover"
+                                        onError={onFacilityImageError}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -136,27 +140,30 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                     </div>
 
                     {currentFacility && (
-                        <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <Building2 className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex items-start gap-3 p-3 bg-icon-bg border border-primary/30 rounded-lg">
+                            <Building2 className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
                                 <p className="text-sm font-medium text-blue-800">Previous Hospital Affiliation</p>
                                 <p className="text-sm font-bold text-blue-900 mt-0.5">{currentFacility.name || 'N/A'}</p>
                                 {currentFacility.location?.label && (
-                                    <p className="text-xs text-blue-700 mt-0.5 flex items-center gap-1">
+                                    <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
                                         <MapPin className="w-3 h-3" /> {currentFacility.location.label}
                                     </p>
                                 )}
-                                {currentFacility.image && (
-                                    <div className="mt-3 overflow-hidden rounded-md border border-blue-200 max-w-xs">
-                                        <img src={currentFacility.image} alt={currentFacility.name || 'Previous hospital'} className="h-28 w-full object-cover" />
-                                    </div>
-                                )}
+                                <div className="mt-3 overflow-hidden rounded-md border border-primary/30 max-w-xs">
+                                    <img
+                                        src={resolveFacilityImage(currentFacility.image)}
+                                        alt={currentFacility.name || 'Previous hospital'}
+                                        className="h-28 w-full object-cover"
+                                        onError={onFacilityImageError}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    <div className="space-y-2 p-3 bg-white border border-amber-200 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700">Hospital Picture</label>
+                    <div className="space-y-2 p-3 bg-card border border-amber-200 rounded-lg">
+                        <label className="block text-sm font-medium text-foreground/80">Hospital Picture</label>
                         <Input
                             type="file"
                             accept="image/*"
@@ -166,9 +173,9 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                                 setHospitalImagePreview(file ? URL.createObjectURL(file) : '')
                             }}
                         />
-                        <p className="text-xs text-gray-500">Upload a JPG, PNG, or WebP image for the new hospital.</p>
+                        <p className="text-xs text-muted-foreground">Upload a JPG, PNG, or WebP image for the new hospital.</p>
                         {hospitalImagePreview && (
-                            <div className="overflow-hidden rounded-md border border-gray-200 max-w-xs">
+                            <div className="overflow-hidden rounded-md border border-border max-w-xs">
                                 <img src={hospitalImagePreview} alt="Hospital preview" className="h-28 w-full object-cover" />
                             </div>
                         )}
@@ -201,16 +208,16 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-icon-bg to-icon-bg/50">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-2xl font-bold text-foreground">
                             Verification Review: Dr. {doctor.name}
                         </h2>
-                        <p className="text-sm text-gray-600 mt-1">{doctor.specialization} • Status: <span className="font-semibold capitalize">{doctor.accountStatus?.verificationStatus || 'pending'}</span></p>
+                        <p className="text-sm text-muted-foreground mt-1">{doctor.specialization} • Status: <span className="font-semibold capitalize">{doctor.accountStatus?.verificationStatus || 'pending'}</span></p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
@@ -220,55 +227,55 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
 
                     {/* Basic Profile Info */}
                     <section className="bg-primary/5 border border-border p-5 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
                             <Award className="w-5 h-5 text-primary" />
                             Basic Information
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Name</p>
-                                <p className="font-medium text-gray-900 mt-1">{doctor.name || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Name</p>
+                                <p className="font-medium text-foreground mt-1">{doctor.name || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Specialization</p>
-                                <p className="font-medium text-gray-900 mt-1">{doctor.specialization || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Specialization</p>
+                                <p className="font-medium text-foreground mt-1">{doctor.specialization || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Experience</p>
-                                <p className="font-medium text-gray-900 mt-1">{experienceValue}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Experience</p>
+                                <p className="font-medium text-foreground mt-1">{experienceValue}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Email</p>
-                                <p className="font-medium text-gray-900 mt-1 text-sm">{doctor.credentials?.email || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Email</p>
+                                <p className="font-medium text-foreground mt-1 text-sm">{doctor.credentials?.email || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Age</p>
-                                <p className="font-medium text-gray-900 mt-1">{doctor.age ?? 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Age</p>
+                                <p className="font-medium text-foreground mt-1">{doctor.age ?? 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Gender</p>
-                                <p className="font-medium text-gray-900 mt-1">{doctor.gender || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Gender</p>
+                                <p className="font-medium text-foreground mt-1">{doctor.gender || 'N/A'}</p>
                             </div>
                         </div>
                     </section>
 
                     {/* Contact & Fee Information */}
                     <section className="bg-green-50 border border-green-200 p-5 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
                             <Phone className="w-5 h-5 text-green-600" />
                             Contact &amp; Services
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div>
-                                <p className="text-xs text-gray-600 uppercase tracking-wide">Contact Number</p>
-                                <p className="font-medium text-gray-900 mt-1">{doctor.contactNo || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Contact Number</p>
+                                <p className="font-medium text-foreground mt-1">{doctor.contactNo || 'N/A'}</p>
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
                                     <DollarSign className="w-4 h-4 text-green-600" />
                                     <div>
-                                        <p className="text-xs text-gray-600 uppercase tracking-wide">Consultation Fee</p>
-                                        <p className="font-medium text-gray-900 mt-1">{doctor.consultationFee ? `Rs. ${doctor.consultationFee}` : 'N/A'}</p>
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Consultation Fee</p>
+                                        <p className="font-medium text-foreground mt-1">{doctor.consultationFee ? `Rs. ${doctor.consultationFee}` : 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -276,8 +283,8 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                                 <div className="flex items-center gap-2">
                                     <Users className="w-4 h-4 text-green-600" />
                                     <div>
-                                        <p className="text-xs text-gray-600 uppercase tracking-wide">Bio</p>
-                                        <p className="font-medium text-gray-900 mt-1 text-sm">{bioValue === 'N/A' ? 'N/A' : bioValue.slice(0, 30) + (bioValue.length > 30 ? '...' : '')}</p>
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Bio</p>
+                                        <p className="font-medium text-foreground mt-1 text-sm">{bioValue === 'N/A' ? 'N/A' : bioValue.slice(0, 30) + (bioValue.length > 30 ? '...' : '')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -285,9 +292,9 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                     </section>
 
                     {/* Hospital Affiliation */}
-                    <section className="bg-blue-50 border border-blue-200 p-5 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
-                            <Building2 className="w-5 h-5 text-blue-600" />
+                    <section className="bg-icon-bg border border-primary/30 p-5 rounded-lg">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+                            <Building2 className="w-5 h-5 text-primary" />
                             Hospital Affiliation
                         </h3>
                         {renderAffiliationBadge()}
@@ -295,18 +302,18 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
 
                     {/* Identification Section */}
                     <section className="bg-yellow-50 border border-yellow-200 p-5 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-3 mb-4">Identification</h3>
+                        <h3 className="text-lg font-semibold text-foreground border-b pb-3 mb-4">Identification</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">ID Number</p>
-                                <p className="text-gray-900 font-medium">{doctor.identification?.idNumber || 'N/A'}</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">ID Number</p>
+                                <p className="text-foreground font-medium">{doctor.identification?.idNumber || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">CNIC Front</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">CNIC Front</p>
                                 {renderDocumentLink("CNIC Front", doctor.identification?.cnicFront)}
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">CNIC Back</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">CNIC Back</p>
                                 {renderDocumentLink("CNIC Back", doctor.identification?.cnicBack)}
                             </div>
                         </div>
@@ -314,27 +321,27 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
 
                     {/* Professional Information */}
                     <section className="bg-purple-50 border border-purple-200 p-5 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-3 mb-4">Professional Information</h3>
+                        <h3 className="text-lg font-semibold text-foreground border-b pb-3 mb-4">Professional Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">Degree</p>
-                                <p className="text-gray-900 font-medium">{doctor.professionalInfo?.degree || 'N/A'}</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">Degree</p>
+                                <p className="text-foreground font-medium">{doctor.professionalInfo?.degree || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">Registration Number</p>
-                                <p className="text-gray-900 font-medium">{doctor.professionalInfo?.registrationNumber || 'N/A'}</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">Registration Number</p>
+                                <p className="text-foreground font-medium">{doctor.professionalInfo?.registrationNumber || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">Degree Certificate</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">Degree Certificate</p>
                                 {renderDocumentLink("Degree Certificate", doctor.verificationDocuments?.degreeCert)}
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">Registration Certificate</p>
+                                <p className="text-sm font-medium text-foreground/80 mb-2">Registration Certificate</p>
                                 {renderDocumentLink("Registration Certificate", doctor.verificationDocuments?.regCert)}
                             </div>
                             {doctor.verificationDocuments?.otherCerts && doctor.verificationDocuments.otherCerts.length > 0 && (
                                 <div className="md:col-span-2">
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Other Certificates</p>
+                                    <p className="text-sm font-medium text-foreground/80 mb-2">Other Certificates</p>
                                     <div className="space-y-1">
                                         {doctor.verificationDocuments.otherCerts.map((url: string, index: number) => (
                                             <div key={index}>{renderDocumentLink(`Certificate ${index + 1}`, url)}</div>
@@ -348,13 +355,13 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                     {/* Schedule Information */}
                     {(doctor.schedule?.availableDays?.length > 0 || doctor.schedule?.availableHours?.length > 0) && (
                         <section className="bg-indigo-50 border border-indigo-200 p-5 rounded-lg">
-                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
                                 <Clock className="w-5 h-5 text-indigo-600" />
                                 Schedule
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Available Days</p>
+                                    <p className="text-sm font-medium text-foreground/80 mb-2">Available Days</p>
                                     <div className="flex flex-wrap gap-2">
                                         {doctor.schedule?.availableDays?.length > 0 ? (
                                             doctor.schedule.availableDays.map((day: string, idx: number) => (
@@ -363,12 +370,12 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                                                 </span>
                                             ))
                                         ) : (
-                                            <span className="text-gray-500 text-sm italic">Not specified</span>
+                                            <span className="text-muted-foreground text-sm italic">Not specified</span>
                                         )}
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Available Hours</p>
+                                    <p className="text-sm font-medium text-foreground/80 mb-2">Available Hours</p>
                                     <div className="flex flex-wrap gap-2">
                                         {doctor.schedule?.availableHours?.length > 0 ? (
                                             doctor.schedule.availableHours.map((hour: string, idx: number) => (
@@ -377,7 +384,7 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                                                 </span>
                                             ))
                                         ) : (
-                                            <span className="text-gray-500 text-sm italic">Not specified</span>
+                                            <span className="text-muted-foreground text-sm italic">Not specified</span>
                                         )}
                                     </div>
                                 </div>
@@ -388,19 +395,19 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                     {/* Location Information */}
                     {doctor.location?.label && (
                         <section className="bg-orange-50 border border-orange-200 p-5 rounded-lg">
-                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
                                 <MapPin className="w-5 h-5 text-orange-600" />
                                 Location
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Location Address</p>
-                                    <p className="text-gray-900 font-medium">{doctor.location.label}</p>
+                                    <p className="text-sm font-medium text-foreground/80 mb-2">Location Address</p>
+                                    <p className="text-foreground font-medium">{doctor.location.label}</p>
                                 </div>
                                 {doctor.location?.coordinates && (
                                     <div>
-                                        <p className="text-sm font-medium text-gray-700 mb-2">Coordinates</p>
-                                        <p className="text-gray-900 font-medium text-sm">
+                                        <p className="text-sm font-medium text-foreground/80 mb-2">Coordinates</p>
+                                        <p className="text-foreground font-medium text-sm">
                                             {doctor.location.coordinates[1]}, {doctor.location.coordinates[0]}
                                         </p>
                                     </div>
@@ -412,12 +419,12 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                     {/* Qualification/Education */}
                     {doctor.qualification?.education && doctor.qualification.education.length > 0 && (
                         <section className="bg-teal-50 border border-teal-200 p-5 rounded-lg">
-                            <h3 className="text-lg font-semibold text-gray-900 border-b pb-3 mb-4">Qualification &amp; Education</h3>
+                            <h3 className="text-lg font-semibold text-foreground border-b pb-3 mb-4">Qualification &amp; Education</h3>
                             <div className="space-y-3">
                                 {doctor.qualification.education.map((edu: string, idx: number) => (
                                     <div key={idx} className="flex items-start gap-2">
                                         <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-1.5 flex-shrink-0"></span>
-                                        <p className="text-gray-900 font-medium">{edu}</p>
+                                        <p className="text-foreground font-medium">{edu}</p>
                                     </div>
                                 ))}
                             </div>
@@ -427,7 +434,7 @@ export function DoctorVerificationModal({ doctor, currentFacility, onClose, onAp
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                <div className="p-6 border-t bg-muted flex justify-end gap-3">
                     <button
                         onClick={() => onReject(doctorId)}
                         disabled={isLoading}

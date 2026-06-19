@@ -89,6 +89,7 @@ function VerifyEmailContent() {
       }
 
       toast.success('Email verified successfully!')
+      sessionStorage.removeItem('swiftcare_pending_signup')
 
       if (role === 'patient') {
         router.push('/patient/appointments')
@@ -106,11 +107,11 @@ function VerifyEmailContent() {
 
     try {
       const { resendSignupOtp } = await import('@/lib/auth.service')
-      await resendSignupOtp('', email, '', role)
+      await resendSignupOtp(email, role)
       toast.success('A new verification code has been sent')
       setResendCooldown(60)
-    } catch {
-      toast.error('Failed to resend code')
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to resend code')
     }
   }
 
@@ -118,7 +119,7 @@ function VerifyEmailContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Missing email parameter.</p>
+          <p className="text-muted-foreground mb-4">Missing email parameter.</p>
           <Button onClick={() => router.push('/auth/register')}>Go to Register</Button>
         </div>
       </div>
@@ -134,19 +135,19 @@ function VerifyEmailContent() {
             <ShieldCheck className="w-12 h-12 text-white" />
           </div>
           <h2 className="text-4xl font-bold text-white mb-4">Almost There!</h2>
-          <p className="text-blue-100 text-lg">Verify your email to complete registration</p>
+          <p className="text-white/80 text-lg">Verify your email to complete registration</p>
         </div>
       </div>
 
       {/* Right Side */}
-      <div className="w-full lg:w-1/2 bg-white flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 bg-background flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-icon-bg rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/20">
               <Mail className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Check Your Email</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Check Your Email</h1>
+            <p className="text-muted-foreground">
               We&apos;ve sent a 6-digit verification code to
             </p>
             <p className="text-primary font-semibold mt-1">{email}</p>
@@ -188,14 +189,14 @@ function VerifyEmailContent() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600 text-sm">
+            <p className="text-muted-foreground text-sm">
               Didn&apos;t receive the code?{' '}
               {resendCooldown > 0 ? (
-                <span className="text-gray-400">Resend in {resendCooldown}s</span>
+                <span className="text-muted-foreground/60">Resend in {resendCooldown}s</span>
               ) : (
                 <button
                   onClick={handleResend}
-                  className="text-blue-600 hover:text-blue-700 font-semibold"
+                  className="text-primary hover:text-primary-600 font-semibold transition-colors"
                 >
                   Resend Code
                 </button>
@@ -203,7 +204,7 @@ function VerifyEmailContent() {
             </p>
           </div>
 
-          <p className="text-center text-gray-500 mt-8 text-xs">
+          <p className="text-center text-muted-foreground mt-8 text-xs">
             The code expires in 10 minutes
           </p>
         </div>

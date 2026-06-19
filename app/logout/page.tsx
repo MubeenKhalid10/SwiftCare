@@ -34,7 +34,7 @@ export default function LogoutPage() {
 
   const handleCancel = () => {
     if (user?.role === 'patient') {
-      router.push('/patient/dashboard')
+      router.push('/patient/appointments')
     } else if (user?.role === 'doctor') {
       router.push('/doctor/dashboard')
     } else if (user?.role === 'admin') {
@@ -53,11 +53,11 @@ export default function LogoutPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-gray-700">
+          <div className="bg-icon-bg border border-primary/20 rounded-lg p-4 mb-4">
+            <p className="text-sm text-foreground/80">
               <strong>Logged in as:</strong> {user?.email || 'User'}
             </p>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               <strong>Role:</strong> {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown'}
             </p>
           </div>
@@ -90,7 +90,7 @@ export default function LogoutPage() {
       {!showConfirm && (
         <div className="text-center">
           <h1 className="text-3xl font-bold text-green-600 mb-4">Logged Out Successfully</h1>
-          <p className="text-gray-600 mb-6">Redirecting to login page...</p>
+          <p className="text-muted-foreground mb-6">Redirecting to login page...</p>
         </div>
       )}
     </div>

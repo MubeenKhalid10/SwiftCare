@@ -129,10 +129,10 @@ export default function AdminNotificationsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-            <p className="text-gray-600 mt-1">Stay updated with system activity</p>
+            <h1 className="text-3xl font-bold text-foreground">Notifications</h1>
+            <p className="text-muted-foreground mt-1">Stay updated with system activity</p>
           </div>
-          <Badge className="bg-blue-600 text-white text-lg px-3 py-1">
+          <Badge className="bg-primary text-white text-lg px-3 py-1">
             {unreadCount} Unread
           </Badge>
         </div>
@@ -146,7 +146,7 @@ export default function AdminNotificationsPage() {
                 setFilter(e.target.value)
                 setPage(1)
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {notificationTypes.map(type => (
                 <option key={type.value} value={type.value}>
@@ -160,7 +160,7 @@ export default function AdminNotificationsPage() {
             <Button
               onClick={handleMarkAllAsRead}
               variant="outline"
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              className="text-primary border-primary/30 hover:bg-icon-bg"
             >
               <Check className="w-4 h-4 mr-2" />
               Mark All as Read
@@ -175,9 +175,9 @@ export default function AdminNotificationsPage() {
           </div>
         ) : notifications.length === 0 ? (
           <Card className="p-12 text-center">
-            <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg">No notifications yet</p>
-            <p className="text-gray-500 text-sm mt-2">
+            <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground text-lg">No notifications yet</p>
+            <p className="text-muted-foreground text-sm mt-2">
               {filter === 'all' 
                 ? 'Notifications will appear here when there is system activity'
                 : `No ${filter.replace(/_/g, ' ')} notifications`
@@ -192,32 +192,35 @@ export default function AdminNotificationsPage() {
                 onClick={() => handleNotificationClick(notification)}
                 className={`p-4 border rounded-lg transition cursor-pointer hover:shadow-md ${
                   notification.read 
-                    ? 'bg-white border-gray-200' 
+                    ? 'bg-card border-border' 
                     : `${getNotificationStyle(notification.type).bgColor} ${getNotificationStyle(notification.type).borderColor}`
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  <div className="pt-1 text-xl" aria-hidden>
-                    {getNotificationIcon(notification.type)}
+                  <div className="pt-1" aria-hidden>
+                    {(() => {
+                      const Icon = getNotificationIcon(notification.type)
+                      return <Icon className="h-5 w-5 text-primary" />
+                    })()}
                   </div>
 
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-foreground">
                           {notification.title}
                         </h3>
-                        <p className="text-sm text-gray-700 mt-1">
+                        <p className="text-sm text-foreground/80 mt-1">
                           {notification.body}
                         </p>
                       </div>
                       {!notification.read && (
-                        <span className="inline-block w-3 h-3 bg-blue-600 rounded-full flex-shrink-0 mt-1"></span>
+                        <span className="inline-block w-3 h-3 bg-primary rounded-full flex-shrink-0 mt-1"></span>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {notification.createdAt 
                           ? new Date(notification.createdAt).toLocaleString()
                           : 'just now'
@@ -259,7 +262,7 @@ export default function AdminNotificationsPage() {
             >
               Previous
             </Button>
-            <span className="text-gray-600 text-sm">
+            <span className="text-muted-foreground text-sm">
               Page {page} of {totalPages}
             </span>
             <Button

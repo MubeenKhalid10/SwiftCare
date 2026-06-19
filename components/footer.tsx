@@ -19,13 +19,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/blog" className="transition hover:text-foreground dark:hover:text-white">
-                  Blog
+                <Link href="/doctors" className="transition hover:text-foreground dark:hover:text-white">
+                  Find Doctors
                 </Link>
               </li>
               <li>
-                <Link href="/careers" className="transition hover:text-foreground dark:hover:text-white">
-                  Careers
+                <Link href="/hospitals" className="transition hover:text-foreground dark:hover:text-white">
+                  Hospitals
                 </Link>
               </li>
             </ul>
@@ -36,17 +36,17 @@ export function Footer() {
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-foreground dark:text-white/90">Treatments</h3>
             <ul className="space-y-3 text-sm text-foreground/70 dark:text-white/60">
               <li>
-                <Link href="/doctors?specialty=Cardiology" className="transition hover:text-foreground dark:hover:text-white">
+                <Link href="/doctors?specialization=Cardiology" className="transition hover:text-foreground dark:hover:text-white">
                   Cardiology
                 </Link>
               </li>
               <li>
-                <Link href="/doctors?specialty=Neurology" className="transition hover:text-foreground dark:hover:text-white">
+                <Link href="/doctors?specialization=Neurology" className="transition hover:text-foreground dark:hover:text-white">
                   Neurology
                 </Link>
               </li>
               <li>
-                <Link href="/doctors?specialty=Pediatrics" className="transition hover:text-foreground dark:hover:text-white">
+                <Link href="/doctors?specialization=Pediatrics" className="transition hover:text-foreground dark:hover:text-white">
                   Pediatrics
                 </Link>
               </li>
@@ -58,17 +58,17 @@ export function Footer() {
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-foreground dark:text-white/90">Specialties</h3>
             <ul className="space-y-3 text-sm text-foreground/70 dark:text-white/60">
               <li>
-                <Link href="/doctors?specialty=Orthopedics" className="transition hover:text-foreground dark:hover:text-white">
+                <Link href="/doctors?specialization=Orthopedics" className="transition hover:text-foreground dark:hover:text-white">
                   Orthopedics
                 </Link>
               </li>
               <li>
-                <Link href="/doctors?specialty=Psychiatry" className="transition hover:text-foreground dark:hover:text-white">
+                <Link href="/doctors?specialization=Psychiatry" className="transition hover:text-foreground dark:hover:text-white">
                   Psychiatry
                 </Link>
               </li>
               <li>
-                <Link href="/doctors?specialty=Endocrinology" className="transition hover:text-foreground dark:hover:text-white">
+                <Link href="/doctors?specialization=Endocrinology" className="transition hover:text-foreground dark:hover:text-white">
                   Endocrinology
                 </Link>
               </li>
@@ -80,8 +80,8 @@ export function Footer() {
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-foreground dark:text-white/90">Support</h3>
             <ul className="space-y-3 text-sm text-foreground/70 dark:text-white/60">
               <li>
-                <Link href="/contact" className="transition hover:text-foreground dark:hover:text-white">
-                  Contact
+                <Link href="/about#contact" className="transition hover:text-foreground dark:hover:text-white">
+                  Contact Us
                 </Link>
               </li>
               <li>
@@ -90,8 +90,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/help-center" className="transition hover:text-foreground dark:hover:text-white">
-                  Help Center
+                <Link href="/about" className="transition hover:text-foreground dark:hover:text-white">
+                  About SwiftCare
                 </Link>
               </li>
             </ul>
@@ -124,7 +124,7 @@ export function Footer() {
             <Link href="/privacy-policy" className="transition hover:text-foreground dark:hover:text-white">
               Privacy Policy
             </Link>
-            <Link href="/terms-of-service" className="transition hover:text-foreground dark:hover:text-white">
+            <Link href="/terms-and-conditions" className="transition hover:text-foreground dark:hover:text-white">
               Terms of Service
             </Link>
           </div>

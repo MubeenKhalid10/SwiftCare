@@ -26,25 +26,47 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <section className="border-section-top border-section-bottom py-20 bg-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-4xl font-bold text-center mb-16">
-          Your Questions are <span className="text-blue-600">Answered</span>
-        </h2>
+    <section className="border-section-top border-section-bottom py-20 bg-background">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-center mb-4">
+          <div className="section-intro">FAQ</div>
+        </div>
 
-        <div className="space-y-4">
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+          Your Questions are <span className="text-gradient-primary">Answered</span>
+        </h2>
+        <p className="section-subheader mb-12">
+          Everything you need to know about using SwiftCare.
+        </p>
+
+        <div className="space-y-3">
           {faqs.map((faq, idx) => (
-            <div key={idx} className="border border-gray-200 rounded-lg">
+            <div
+              key={idx}
+              className={`border rounded-xl overflow-hidden transition-all duration-200 ${
+                openIndex === idx
+                  ? "border-primary/40 shadow-sm shadow-primary/10"
+                  : "border-border/70 hover:border-primary/25"
+              }`}
+            >
               <button
                 onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-                className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition"
+                className="w-full flex items-center justify-between p-5 text-left transition-colors hover:bg-muted/40"
               >
-                <span className="font-medium text-left text-gray-900">{faq.q}</span>
+                <span className={`font-semibold text-sm sm:text-base transition-colors ${openIndex === idx ? "text-primary" : "text-foreground"}`}>
+                  {faq.q}
+                </span>
                 <ChevronDown
-                  className={`w-5 h-5 text-gray-600 transition-transform ${openIndex === idx ? "rotate-180" : ""}`}
+                  className={`w-5 h-5 flex-shrink-0 ml-4 transition-all duration-300 ${
+                    openIndex === idx ? "rotate-180 text-primary" : "text-muted-foreground"
+                  }`}
                 />
               </button>
-              {openIndex === idx && <div className="px-6 pb-6 text-gray-600 border-t border-gray-100">{faq.a}</div>}
+              {openIndex === idx && (
+                <div className="px-5 pb-5 text-muted-foreground text-sm leading-relaxed border-t border-border/50 pt-4">
+                  {faq.a}
+                </div>
+              )}
             </div>
           ))}
         </div>

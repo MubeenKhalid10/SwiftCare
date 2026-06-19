@@ -128,7 +128,7 @@ export function DoctorFormModal({
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-border p-3">
             <h3 className="text-sm font-semibold mb-3">Personal Information</h3>
 
           <div>
@@ -238,7 +238,7 @@ export function DoctorFormModal({
           </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-border p-3">
             <h3 className="text-sm font-semibold mb-3">Clinic Information</h3>
 
           <div>
